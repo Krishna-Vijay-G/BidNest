@@ -90,11 +90,11 @@ export async function POST(req: NextRequest) {
 
     // get amount_to_collect from auction calculation_data
     const calcData = auction.calculation_data as any;
-    const monthlyDue = Number(calcData.amount_to_collect);
+    const monthlyDue = calcData.amount_to_collect;
 
-    if (!monthlyDue || monthlyDue === 0) {
+    if (!monthlyDue) {
       return NextResponse.json(
-        { error: `Could not determine amount to collect. calcData: ${JSON.stringify(calcData)}` },
+        { error: "Could not determine amount to collect from auction data" },
         { status: 500 }
       );
     }

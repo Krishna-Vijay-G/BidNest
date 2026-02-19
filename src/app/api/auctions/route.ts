@@ -95,11 +95,14 @@ export async function POST(req: NextRequest) {
       carry_previous,
     });
 
+    const dividend_per_member = calc.roundoff_dividend / chitGroup.total_members;
     // build calculation_data snapshot
     const calculation_data = {
       total_amount: Number(chitGroup.total_amount),
       total_members: chitGroup.total_members,
       monthly_contribution: Number(chitGroup.monthly_amount),
+      dividend_per_member: dividend_per_member,
+      amount_to_collect: Number(chitGroup.monthly_amount) - dividend_per_member,
       commission_type: chitGroup.commission_type,
       commission_value: Number(chitGroup.commission_value),
       round_off_value: chitGroup.round_off_value,
