@@ -6,6 +6,7 @@ import { z } from "zod";
 
 const CreateChitGroupSchema = z.object({
   user_id: z.string().uuid(),
+  name: z.string().min(1),
   total_amount: z.number().positive(),
   total_members: z.number().int().positive(),
   monthly_amount: z.number().positive(),
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(chitGroup, { status: 201 });
   } catch (error) {
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
