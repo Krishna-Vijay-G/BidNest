@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+// ─── ENUMS ───────────────────────────────────────────────
+
+enum CommissionType {
+  PERCENT
+  FIXED
+}
+
+enum ChitGroupStatus {
+  ACTIVE
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PARTIAL
+  COMPLETED
+}
+
+enum ActionType {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+// ─── MODELS ──────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          Json     // { value: string, updated_at: string }
+  username      String   @unique
+  email         String   @unique
+  phone         String   @unique
+  password_hash String
+  raw_password  Json     // { value: string, updated_at: string }
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  members    Member[]
+  chit_groups ChitGroup[]
+  audit_logs AuditLog[]
+
+  @@map("users")
+}
+
+model Member {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  name       Json     // { value: string, updated_at: string }
+  nickname   Json     // { value: string, updated_at: string }
+  mobile     Json     // { value: string, updated_at: string }
+  upi_ids    Json     // [{ value: string, added_at: string, is_active: boolean }]
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user         User         @relation(fields: [user_id], references: [id])
+  chit_members ChitMember[]
+
+  @@map("members")
+}
+
+model ChitGroup {
+  id               String          @id @default(uuid()) @db.Uuid
+  user_id          String          @db.Uuid
+  total_amount     Decimal         @db.Decimal(12, 2)
+  total_members    Int
+  monthly_amount   Decimal         @db.Decimal(12, 2)
+  duration_months  Int
+  commission_type  CommissionType
+  commission_value Decimal         @db.Decimal(12, 2)
+  round_off_value  Int             // 10, 50, or 100
+  status           ChitGroupStatus @default(PENDING)
+  created_at       DateTime        @default(now())
+
+  user         User         @relation(fields: [user_id], references: [id])
+  chit_members ChitMember[]
+  auctions     Auction[]
+  payments     Payment[]
+
+  @@map("chit_groups")
+}
+
+model ChitMember {
+  id            String   @id @default(uuid()) @db.Uuid
+  member_id     String   @db.Uuid
+  chit_group_id String   @db.Uuid
+  ticket_number Int
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  member     Member    @relation(fields: [member_id], references: [id])
+  chit_group ChitGroup @relation(fields: [chit_group_id], references: [id])
+  auctions   Auction[]
+  payments   Payment[]
+
+  @@unique([chit_group_id, ticket_number])
+  @@map("chit_members")
+}
+
+model Auction {
+  id                    String   @id @default(uuid()) @db.Uuid
+  chit_group_id         String   @db.Uuid
+  month_number          Int
+  winner_chit_member_id String   @db.Uuid
+  original_bid          Decimal  @db.Decimal(12, 2)
+  winning_amount        Decimal  @db.Decimal(12, 2)  // total_amount - original_bid
+  commission            Decimal  @db.Decimal(12, 2)  // from chit_group commission_value
+  carry_previous        Decimal  @db.Decimal(12, 2)  @default(0)
+  raw_dividend          Decimal  @db.Decimal(12, 2)  // original_bid - commission + carry_previous
+  roundoff_dividend     Decimal  @db.Decimal(12, 2)  // rounded down to nearest round_off_value
+  carry_next            Decimal  @db.Decimal(12, 2)  // raw_dividend - roundoff_dividend
+  calculation_data      Json     // full breakdown snapshot for audit
+  created_at            DateTime @default(now())
+
+  chit_group           ChitGroup  @relation(fields: [chit_group_id], references: [id])
+  winner_chit_member   ChitMember @relation(fields: [winner_chit_member_id], references: [id])
+
+  @@unique([chit_group_id, month_number])
+  @@map("auctions")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  chit_group_id  String        @db.Uuid
+  chit_member_id String        @db.Uuid
+  month_number   Int
+  amount_paid    Decimal       @db.Decimal(12, 2)
+  payment_method PaymentMethod
+  upi_id         String?       // optional, only if payment_method is UPI
+  payment_date   DateTime
+  status         PaymentStatus
+  notes          String?
+  created_at     DateTime      @default(now())
+
+  chit_group  ChitGroup  @relation(fields: [chit_group_id], references: [id])
+  chit_member ChitMember @relation(fields: [chit_member_id], references: [id])
+
+  @@map("payments")
+}
+
+model AuditLog {
+  id            String     @id @default(uuid()) @db.Uuid
+  user_id       String?    @db.Uuid
+  action_type   ActionType
+  action_detail String
+  table_name    String
+  record_id     String     @db.Uuid
+  old_data      Json?      // null for CREATE actions
+  new_data      Json?      // null for DELETE actions
+  ip_address    String?
+  user_agent    String?
+  created_at    DateTime   @default(now())
+
+  user User? @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
+}
