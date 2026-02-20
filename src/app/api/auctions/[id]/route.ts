@@ -5,11 +5,12 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const auction = await prisma.auction.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         chit_group: true,
         winner_chit_member: {

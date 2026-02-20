@@ -67,8 +67,10 @@ export default function PaymentsPage() {
         fetch('/api/payments'),
         fetch('/api/chit-groups'),
       ]);
-      setPayments(await paymentsRes.json());
-      setGroups(await groupsRes.json());
+      const p = await paymentsRes.json();
+      const g = await groupsRes.json();
+      setPayments(Array.isArray(p) ? p : []);
+      setGroups(Array.isArray(g) ? g : []);
     } finally {
       setIsLoading(false);
     }
@@ -83,8 +85,10 @@ export default function PaymentsPage() {
       fetch('/api/payments'),
       fetch('/api/chit-groups'),
     ]);
-    setPayments(await paymentsRes.json());
-    setGroups(await groupsRes.json());
+    const p = await paymentsRes.json();
+    const g = await groupsRes.json();
+    setPayments(Array.isArray(p) ? p : []);
+    setGroups(Array.isArray(g) ? g : []);
   }, []);
 
   const filteredPayments = payments.filter((p) => {

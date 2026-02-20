@@ -72,15 +72,16 @@ export default function MemberDetailPage() {
         const memberData = await memberRes.json();
         const chitMembersData = await chitMembersRes.json();
 
-        setMember(memberData);
-        setChitMembers(chitMembersData);
+        setMember(memberData?.id ? memberData : null);
+        const safeChitMembers = Array.isArray(chitMembersData) ? chitMembersData : [];
+        setChitMembers(safeChitMembers);
 
         // load payments for all chit member tickets
         const allPayments: Payment[] = [];
-        for (const cm of chitMembersData) {
+        for (const cm of safeChitMembers) {
           const pRes = await fetch(`/api/payments?chit_member_id=${cm.id}`);
           const pData = await pRes.json();
-          allPayments.push(...pData);
+          if (Array.isArray(pData)) allPayments.push(...pData);
         }
         setPayments(allPayments);
       } finally {
@@ -112,7 +113,7 @@ export default function MemberDetailPage() {
 
   return (
     <>
-      <Header title="Member Details" />
+      <Header title={member.name.value || 'Member Details'} subtitle={member.nickname.value ? `"${member.nickname.value}"` : undefined} />
 
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl space-y-6">
         {/* Back */}

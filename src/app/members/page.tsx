@@ -46,7 +46,7 @@ export default function MembersPage() {
     try {
       const res = await fetch('/api/members');
       const data = await res.json();
-      setMembers(data);
+      setMembers(Array.isArray(data) ? data : []);
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +59,7 @@ export default function MembersPage() {
   const refreshData = useCallback(async () => {
     const res = await fetch('/api/members');
     const data = await res.json();
-    setMembers(data);
+    setMembers(Array.isArray(data) ? data : []);
   }, []);
 
   const filteredMembers = members.filter(

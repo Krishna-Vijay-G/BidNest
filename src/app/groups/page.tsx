@@ -16,6 +16,7 @@ import Link from 'next/link';
 
 interface ChitGroup {
   id: string;
+  name: string;
   total_amount: string;
   total_members: number;
   monthly_amount: string;
@@ -49,7 +50,7 @@ export default function GroupsPage() {
     try {
       const res = await fetch('/api/chit-groups');
       const data = await res.json();
-      setGroups(data);
+      setGroups(Array.isArray(data) ? data : []);
     } finally {
       setIsLoading(false);
     }
@@ -62,11 +63,11 @@ export default function GroupsPage() {
   const refreshData = useCallback(async () => {
     const res = await fetch('/api/chit-groups');
     const data = await res.json();
-    setGroups(data);
+    setGroups(Array.isArray(data) ? data : []);
   }, []);
 
   const handleDelete = async (group: ChitGroup) => {
-    if (!confirm(`Cancel chit group of ${formatCurrency(Number(group.total_amount))}?`)) return;
+    if (!confirm(`Cancel chit group "${group.name}"?`)) return;
     const res = await fetch(`/api/chit-groups/${group.id}`, { method: 'DELETE' });
     if (res.ok) {
       toast.success('Chit group cancelled');
@@ -129,11 +130,11 @@ export default function GroupsPage() {
                 {/* Header */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-foreground">
-                      {formatCurrency(Number(group.total_amount))}
+                    <p className="text-base font-bold text-foreground">
+                      {group.name}
                     </p>
                     <p className="text-sm text-foreground-muted mt-0.5">
-                      {group.total_members} members · {group.duration_months} months
+                      {formatCurrency(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months
                     </p>
                   </div>
                   <StatusBadge status={group.status} />
@@ -237,6 +238,7 @@ function GroupFormModal({
   onSaved: () => void;
 }) {
   const isEditing = !!group;
+  const [name, setName] = useState('');
   const [totalAmount, setTotalAmount] = useState(group ? String(group.total_amount) : '');
   const [totalMembers, setTotalMembers] = useState(group ? String(group.total_members) : '');
   const [durationMonths, setDurationMonths] = useState(group ? String(group.duration_months) : '');
@@ -257,6 +259,17 @@ function GroupFormModal({
       setStatus(group.status);
     }
   }, [group]);
+
+  // Auto-fill group name when total amount / members change (create mode only)
+  useEffect(() => {
+    if (!isEditing && totalAmount && totalMembers) {
+      const amt = Number(totalAmount);
+      const mem = Number(totalMembers);
+      if (!isNaN(amt) && !isNaN(mem) && amt > 0 && mem > 0) {
+        setName(`₹${amt.toLocaleString('en-IN')} / ${mem}M Chit`);
+      }
+    }
+  }, [isEditing, totalAmount, totalMembers]);
 
   const monthlyAmount =
     totalAmount && totalMembers
@@ -290,6 +303,7 @@ function GroupFormModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: me.id,
+          name: name.trim() || `₹${Number(totalAmount).toLocaleString('en-IN')} Chit`,
           total_amount: Number(totalAmount),
           total_members: Number(totalMembers),
           monthly_amount: monthlyAmount,
@@ -317,6 +331,13 @@ function GroupFormModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         {!isEditing && (
           <>
+            <Input
+              label="Group Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Office Chit 2026"
+              required
+            />
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="Total Amount (₹)"

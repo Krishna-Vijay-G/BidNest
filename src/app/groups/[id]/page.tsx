@@ -17,6 +17,7 @@ import { Modal, Input, Select } from '@/components/ui';
 
 interface ChitGroup {
   id: string;
+  name: string;
   total_amount: string;
   total_members: number;
   monthly_amount: string;
@@ -93,10 +94,16 @@ export default function GroupDetailPage() {
         fetch(`/api/payments?chit_group_id=${id}`),
       ]);
 
-      setGroup(await groupRes.json());
-      setChitMembers(await chitMembersRes.json());
-      setAuctions(await auctionsRes.json());
-      setPayments(await paymentsRes.json());
+      const groupData = await groupRes.json();
+      const chitMembersData = await chitMembersRes.json();
+      const auctionsData = await auctionsRes.json();
+      const paymentsData = await paymentsRes.json();
+
+      // Only set group if it looks valid (has an id)
+      setGroup(groupData?.id ? groupData : null);
+      setChitMembers(Array.isArray(chitMembersData) ? chitMembersData : []);
+      setAuctions(Array.isArray(auctionsData) ? auctionsData : []);
+      setPayments(Array.isArray(paymentsData) ? paymentsData : []);
     } finally {
       setIsLoading(false);
     }
@@ -119,7 +126,7 @@ export default function GroupDetailPage() {
     return (
       <>
         <Header title="Group Not Found" />
-        <div className="p-8 text-center text-foreground-muted">Group not found.</div>
+        <div className="p-8 text-center text-foreground-muted">Group not found or you do not have access.</div>
       </>
     );
   }
@@ -130,7 +137,7 @@ export default function GroupDetailPage() {
 
   return (
     <>
-      <Header title="Group Details" />
+      <Header title={group.name || 'Group Details'} subtitle={`${formatCurrency(Number(group.total_amount))} · ${group.total_members} members`} />
 
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl space-y-6">
         {/* Back */}
@@ -152,10 +159,10 @@ export default function GroupDetailPage() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">
-                    {formatCurrency(Number(group.total_amount))}
+                    {group.name}
                   </h2>
                   <p className="text-foreground-muted text-sm">
-                    {group.total_members} members · {group.duration_months} months
+                    {formatCurrency(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months
                   </p>
                 </div>
               </div>

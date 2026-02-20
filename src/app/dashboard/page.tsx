@@ -27,11 +27,10 @@ interface RecentAuction {
   original_bid: string;
   winning_amount: string;
   created_at: string;
-  chit_group: { id: string; total_amount: string };
   winner_chit_member: {
     ticket_number: number;
     member: { name: { value: string } };
-  };
+  } | null;
 }
 
 interface RecentPayment {
@@ -48,6 +47,7 @@ interface RecentPayment {
 
 interface RecentGroup {
   id: string;
+  name: string;
   total_amount: string;
   total_members: number;
   status: string;
@@ -88,17 +88,23 @@ export default function DashboardPage() {
       const auctions = await auctionsRes.json();
       const payments = await paymentsRes.json();
 
+      // Guard against API returning error objects instead of arrays
+      const safeGroups = Array.isArray(groups) ? groups : [];
+      const safeMembers = Array.isArray(members) ? members : [];
+      const safeAuctions = Array.isArray(auctions) ? auctions : [];
+      const safePayments = Array.isArray(payments) ? payments : [];
+
       setStats({
-        totalGroups: groups.length,
-        activeGroups: groups.filter((g: any) => g.status === 'ACTIVE').length,
-        totalMembers: members.length,
-        totalCollected: payments.reduce((sum: number, p: any) => sum + Number(p.amount_paid), 0),
-        totalPayouts: auctions.reduce((sum: number, a: any) => sum + Number(a.winning_amount), 0),
+        totalGroups: safeGroups.length,
+        activeGroups: safeGroups.filter((g: any) => g.status === 'ACTIVE').length,
+        totalMembers: safeMembers.length,
+        totalCollected: safePayments.reduce((sum: number, p: any) => sum + Number(p.amount_paid), 0),
+        totalPayouts: safeAuctions.reduce((sum: number, a: any) => sum + Number(a.winning_amount), 0),
       });
 
-      setRecentGroups(groups.slice(0, 5));
-      setRecentAuctions(auctions.slice(0, 5));
-      setRecentPayments(payments.slice(0, 5));
+      setRecentGroups(safeGroups.slice(0, 5));
+      setRecentAuctions(safeAuctions.slice(0, 5));
+      setRecentPayments(safePayments.slice(0, 5));
     } finally {
       setIsLoading(false);
     }
@@ -170,10 +176,10 @@ export default function DashboardPage() {
                   >
                     <div>
                       <p className="font-medium text-foreground text-sm">
-                        {formatCurrency(Number(group.total_amount))}
+                        {group.name || formatCurrency(Number(group.total_amount))}
                       </p>
                       <p className="text-xs text-foreground-muted">
-                        {group.total_members} members
+                        {formatCurrency(Number(group.total_amount))} · {group.total_members} members
                       </p>
                     </div>
                     <StatusBadge status={group.status} />

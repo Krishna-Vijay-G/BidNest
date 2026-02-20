@@ -74,8 +74,8 @@ export default function AuctionsPage() {
       ]);
       const auctionsData = await auctionsRes.json();
       const groupsData = await groupsRes.json();
-      setAuctions(auctionsData);
-      setGroups(groupsData);
+      setAuctions(Array.isArray(auctionsData) ? auctionsData : []);
+      setGroups(Array.isArray(groupsData) ? groupsData : []);
     } finally {
       setIsLoading(false);
     }
@@ -90,8 +90,10 @@ export default function AuctionsPage() {
       fetch('/api/auctions'),
       fetch('/api/chit-groups'),
     ]);
-    setAuctions(await auctionsRes.json());
-    setGroups(await groupsRes.json());
+    const a = await auctionsRes.json();
+    const g = await groupsRes.json();
+    setAuctions(Array.isArray(a) ? a : []);
+    setGroups(Array.isArray(g) ? g : []);
   }, []);
 
   const filteredAuctions = auctions.filter((a) =>

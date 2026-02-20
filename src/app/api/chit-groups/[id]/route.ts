@@ -15,11 +15,12 @@ const UpdateChitGroupSchema = z.object({
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const chitGroup = await prisma.chitGroup.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: true,
         chit_members: {
@@ -45,8 +46,9 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const body = await req.json();
     const parsed = UpdateChitGroupSchema.safeParse(body);
@@ -59,7 +61,7 @@ export async function PUT(
     }
 
     const chitGroup = await prisma.chitGroup.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!chitGroup) {
@@ -67,7 +69,7 @@ export async function PUT(
     }
 
     const updated = await prisma.chitGroup.update({
-      where: { id: params.id },
+      where: { id },
       data: parsed.data,
     });
 
@@ -84,11 +86,12 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const chitGroup = await prisma.chitGroup.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!chitGroup) {
@@ -96,7 +99,7 @@ export async function DELETE(
     }
 
     const updated = await prisma.chitGroup.update({
-      where: { id: params.id },
+      where: { id },
       data: { status: "CANCELLED" },
     });
 
