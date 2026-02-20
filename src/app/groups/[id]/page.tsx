@@ -572,6 +572,7 @@ function ConductAuctionModal({
 
     const calc = calculateAuction({
       total_amount: Number(group.total_amount),
+      total_members: group.total_members,
       original_bid: bid,
       commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
@@ -579,8 +580,11 @@ function ConductAuctionModal({
       carry_previous: lastCarryNext,
     });
 
-    const dividend_per_member = calc.roundoff_dividend / group.total_members;
-    setPreview({ ...calc, dividend_per_member, monthly_due: Number(group.monthly_amount) - dividend_per_member });
+    // per_member_dividend is now returned directly by calculateAuction
+    setPreview({
+      ...calc,
+      monthly_due: Number(group.monthly_amount) - calc.per_member_dividend,
+    });
   }, [originalBid, group, lastCarryNext]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -683,28 +687,38 @@ function ConductAuctionModal({
                 <p className="text-sm font-semibold text-emerald-400">{formatCurrency(preview.winning_amount)}</p>
               </div>
               <div>
+                <p className="text-xs text-foreground-muted">Bid</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(Number(originalBid))}</p>
+              </div>
+              <div>
                 <p className="text-xs text-foreground-muted">Commission</p>
                 <p className="text-sm font-semibold text-red-400">{formatCurrency(preview.commission)}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Net Payout</p>
-                <p className="text-sm font-semibold text-cyan-400">{formatCurrency(preview.winning_amount - preview.commission)}</p>
-              </div>
-              <div>
                 <p className="text-xs text-foreground-muted">Raw Dividend</p>
-                <p className="text-sm font-semibold text-foreground">{formatCurrency(preview.raw_dividend)}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {formatCurrency(preview.raw_dividend)}
+                  {preview.carry_previous > 0 && (
+                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(Number(originalBid) - preview.commission)} + {formatCurrency(preview.carry_previous)})</span>
+                  )}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Roundoff Div.</p>
-                <p className="text-sm font-semibold text-amber-400">{formatCurrency(preview.roundoff_dividend)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-foreground-muted">Carry Next</p>
-                <p className="text-sm font-semibold text-orange-400">{formatCurrency(preview.carry_next)}</p>
+                <p className="text-xs text-foreground-muted">Raw Per‑Member Div.</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(preview.raw_dividend / group.total_members)}</p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">Per Member Div.</p>
-                <p className="text-sm font-semibold text-purple-400">{formatCurrency(preview.dividend_per_member)}</p>
+                <p className="text-sm font-semibold text-purple-400">{formatCurrency(preview.per_member_dividend)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">Roundoff Carry</p>
+                <p className="text-sm font-semibold text-orange-400">
+                  {formatCurrency(preview.carry_next)}
+                  {preview.carry_next > 0 && (
+                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(preview.carry_next / group.total_members)} per person)</span>
+                  )}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">Each Member Pays</p>

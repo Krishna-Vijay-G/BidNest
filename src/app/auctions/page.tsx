@@ -332,6 +332,7 @@ function AuctionFormModal({
 
     const calc = calculateAuction({
       total_amount: Number(group.total_amount),
+      total_members: group.total_members,
       original_bid: Number(originalBid),
       commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
@@ -339,7 +340,8 @@ function AuctionFormModal({
       carry_previous: carryPrevious,
     });
 
-    const dividend_per_member = calc.roundoff_dividend / group.total_members;
+    // per_member_dividend now returned directly by calculateAuction
+    const dividend_per_member = calc.per_member_dividend;
     const monthly_due = Number(group.monthly_amount) - dividend_per_member;
 
     setPreview({ ...calc, dividend_per_member, monthly_due, total_members: group.total_members });

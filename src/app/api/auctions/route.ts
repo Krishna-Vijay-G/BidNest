@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
     // run calculation
     const calc = calculateAuction({
       total_amount: Number(chitGroup.total_amount),
+      total_members: chitGroup.total_members,
       original_bid: parsed.data.original_bid,
       commission_type: chitGroup.commission_type as "PERCENT" | "FIXED",
       commission_value: Number(chitGroup.commission_value),
@@ -96,7 +97,8 @@ export async function POST(req: NextRequest) {
       carry_previous,
     });
 
-    const dividend_per_member = calc.roundoff_dividend / chitGroup.total_members;
+    // per_member_dividend is now computed inside calculateAuction (per-member-first rounding)
+    const dividend_per_member = calc.per_member_dividend;
     // build calculation_data snapshot
     const calculation_data = {
       total_amount: Number(chitGroup.total_amount),
