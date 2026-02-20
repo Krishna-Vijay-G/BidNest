@@ -710,6 +710,7 @@ export async function POST(req: NextRequest) {
     // run calculation
     const calc = calculateAuction({
       total_amount: Number(chitGroup.total_amount),
+      total_members: chitGroup.total_members,
       original_bid: parsed.data.original_bid,
       commission_type: chitGroup.commission_type as "PERCENT" | "FIXED",
       commission_value: Number(chitGroup.commission_value),
@@ -717,7 +718,8 @@ export async function POST(req: NextRequest) {
       carry_previous,
     });
 
-    const dividend_per_member = calc.roundoff_dividend / chitGroup.total_members;
+    // per_member_dividend is now computed inside calculateAuction (per-member-first rounding)
+    const dividend_per_member = calc.per_member_dividend;
     // build calculation_data snapshot
     const calculation_data = {
       total_amount: Number(chitGroup.total_amount),
@@ -2528,6 +2530,7 @@ export default function AuctionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterGroup, setFilterGroup] = useState('all');
+  const [groupStatusFilter, setGroupStatusFilter] = useState('ACTIVE');
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
@@ -2564,8 +2567,15 @@ export default function AuctionsPage() {
     setGroups(Array.isArray(g) ? g : []);
   }, [user]);
 
+  // If no specific group is selected, limit auctions to groups matching selected status
+  const allowedGroupIds = new Set(
+    groups
+      .filter((g) => (groupStatusFilter === 'all' ? true : g.status === groupStatusFilter))
+      .map((g) => g.id)
+  );
+
   const filteredAuctions = auctions.filter((a) =>
-    filterGroup === 'all' ? true : a.chit_group_id === filterGroup
+    filterGroup === 'all' ? allowedGroupIds.has(a.chit_group_id) : a.chit_group_id === filterGroup
   );
 
   if (isLoading) {
@@ -2590,18 +2600,40 @@ export default function AuctionsPage() {
 
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Filter */}
-        <div className="mb-6 w-64">
-          <Select
-            value={filterGroup}
-            onChange={(e) => setFilterGroup(e.target.value)}
-            options={[
-              { value: 'all', label: 'All Groups' },
-              ...groups.map((g) => ({
-                value: g.id,
-                label: `${g.name} — ${formatCurrency(Number(g.total_amount))}`,
-              })),
-            ]}
-          />
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="w-48">
+            <Select
+              value={groupStatusFilter}
+              onChange={(e) => {
+                setGroupStatusFilter(e.target.value);
+                // reset group selection when status changes
+                setFilterGroup('all');
+              }}
+              options={[
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'COMPLETED', label: 'Completed' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'all', label: 'All Statuses' },
+              ]}
+            />
+          </div>
+
+          <div className="w-64">
+            <Select
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              options={[
+                { value: 'all', label: groupStatusFilter === 'all' ? 'All Groups' : `All ${groupStatusFilter} Groups` },
+                ...groups
+                  .filter((g) => (groupStatusFilter === 'all' ? true : g.status === groupStatusFilter))
+                  .map((g) => ({
+                    value: g.id,
+                    label: `${g.name} — ${formatCurrency(Number(g.total_amount))}`,
+                  })),
+              ]}
+            />
+          </div>
         </div>
 
         {filteredAuctions.length === 0 ? (
@@ -2763,6 +2795,7 @@ function AuctionFormModal({
 
     const calc = calculateAuction({
       total_amount: Number(group.total_amount),
+      total_members: group.total_members,
       original_bid: Number(originalBid),
       commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
@@ -2770,7 +2803,8 @@ function AuctionFormModal({
       carry_previous: carryPrevious,
     });
 
-    const dividend_per_member = calc.roundoff_dividend / group.total_members;
+    // per_member_dividend now returned directly by calculateAuction
+    const dividend_per_member = calc.per_member_dividend;
     const monthly_due = Number(group.monthly_amount) - dividend_per_member;
 
     setPreview({ ...calc, dividend_per_member, monthly_due, total_members: group.total_members });
@@ -2815,8 +2849,9 @@ function AuctionFormModal({
           }}
           options={[
             { value: '', label: 'Select a group...' },
+            // only active groups should be available for conducting auctions
             ...groups
-              .filter((g) => g.status === 'ACTIVE' || g.status === 'PENDING')
+              .filter((g) => g.status === 'ACTIVE')
               .map((g) => ({
                 value: g.id,
                 label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
@@ -3332,8 +3367,22 @@ export default function GroupsPage() {
     }
   };
 
-  const filteredGroups = groups.filter((g) =>
-    filterStatus === 'all' ? true : g.status === filterStatus
+  const statusPriority: Record<string, number> = {
+    ACTIVE: 1,
+    PENDING: 2,
+    COMPLETED: 3,
+    CANCELLED: 4,
+  };
+
+  const displayedGroups = (filterStatus === 'all'
+    ? [...groups].sort((a, b) => {
+        const pa = statusPriority[a.status] ?? 99;
+        const pb = statusPriority[b.status] ?? 99;
+        if (pa !== pb) return pa - pb;
+        // fallback: newest first
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      })
+    : groups.filter((g) => g.status === filterStatus)
   );
 
   if (isLoading) {
@@ -3372,7 +3421,7 @@ export default function GroupsPage() {
           />
         </div>
 
-        {filteredGroups.length === 0 ? (
+        {displayedGroups.length === 0 ? (
           <EmptyState
             icon={<HiOutlineUserGroup className="w-8 h-8" />}
             title="No chit groups found"
@@ -3380,7 +3429,7 @@ export default function GroupsPage() {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredGroups.map((group) => (
+            {displayedGroups.map((group: ChitGroup) => (
               <div key={group.id} className="glass rounded-2xl border border-border p-5 flex flex-col gap-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">
@@ -3894,7 +3943,7 @@ export default function GroupDetailPage() {
 
         {/* Group Summary */}
         <Card>
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400">
@@ -4310,6 +4359,7 @@ function ConductAuctionModal({
 
     const calc = calculateAuction({
       total_amount: Number(group.total_amount),
+      total_members: group.total_members,
       original_bid: bid,
       commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
@@ -4317,8 +4367,11 @@ function ConductAuctionModal({
       carry_previous: lastCarryNext,
     });
 
-    const dividend_per_member = calc.roundoff_dividend / group.total_members;
-    setPreview({ ...calc, dividend_per_member, monthly_due: Number(group.monthly_amount) - dividend_per_member });
+    // per_member_dividend is now returned directly by calculateAuction
+    setPreview({
+      ...calc,
+      monthly_due: Number(group.monthly_amount) - calc.per_member_dividend,
+    });
   }, [originalBid, group, lastCarryNext]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -4421,28 +4474,38 @@ function ConductAuctionModal({
                 <p className="text-sm font-semibold text-emerald-400">{formatCurrency(preview.winning_amount)}</p>
               </div>
               <div>
+                <p className="text-xs text-foreground-muted">Bid</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(Number(originalBid))}</p>
+              </div>
+              <div>
                 <p className="text-xs text-foreground-muted">Commission</p>
                 <p className="text-sm font-semibold text-red-400">{formatCurrency(preview.commission)}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Net Payout</p>
-                <p className="text-sm font-semibold text-cyan-400">{formatCurrency(preview.winning_amount - preview.commission)}</p>
-              </div>
-              <div>
                 <p className="text-xs text-foreground-muted">Raw Dividend</p>
-                <p className="text-sm font-semibold text-foreground">{formatCurrency(preview.raw_dividend)}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {formatCurrency(preview.raw_dividend)}
+                  {preview.carry_previous > 0 && (
+                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(Number(originalBid) - preview.commission)} + {formatCurrency(preview.carry_previous)})</span>
+                  )}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Roundoff Div.</p>
-                <p className="text-sm font-semibold text-amber-400">{formatCurrency(preview.roundoff_dividend)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-foreground-muted">Carry Next</p>
-                <p className="text-sm font-semibold text-orange-400">{formatCurrency(preview.carry_next)}</p>
+                <p className="text-xs text-foreground-muted">Raw Per‑Member Div.</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(preview.raw_dividend / group.total_members)}</p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">Per Member Div.</p>
-                <p className="text-sm font-semibold text-purple-400">{formatCurrency(preview.dividend_per_member)}</p>
+                <p className="text-sm font-semibold text-purple-400">{formatCurrency(preview.per_member_dividend)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">Roundoff Carry</p>
+                <p className="text-sm font-semibold text-orange-400">
+                  {formatCurrency(preview.carry_next)}
+                  {preview.carry_next > 0 && (
+                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(preview.carry_next / group.total_members)} per person)</span>
+                  )}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">Each Member Pays</p>
@@ -4937,21 +5000,28 @@ export default function MemberDetailLayout({ children }: { children: ReactNode }
   return <>{children}</>;
 }
 ========================================
-//src/app/members/[id]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Card, PageLoader, StatusBadge } from '@/components/ui';
+import Link from 'next/link';
 import {
-  HiOutlineUser,
+  HiOutlineArrowLeft,
   HiOutlinePhone,
   HiOutlineCreditCard,
-  HiOutlineArrowLeft,
   HiOutlineTicket,
+  HiOutlineTrophy,
+  HiOutlineCheckCircle,
+  HiOutlineExclamationCircle,
+  HiOutlineChartBar,
   HiOutlineBanknotes,
+  HiOutlineUser,
+  HiOutlineCalendarDays,
 } from 'react-icons/hi2';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Member {
   id: string;
@@ -4963,67 +5033,206 @@ interface Member {
   created_at: string;
 }
 
-interface ChitMember {
+interface ChitGroup {
+  id: string;
+  name: string;
+  total_amount: string;
+  total_members: number;
+  monthly_amount: string;
+  duration_months: number;
+  commission_type: 'PERCENT' | 'FIXED';
+  commission_value: string;
+  round_off_value: number;
+  status: string;
+}
+
+interface ChitMemberTicket {
   id: string;
   ticket_number: number;
   is_active: boolean;
-  chit_group: {
+  chit_group: ChitGroup;
+}
+
+interface Auction {
+  id: string;
+  month_number: number;
+  winner_chit_member_id: string;
+  winning_amount: string;
+  original_bid: string;
+  calculation_data: {
+    amount_to_collect: number;
+    dividend_per_member: number;
+  };
+  winner_chit_member: {
     id: string;
-    total_amount: string;
-    total_members: number;
-    monthly_amount: string;
-    status: string;
+    ticket_number: number;
+    member: { name: { value: string } };
   };
 }
 
 interface Payment {
   id: string;
+  chit_member_id: string;
   month_number: number;
   amount_paid: string;
-  status: string;
   payment_method: string;
   payment_date: string;
+  status: string;
 }
 
-function formatCurrency(amount: number) {
+// per month breakdown inside a group
+interface MonthRow {
+  month: number;
+  amountDue: number;       // what this ticket owes (0 if they won this month)
+  amountPaid: number;      // what they've actually paid
+  balance: number;         // amountDue - amountPaid (negative = overpaid)
+  wonThisMonth: boolean;
+  wonAmount: number;       // winning_amount if they won
+  paymentStatus: 'WON' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
+  payments: Payment[];
+}
+
+// full summary per group per ticket
+interface GroupSummary {
+  ticket: ChitMemberTicket;
+  group: ChitGroup;
+  auctions: Auction[];
+  months: MonthRow[];        // one row per completed auction month
+  totalOwed: number;
+  totalPaid: number;
+  totalBalance: number;
+  wonMonth: number | null;
+  wonAmount: number;
+  completedMonths: number;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(n);
 }
+
+function buildGroupSummary(
+  ticket: ChitMemberTicket,
+  auctions: Auction[],
+  payments: Payment[]
+): GroupSummary {
+  const group = ticket.chit_group;
+  const months: MonthRow[] = [];
+
+  let totalOwed = 0;
+  let totalPaid = 0;
+  let wonMonth: number | null = null;
+  let wonAmount = 0;
+
+  // sort auctions chronologically
+  const sorted = [...auctions].sort((a, b) => a.month_number - b.month_number);
+
+  for (const auction of sorted) {
+    const isWinner = auction.winner_chit_member_id === ticket.id;
+    const monthPayments = payments.filter(p => p.month_number === auction.month_number);
+    const amountPaid = monthPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
+
+    let amountDue = 0;
+    if (isWinner) {
+      wonMonth = auction.month_number;
+      wonAmount = Number(auction.winning_amount);
+      // winner doesn't pay this month
+    } else {
+      amountDue = auction.calculation_data?.amount_to_collect || 0;
+      totalOwed += amountDue;
+      totalPaid += amountPaid;
+    }
+
+    const balance = amountDue - amountPaid;
+
+    let paymentStatus: MonthRow['paymentStatus'];
+    if (isWinner) {
+      paymentStatus = 'WON';
+    } else if (amountPaid >= amountDue && amountDue > 0) {
+      paymentStatus = 'COMPLETED';
+    } else if (amountPaid > 0) {
+      paymentStatus = 'PARTIAL';
+    } else {
+      paymentStatus = 'PENDING';
+    }
+
+    months.push({
+      month: auction.month_number,
+      amountDue,
+      amountPaid,
+      balance,
+      wonThisMonth: isWinner,
+      wonAmount: isWinner ? Number(auction.winning_amount) : 0,
+      paymentStatus,
+      payments: monthPayments,
+    });
+  }
+
+  return {
+    ticket,
+    group,
+    auctions,
+    months,
+    totalOwed,
+    totalPaid,
+    totalBalance: totalOwed - totalPaid,
+    wonMonth,
+    wonAmount,
+    completedMonths: sorted.length,
+  };
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MemberDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+
   const [member, setMember] = useState<Member | null>(null);
-  const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [summaries, setSummaries] = useState<GroupSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [memberRes, chitMembersRes] = await Promise.all([
+        // 1. Member + chit tickets
+        const [memberRes, ticketsRes] = await Promise.all([
           fetch(`/api/members/${id}`),
           fetch(`/api/chit-members?member_id=${id}`),
         ]);
 
         const memberData = await memberRes.json();
-        const chitMembersData = await chitMembersRes.json();
+        const ticketsData: ChitMemberTicket[] = await ticketsRes.json();
 
-        setMember(memberData?.id ? memberData : null);
-        const safeChitMembers = Array.isArray(chitMembersData) ? chitMembersData : [];
-        setChitMembers(safeChitMembers);
+        if (!memberData?.id) { setIsLoading(false); return; }
+        setMember(memberData);
 
-        // load payments for all chit member tickets
-        const allPayments: Payment[] = [];
-        for (const cm of safeChitMembers) {
-          const pRes = await fetch(`/api/payments?chit_member_id=${cm.id}`);
-          const pData = await pRes.json();
-          if (Array.isArray(pData)) allPayments.push(...pData);
-        }
-        setPayments(allPayments);
+        const tickets = Array.isArray(ticketsData) ? ticketsData : [];
+
+        // 2. For each ticket: fetch group auctions + member payments in parallel
+        const summaryResults = await Promise.all(
+          tickets.map(async (ticket) => {
+            const [auctionsRes, paymentsRes] = await Promise.all([
+              fetch(`/api/auctions?chit_group_id=${ticket.chit_group.id}`),
+              fetch(`/api/payments?chit_member_id=${ticket.id}`),
+            ]);
+            const auctions: Auction[] = await auctionsRes.json();
+            const payments: Payment[] = await paymentsRes.json();
+            return buildGroupSummary(
+              ticket,
+              Array.isArray(auctions) ? auctions : [],
+              Array.isArray(payments) ? payments : []
+            );
+          })
+        );
+
+        setSummaries(summaryResults);
       } finally {
         setIsLoading(false);
       }
@@ -5031,31 +5240,39 @@ export default function MemberDetailPage() {
     load();
   }, [id]);
 
-  if (isLoading) {
-    return (
-      <>
-        <Header title="Member Details" />
-        <PageLoader />
-      </>
-    );
-  }
+  if (isLoading) return <><Header title="Member" /><PageLoader /></>;
+  if (!member) return (
+    <>
+      <Header title="Not Found" />
+      <div className="p-8 text-center text-foreground-muted">Member not found.</div>
+    </>
+  );
 
-  if (!member) {
-    return (
-      <>
-        <Header title="Member Not Found" />
-        <div className="p-8 text-center text-foreground-muted">Member not found.</div>
-      </>
-    );
-  }
+  // ── Global stats across all groups ──
+  const grandTotalOwed = summaries.reduce((s, g) => s + g.totalOwed, 0);
+  const grandTotalPaid = summaries.reduce((s, g) => s + g.totalPaid, 0);
+  const grandBalance   = grandTotalOwed - grandTotalPaid;
+  const grandWon       = summaries.reduce((s, g) => s + g.wonAmount, 0);
+  const totalTickets   = summaries.length;
+  const groupsWon      = summaries.filter(g => g.wonMonth !== null).length;
 
-  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    ...summaries.map(s => ({
+      id: s.ticket.id,
+      label: `${s.group.name} #${s.ticket.ticket_number}`,
+    })),
+  ];
 
   return (
     <>
-      <Header title={member.name.value || 'Member Details'} subtitle={member.nickname.value ? `"${member.nickname.value}"` : undefined} />
+      <Header
+        title={member.name.value}
+        subtitle={`"${member.nickname.value}" · ${member.mobile.value}`}
+      />
 
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl space-y-6">
+
         {/* Back */}
         <button
           onClick={() => router.back()}
@@ -5065,165 +5282,486 @@ export default function MemberDetailPage() {
           Back to Members
         </button>
 
-        {/* Profile Card */}
-        <Card>
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold text-3xl shadow-lg shadow-cyan-500/20 shrink-0">
+        {/* ── Profile Card ── */}
+        <div className="glass rounded-2xl border border-border p-6">
+          <div className="flex flex-col sm:flex-row items-start gap-6">
+            {/* Avatar */}
+            <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-cyan-500/20 shrink-0">
               {member.name.value.charAt(0).toUpperCase()}
             </div>
-            <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-2xl font-bold text-foreground">{member.name.value}</h2>
-              <p className="text-foreground-muted mt-1">"{member.nickname.value}"</p>
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-3">
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-3 mb-1">
+                <h2 className="text-2xl font-bold text-foreground">{member.name.value}</h2>
                 <StatusBadge status={member.is_active ? 'ACTIVE' : 'CANCELLED'} />
-                <span className="text-xs text-foreground-muted">
-                  Joined {new Date(member.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </div>
+              <p className="text-foreground-muted text-sm mb-4">"{member.nickname.value}"</p>
+
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span className="flex items-center gap-1.5 text-foreground-secondary">
+                  <HiOutlinePhone className="w-4 h-4 text-cyan-400" />
+                  {member.mobile.value}
+                </span>
+                {member.upi_ids?.filter(u => u.is_active).map(u => (
+                  <span key={u.value} className="flex items-center gap-1.5 text-foreground-secondary">
+                    <HiOutlineCreditCard className="w-4 h-4 text-purple-400" />
+                    {u.value}
+                  </span>
+                ))}
+                <span className="flex items-center gap-1.5 text-foreground-muted">
+                  <HiOutlineCalendarDays className="w-4 h-4" />
+                  Since {new Date(member.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
                 </span>
               </div>
             </div>
-            {/* Summary Stats */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-1 lg:grid-cols-2">
-              <div className="bg-surface border border-border rounded-xl p-3 text-center">
-                <p className="text-xs text-foreground-muted">Groups</p>
-                <p className="text-xl font-bold text-cyan-400">{chitMembers.length}</p>
+          </div>
+        </div>
+
+        {/* ── Grand Summary Stats ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { label: 'Total Tickets', value: String(totalTickets), icon: <HiOutlineTicket className="w-5 h-5" />, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+            { label: 'Groups Won', value: `${groupsWon}/${totalTickets}`, icon: <HiOutlineTrophy className="w-5 h-5" />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+            { label: 'Total Won', value: fmt(grandWon), icon: <HiOutlineBanknotes className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: 'Total Owed', value: fmt(grandTotalOwed), icon: <HiOutlineChartBar className="w-5 h-5" />, color: 'text-foreground', bg: 'bg-surface' },
+            { label: 'Total Paid', value: fmt(grandTotalPaid), icon: <HiOutlineCheckCircle className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            {
+              label: 'Balance Due',
+              value: fmt(Math.max(0, grandBalance)),
+              icon: <HiOutlineExclamationCircle className="w-5 h-5" />,
+              color: grandBalance > 0 ? 'text-red-400' : 'text-emerald-400',
+              bg: grandBalance > 0 ? 'bg-red-500/10' : 'bg-emerald-500/10',
+            },
+          ].map(stat => (
+            <div key={stat.label} className="glass rounded-2xl border border-border p-4 flex flex-col gap-2">
+              <div className={`w-9 h-9 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
+                {stat.icon}
               </div>
-              <div className="bg-surface border border-border rounded-xl p-3 text-center">
-                <p className="text-xs text-foreground-muted">Total Paid</p>
-                <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalPaid)}</p>
-              </div>
+              <p className="text-xs text-foreground-muted leading-tight">{stat.label}</p>
+              <p className={`text-base font-bold ${stat.color} leading-tight`}>{stat.value}</p>
             </div>
-          </div>
-        </Card>
+          ))}
+        </div>
 
-        {/* Contact Info */}
-        <Card>
-          <h3 className="text-base font-semibold text-foreground mb-4">Contact Information</h3>
-          <div className="space-y-0">
-            <InfoRow
-              icon={<HiOutlinePhone className="w-4 h-4" />}
-              label="Mobile"
-              value={member.mobile.value}
-            />
-            <InfoRow
-              icon={<HiOutlineCreditCard className="w-4 h-4" />}
-              label="UPI IDs"
-              value={
-                member.upi_ids?.filter((u) => u.is_active).length > 0
-                  ? member.upi_ids.filter((u) => u.is_active).map((u) => u.value).join(', ')
-                  : '—'
-              }
-            />
-            <InfoRow
-              icon={<HiOutlineUser className="w-4 h-4" />}
-              label="Member ID"
-              value={<span className="font-mono text-xs">{member.id.slice(0, 20)}...</span>}
-            />
-          </div>
-        </Card>
-
-        {/* Chit Group Tickets */}
-        <Card>
-          <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-            <HiOutlineTicket className="w-5 h-5 text-cyan-400" />
-            Chit Group Tickets
-          </h3>
-          {chitMembers.length === 0 ? (
-            <p className="text-sm text-foreground-muted text-center py-4">
-              Not assigned to any chit group yet.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {chitMembers.map((cm) => (
-                <div
-                  key={cm.id}
-                  className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl"
+        {/* ── Tabs ── */}
+        {summaries.length > 0 && (
+          <>
+            <div className="flex gap-1 overflow-x-auto border-b border-border pb-0 scrollbar-hide">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all border-b-2 -mb-px shrink-0 ${
+                    activeTab === tab.id
+                      ? 'border-cyan-400 text-cyan-400'
+                      : 'border-transparent text-foreground-muted hover:text-foreground'
+                  }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 font-bold">
-                      #{cm.ticket_number}
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {formatCurrency(Number(cm.chit_group.total_amount))} Group
-                      </p>
-                      <p className="text-xs text-foreground-muted">
-                        {cm.chit_group.total_members} members · {formatCurrency(Number(cm.chit_group.monthly_amount))}/month
-                      </p>
-                    </div>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Overview Tab ── */}
+            {activeTab === 'overview' && (
+              <div className="space-y-4">
+                {summaries.length === 0 ? (
+                  <div className="text-center py-12 text-foreground-muted">
+                    Not assigned to any chit group yet.
                   </div>
-                  <StatusBadge status={cm.chit_group.status} />
+                ) : (
+                  summaries.map(summary => (
+                    <OverviewGroupCard
+                      key={summary.ticket.id}
+                      summary={summary}
+                      onViewDetails={() => setActiveTab(summary.ticket.id)}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ── Group Detail Tabs ── */}
+            {summaries.map(summary => (
+              activeTab === summary.ticket.id && (
+                <GroupDetailView key={summary.ticket.id} summary={summary} />
+              )
+            ))}
+          </>
+        )}
+
+        {summaries.length === 0 && !isLoading && (
+          <div className="glass rounded-2xl border border-border p-12 text-center">
+            <HiOutlineTicket className="w-12 h-12 text-foreground-muted mx-auto mb-3" />
+            <p className="text-foreground-muted">Not assigned to any chit group yet.</p>
+          </div>
+        )}
+
+        {/* ── Contact Details ── */}
+        <div className="glass rounded-2xl border border-border p-6">
+          <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">
+            Member Info
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-border">
+            <div className="space-y-0 sm:pr-6">
+              {[
+                { label: 'Full Name', value: member.name.value, icon: <HiOutlineUser className="w-4 h-4" /> },
+                { label: 'Nickname', value: member.nickname.value, icon: <HiOutlineUser className="w-4 h-4" /> },
+                { label: 'Mobile', value: member.mobile.value, icon: <HiOutlinePhone className="w-4 h-4" /> },
+              ].map(row => (
+                <div key={row.label} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+                  <span className="flex items-center gap-2 text-sm text-foreground-muted">
+                    {row.icon}{row.label}
+                  </span>
+                  <span className="text-sm font-medium text-foreground">{row.value}</span>
                 </div>
               ))}
             </div>
-          )}
-        </Card>
-
-        {/* Payment History */}
-        <Card padding={false}>
-          <div className="p-6 pb-4 flex items-center gap-2">
-            <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
-            <h3 className="text-base font-semibold text-foreground">Payment History</h3>
-          </div>
-          {payments.length === 0 ? (
-            <p className="text-sm text-foreground-muted text-center py-8">No payments recorded yet.</p>
-          ) : (
-            <div className="overflow-x-auto px-6 pb-6">
-              <table className="glass-table w-full">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Amount</th>
-                    <th>Method</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((p) => (
-                    <tr key={p.id}>
-                      <td>Month {p.month_number}</td>
-                      <td className="font-semibold text-cyan-400">
-                        {formatCurrency(Number(p.amount_paid))}
-                      </td>
-                      <td>
-                        <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-surface border border-border text-foreground-secondary">
-                          {p.payment_method}
-                        </span>
-                      </td>
-                      <td className="text-foreground-muted">
-                        {new Date(p.payment_date).toLocaleDateString('en-IN')}
-                      </td>
-                      <td>
-                        <StatusBadge status={p.status} />
-                      </td>
-                    </tr>
+            <div className="sm:pl-6 pt-3 sm:pt-0">
+              <p className="text-xs text-foreground-muted mb-3">UPI IDs</p>
+              {member.upi_ids?.filter(u => u.is_active).length === 0 ? (
+                <p className="text-sm text-foreground-muted">—</p>
+              ) : (
+                <div className="space-y-2">
+                  {member.upi_ids?.filter(u => u.is_active).map(u => (
+                    <div key={u.value} className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl">
+                      <HiOutlineCreditCard className="w-4 h-4 text-purple-400 shrink-0" />
+                      <span className="text-sm text-foreground font-mono">{u.value}</span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              )}
+              <p className="text-xs text-foreground-muted mt-4 mb-1">Member ID</p>
+              <p className="text-xs font-mono text-foreground-muted break-all">{member.id}</p>
             </div>
-          )}
-        </Card>
+          </div>
+        </div>
+
       </div>
     </>
   );
 }
 
-function InfoRow({
-  icon,
+// ─── Overview Group Card ──────────────────────────────────────────────────────
+
+function OverviewGroupCard({
+  summary,
+  onViewDetails,
+}: {
+  summary: GroupSummary;
+  onViewDetails: () => void;
+}) {
+  const { group, ticket, months, totalOwed, totalPaid, totalBalance, wonMonth, wonAmount, completedMonths } = summary;
+  const paidPct = totalOwed > 0 ? Math.min(100, Math.round((totalPaid / totalOwed) * 100)) : 100;
+  const pendingMonths = months.filter(m => m.paymentStatus === 'PARTIAL' || m.paymentStatus === 'PENDING').length;
+
+  return (
+    <div className="glass rounded-2xl border border-border overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between p-5 border-b border-border">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-lg shrink-0">
+            #{ticket.ticket_number}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link href={`/groups/${group.id}`} className="font-bold text-foreground hover:text-cyan-400 transition-colors">
+                {group.name}
+              </Link>
+              <StatusBadge status={group.status} />
+              {wonMonth && (
+                <span className="flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                  <HiOutlineTrophy className="w-3 h-3" />
+                  Won Month {wonMonth}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-foreground-muted mt-0.5">
+              {fmt(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months · Ticket #{ticket.ticket_number}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onViewDetails}
+          className="text-xs text-cyan-400 hover:underline shrink-0 ml-2"
+        >
+          Month-by-month →
+        </button>
+      </div>
+
+      {/* Progress */}
+      <div className="px-5 pt-4">
+        <div className="flex justify-between text-xs mb-1.5">
+          <span className="text-foreground-muted">Auctions completed</span>
+          <span className="text-foreground font-medium">{completedMonths}/{group.duration_months} months</span>
+        </div>
+        <div className="neon-progress mb-4">
+          <div className="neon-progress-bar" style={{ width: `${Math.round((completedMonths / group.duration_months) * 100)}%` }} />
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-5 pb-5">
+        <StatBox
+          label="Amount Won"
+          value={wonAmount > 0 ? fmt(wonAmount) : '—'}
+          color={wonAmount > 0 ? 'text-amber-400' : 'text-foreground-muted'}
+          icon={<HiOutlineTrophy className="w-4 h-4" />}
+        />
+        <StatBox
+          label="Total Owed"
+          value={fmt(totalOwed)}
+          color="text-foreground"
+          icon={<HiOutlineChartBar className="w-4 h-4" />}
+        />
+        <StatBox
+          label="Total Paid"
+          value={fmt(totalPaid)}
+          color="text-emerald-400"
+          icon={<HiOutlineCheckCircle className="w-4 h-4" />}
+        />
+        <StatBox
+          label={totalBalance > 0 ? 'Balance Due' : 'Overpaid'}
+          value={fmt(Math.abs(totalBalance))}
+          color={totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}
+          icon={<HiOutlineExclamationCircle className="w-4 h-4" />}
+        />
+      </div>
+
+      {/* Payment progress bar */}
+      {totalOwed > 0 && (
+        <div className="px-5 pb-5">
+          <div className="flex justify-between text-xs mb-1.5">
+            <span className="text-foreground-muted">Payment progress</span>
+            <span className={`font-semibold ${paidPct === 100 ? 'text-emerald-400' : pendingMonths > 0 ? 'text-amber-400' : 'text-foreground-muted'}`}>
+              {paidPct}% settled{pendingMonths > 0 ? ` · ${pendingMonths} month${pendingMonths > 1 ? 's' : ''} pending` : ''}
+            </span>
+          </div>
+          <div className="h-2 bg-surface border border-border rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${paidPct}%`,
+                background: paidPct === 100
+                  ? 'linear-gradient(90deg, #22c55e, #16a34a)'
+                  : 'linear-gradient(90deg, #00f0ff, #a855f7)',
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Group Detail View (Month-by-Month) ──────────────────────────────────────
+
+function GroupDetailView({ summary }: { summary: GroupSummary }) {
+  const { group, ticket, months, totalOwed, totalPaid, totalBalance, wonMonth, wonAmount } = summary;
+
+  return (
+    <div className="space-y-5">
+      {/* Group header */}
+      <div className="glass rounded-2xl border border-border p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link href={`/groups/${group.id}`} className="text-lg font-bold text-foreground hover:text-cyan-400 transition-colors">
+                {group.name}
+              </Link>
+              <StatusBadge status={group.status} />
+            </div>
+            <p className="text-sm text-foreground-muted mt-0.5">
+              Ticket #{ticket.ticket_number} · {fmt(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months
+            </p>
+          </div>
+          {wonMonth && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+              <HiOutlineTrophy className="w-5 h-5 text-amber-400" />
+              <div>
+                <p className="text-xs text-amber-400/70">Won in Month {wonMonth}</p>
+                <p className="text-base font-bold text-amber-400">{fmt(wonAmount)}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Summary row */}
+        <div className="grid grid-cols-3 gap-3 mt-5">
+          <div className="bg-surface border border-border rounded-xl p-3 text-center">
+            <p className="text-xs text-foreground-muted mb-1">Total Owed</p>
+            <p className="text-base font-bold text-foreground">{fmt(totalOwed)}</p>
+          </div>
+          <div className="bg-surface border border-border rounded-xl p-3 text-center">
+            <p className="text-xs text-foreground-muted mb-1">Total Paid</p>
+            <p className="text-base font-bold text-emerald-400">{fmt(totalPaid)}</p>
+          </div>
+          <div className="bg-surface border border-border rounded-xl p-3 text-center">
+            <p className="text-xs text-foreground-muted mb-1">{totalBalance > 0 ? 'Balance Due' : 'Fully Settled'}</p>
+            <p className={`text-base font-bold ${totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+              {totalBalance > 0 ? fmt(totalBalance) : '✓ Cleared'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Month-by-month table */}
+      {months.length === 0 ? (
+        <div className="glass rounded-2xl border border-border p-10 text-center text-foreground-muted text-sm">
+          No auctions conducted yet in this group.
+        </div>
+      ) : (
+        <div className="glass rounded-2xl border border-border overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+            <HiOutlineCalendarDays className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-sm font-semibold text-foreground">Month-by-Month Breakdown</h3>
+          </div>
+
+          {/* Desktop table */}
+          <div className="overflow-x-auto">
+            <table className="glass-table w-full">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Status</th>
+                  <th>Amount Due</th>
+                  <th>Amount Paid</th>
+                  <th>Balance</th>
+                  <th>Payment Method</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {months.map(row => (
+                  <MonthTableRow key={row.month} row={row} />
+                ))}
+              </tbody>
+
+              {/* Totals footer */}
+              <tfoot>
+                <tr className="border-t-2 border-border">
+                  <td colSpan={2} className="px-4 py-3 text-sm font-semibold text-foreground-muted">
+                    Total ({months.filter(m => !m.wonThisMonth).length} paying months)
+                  </td>
+                  <td className="px-4 py-3 text-sm font-bold text-foreground">{fmt(totalOwed)}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-emerald-400">{fmt(totalPaid)}</td>
+                  <td className={`px-4 py-3 text-sm font-bold ${totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {totalBalance > 0 ? `-${fmt(totalBalance)}` : '✓ Settled'}
+                  </td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Month Table Row ──────────────────────────────────────────────────────────
+
+function MonthTableRow({ row }: { row: MonthRow }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const statusConfig = {
+    WON: { label: 'Won Auction', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+    COMPLETED: { label: 'Paid', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+    PARTIAL: { label: 'Partial', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
+    PENDING: { label: 'Pending', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+  }[row.paymentStatus];
+
+  const lastPayment = row.payments[row.payments.length - 1];
+
+  return (
+    <>
+      <tr
+        className={`cursor-pointer ${row.wonThisMonth ? 'bg-amber-500/5' : ''}`}
+        onClick={() => row.payments.length > 0 && setExpanded(e => !e)}
+      >
+        <td className="font-semibold text-foreground">Month {row.month}</td>
+        <td>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border ${statusConfig.bg} ${statusConfig.color}`}>
+            {row.paymentStatus === 'WON' && <HiOutlineTrophy className="w-3 h-3" />}
+            {row.paymentStatus === 'COMPLETED' && <HiOutlineCheckCircle className="w-3 h-3" />}
+            {statusConfig.label}
+          </span>
+        </td>
+        <td>
+          {row.wonThisMonth
+            ? <span className="text-amber-400 font-semibold">{fmt(row.wonAmount)}</span>
+            : <span className="text-foreground">{fmt(row.amountDue)}</span>
+          }
+        </td>
+        <td>
+          {row.wonThisMonth
+            ? <span className="text-foreground-muted text-xs">—</span>
+            : <span className={row.amountPaid > 0 ? 'text-emerald-400 font-semibold' : 'text-foreground-muted'}>{fmt(row.amountPaid)}</span>
+          }
+        </td>
+        <td>
+          {row.wonThisMonth ? (
+            <span className="text-foreground-muted text-xs">—</span>
+          ) : row.balance <= 0 ? (
+            <span className="text-emerald-400 text-xs font-medium">✓ Clear</span>
+          ) : (
+            <span className="text-red-400 font-semibold">{fmt(row.balance)}</span>
+          )}
+        </td>
+        <td className="text-foreground-muted text-sm">
+          {lastPayment?.payment_method || '—'}
+        </td>
+        <td className="text-foreground-muted text-sm">
+          {lastPayment
+            ? new Date(lastPayment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+            : '—'
+          }
+          {row.payments.length > 1 && (
+            <span className="ml-1 text-xs text-cyan-400">+{row.payments.length - 1} more {expanded ? '▲' : '▼'}</span>
+          )}
+        </td>
+      </tr>
+
+      {/* Expanded sub-payments */}
+      {expanded && row.payments.length > 1 && row.payments.map((p, i) => (
+        <tr key={p.id} className="bg-surface/50">
+          <td colSpan={2} className="pl-10 py-2 text-xs text-foreground-muted">
+            Payment {i + 1}
+          </td>
+          <td />
+          <td className="py-2 text-xs text-emerald-400 font-medium">{fmt(Number(p.amount_paid))}</td>
+          <td />
+          <td className="py-2 text-xs text-foreground-muted">{p.payment_method}</td>
+          <td className="py-2 text-xs text-foreground-muted">
+            {new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+// ─── Stat Box ────────────────────────────────────────────────────────────────
+
+function StatBox({
   label,
   value,
+  color,
+  icon,
 }: {
-  icon: React.ReactNode;
   label: string;
-  value: React.ReactNode;
+  value: string;
+  color: string;
+  icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
-      <span className="flex items-center gap-2 text-sm text-foreground-muted">
+    <div className="bg-surface border border-border rounded-xl p-3">
+      <div className={`flex items-center gap-1.5 mb-1 ${color} opacity-70 text-xs`}>
         {icon}
         {label}
-      </span>
-      <span className="text-sm text-foreground-secondary">{value}</span>
+      </div>
+      <p className={`text-sm font-bold ${color}`}>{value}</p>
     </div>
   );
 }
@@ -5246,13 +5784,23 @@ export default function PaymentsLayout({ children }: { children: ReactNode }) {
 //src/app/payments/page.tsx
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
+import { Card, PageLoader, EmptyState, Select } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/Badge';
-import { HiOutlineBanknotes, HiOutlinePlus } from 'react-icons/hi2';
-import toast from 'react-hot-toast';
+import Link from 'next/link';
+import {
+  HiOutlineBanknotes,
+  HiOutlineArrowTrendingUp,
+  HiOutlineArrowTrendingDown,
+  HiOutlineCurrencyRupee,
+  HiOutlineScissors,
+  HiOutlineUserGroup,
+  HiOutlineChevronDown,
+} from 'react-icons/hi2';
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface ChitGroup {
   id: string;
@@ -5260,15 +5808,21 @@ interface ChitGroup {
   total_amount: string;
   total_members: number;
   monthly_amount: string;
+  duration_months: number;
   status: string;
 }
 
-interface ChitMember {
+interface Auction {
   id: string;
-  ticket_number: number;
   chit_group_id: string;
-  member: {
-    name: { value: string };
+  month_number: number;
+  winning_amount: string;
+  commission: string;
+  original_bid: string;
+  calculation_data?: {
+    amount_to_collect: number;
+    dividend_per_member: number;
+    monthly_contribution: number;
   };
 }
 
@@ -5279,18 +5833,17 @@ interface Payment {
   month_number: number;
   amount_paid: string;
   payment_method: string;
-  upi_id: string | null;
   payment_date: string;
   status: string;
-  notes: string | null;
-  created_at: string;
   chit_member: {
     ticket_number: number;
-    member: { name: { value: string } };
+    member: { id: string; name: { value: string } };
   };
 }
 
-function formatCurrency(amount: number) {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmt(amount: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
@@ -5298,60 +5851,234 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+function pct(part: number, total: number) {
+  if (!total) return '0%';
+  return `${Math.round((part / total) * 100)}%`;
+}
+
+// ─── Per-group stats ─────────────────────────────────────────────────────────
+
+interface GroupStats {
+  group: ChitGroup;
+  inflow: number;
+  payouts: number;
+  commission: number;
+  net: number;
+  auctionsCount: number;
+}
+
+function buildGroupStats(
+  groups: ChitGroup[],
+  payments: Payment[],
+  auctions: Auction[]
+): GroupStats[] {
+  return groups.map((g) => {
+    const gPayments = payments.filter((p) => p.chit_group_id === g.id);
+    const gAuctions = auctions.filter((a) => a.chit_group_id === g.id);
+    const inflow = gPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
+    const payouts = gAuctions.reduce((s, a) => s + Number(a.winning_amount), 0);
+    const commission = gAuctions.reduce((s, a) => s + Number(a.commission), 0);
+    return {
+      group: g,
+      inflow,
+      payouts,
+      commission,
+      net: inflow - payouts - commission,
+      auctionsCount: gAuctions.length,
+    };
+  });
+}
+
+// ─── Summary Card ────────────────────────────────────────────────────────────
+
+function SummaryCard({
+  label,
+  value,
+  sub,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <div className="glass rounded-2xl border border-border p-5 flex items-start gap-4">
+      <div className={`p-2.5 rounded-xl shrink-0 ${color}`}>{icon}</div>
+      <div className="min-w-0">
+        <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">{label}</p>
+        <p className="text-2xl font-bold text-foreground truncate">{value}</p>
+        {sub && <p className="text-xs text-foreground-muted mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Group Finance Card ───────────────────────────────────────────────────────
+
+function GroupFinanceCard({ stats }: { stats: GroupStats }) {
+  const { group, inflow, payouts, commission, net, auctionsCount } = stats;
+  const isPositive = net >= 0;
+
+  return (
+    <Link href={`/groups/${group.id}`} className="block">
+      <div className="glass glass-hover rounded-2xl border border-border p-5 space-y-4 transition-all duration-200">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2 rounded-xl bg-cyan-500/10 shrink-0">
+            <HiOutlineUserGroup className="w-5 h-5 text-cyan-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{group.name}</p>
+            <p className="text-xs text-foreground-muted">
+              {fmt(Number(group.total_amount))} · {group.total_members} members
+            </p>
+          </div>
+        </div>
+        <StatusBadge status={group.status} />
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+          <p className="text-xs text-foreground-muted mb-0.5">Inflow</p>
+          <p className="text-base font-bold text-emerald-400">{fmt(inflow)}</p>
+        </div>
+        <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-3">
+          <p className="text-xs text-foreground-muted mb-0.5">Payouts</p>
+          <p className="text-base font-bold text-purple-400">{fmt(payouts)}</p>
+        </div>
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+          <p className="text-xs text-foreground-muted mb-0.5">Commission</p>
+          <p className="text-base font-bold text-amber-400">{fmt(commission)}</p>
+        </div>
+        <div className={`rounded-xl p-3 border ${isPositive ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+          <p className="text-xs text-foreground-muted mb-0.5">Net</p>
+          <p className={`text-base font-bold ${isPositive ? 'text-cyan-400' : 'text-red-400'}`}>
+            {fmt(net)}
+          </p>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div>
+        <div className="flex justify-between text-xs text-foreground-muted mb-1.5">
+          <span>Auctions conducted</span>
+          <span>{auctionsCount} / {group.duration_months}</span>
+        </div>
+        <div className="neon-progress">
+          <div
+            className="neon-progress-bar"
+            style={{ width: pct(auctionsCount, group.duration_months) }}
+          />
+        </div>
+      </div>
+      </div>
+    </Link>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
+
 export default function PaymentsPage() {
+  const { user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [groups, setGroups] = useState<ChitGroup[]>([]);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [filterGroup, setFilterGroup] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterGroup, setFilterGroup] = useState<string>('all');
+  const [groupStatusFilter, setGroupStatusFilter] = useState<string>('ALL');
+  // Persist immediately when user changes the dropdowns
+  const setAndPersistFilterGroup = (v: string) => {
+    setFilterGroup(v);
+    try {
+      localStorage.setItem('payments:group', v);
+    } catch {}
+  };
+  const setAndPersistStatusFilter = (v: string) => {
+    setGroupStatusFilter(v);
+    try {
+      localStorage.setItem('payments:status', v);
+    } catch {}
+  };
   const hasFetched = useRef(false);
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
 
-  const loadData = useCallback(async (force = false) => {
-    if (!user) return;
-    if (!force && hasFetched.current) return;
+  const loadData = useCallback(async () => {
+    if (!user || hasFetched.current) return;
     hasFetched.current = true;
     try {
-      const [paymentsRes, groupsRes] = await Promise.all([
+      const [pRes, gRes, aRes] = await Promise.all([
         fetch(`/api/payments?user_id=${user.id}`),
         fetch(`/api/chit-groups?user_id=${user.id}`),
+        fetch(`/api/auctions?user_id=${user.id}`),
       ]);
-      const p = await paymentsRes.json();
-      const g = await groupsRes.json();
+      const [p, g, a] = await Promise.all([pRes.json(), gRes.json(), aRes.json()]);
       setPayments(Array.isArray(p) ? p : []);
       setGroups(Array.isArray(g) ? g : []);
+      setAuctions(Array.isArray(a) ? a : []);
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Validate stored status and filterGroup against fetched groups and set if valid
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!groups || groups.length === 0) return;
+    try {
+      const storedStatus = localStorage.getItem('payments:status') || 'ALL';
+      setGroupStatusFilter(storedStatus);
 
-  const refreshData = useCallback(async () => {
-    if (!user) return;
-    const [paymentsRes, groupsRes] = await Promise.all([
-      fetch(`/api/payments?user_id=${user.id}`),
-      fetch(`/api/chit-groups?user_id=${user.id}`),
-    ]);
-    const p = await paymentsRes.json();
-    const g = await groupsRes.json();
-    setPayments(Array.isArray(p) ? p : []);
-    setGroups(Array.isArray(g) ? g : []);
-  }, [user]);
+      const storedGroup = localStorage.getItem('payments:group');
+      if (storedGroup && storedGroup !== 'all') {
+        const filteredGroups = groups.filter((g) => storedStatus === 'ALL' ? true : g.status === storedStatus);
+        if (filteredGroups.some((g) => g.id === storedGroup)) {
+          setFilterGroup(storedGroup);
+        } else {
+          setFilterGroup('all');
+        }
+      }
+    } catch {}
+  }, [groups]);
 
-  const filteredPayments = payments.filter((p) => {
-    if (filterGroup !== 'all' && p.chit_group_id !== filterGroup) return false;
-    if (filterStatus !== 'all' && p.status !== filterStatus) return false;
-    return true;
-  });
+  // ── Derived data ──────────────────────────────────────────────────────────
 
-  // summary stats
-  const totalCollected = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
-  const totalCompleted = payments.filter((p) => p.status === 'COMPLETED').length;
-  const totalPartial = payments.filter((p) => p.status === 'PARTIAL').length;
+  // groups visible given current status filter
+  const visibleGroups = groups.filter((g) => (groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter));
+  const groupStats = buildGroupStats(groups, payments, auctions);
+  const visibleGroupStats = buildGroupStats(visibleGroups, payments, auctions);
+
+  // combined totals (respect visibleGroups when showing "All Groups Combined")
+  const totalInflow = visibleGroupStats.reduce((s, gs) => s + gs.inflow, 0);
+  const totalPayouts = visibleGroupStats.reduce((s, gs) => s + gs.payouts, 0);
+  const totalCommission = visibleGroupStats.reduce((s, gs) => s + gs.commission, 0);
+  const totalNet = visibleGroupStats.reduce((s, gs) => s + gs.net, 0);
+
+  // filtered to selected group
+  const selectedStats =
+    filterGroup === 'all'
+      ? null
+      : groupStats.find((gs) => gs.group.id === filterGroup) ?? null;
+
+  const displayInflow = selectedStats ? selectedStats.inflow : totalInflow;
+  const displayPayouts = selectedStats ? selectedStats.payouts : totalPayouts;
+  const displayCommission = selectedStats ? selectedStats.commission : totalCommission;
+  const displayNet = selectedStats ? selectedStats.net : totalNet;
+
+  // recent payments for selected group (last 15)
+  const recentPayments = (
+    filterGroup === 'all'
+      ? payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id))
+      : payments.filter((p) => p.chit_group_id === filterGroup)
+  )
+    .slice()
+    .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+    .slice(0, 15);
 
   if (isLoading) {
     return (
@@ -5364,304 +6091,263 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <Header title="Payments" subtitle={`${payments.length} total records`}>
-        <Button
-          icon={<HiOutlinePlus className="w-4 h-4" />}
-          onClick={() => setShowCreateModal(true)}
-        >
-          Record Payment
-        </Button>
-      </Header>
-
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass rounded-2xl border border-border p-5">
-            <p className="text-sm text-foreground-muted mb-1">Total Collected</p>
-            <p className="text-2xl font-bold text-cyan-400">{formatCurrency(totalCollected)}</p>
-          </div>
-          <div className="glass rounded-2xl border border-border p-5">
-            <p className="text-sm text-foreground-muted mb-1">Completed</p>
-            <p className="text-2xl font-bold text-emerald-400">{totalCompleted}</p>
-          </div>
-          <div className="glass rounded-2xl border border-border p-5">
-            <p className="text-sm text-foreground-muted mb-1">Partial</p>
-            <p className="text-2xl font-bold text-amber-400">{totalPartial}</p>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4">
-          <div className="w-48">
-            <Select
-              value={filterGroup}
-              onChange={(e) => setFilterGroup(e.target.value)}
-              options={[
-                { value: 'all', label: 'All Groups' },
-                ...groups.map((g) => ({
-                  value: g.id,
-                  label: `${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
-                })),
-              ]}
-            />
-          </div>
-          <div className="w-48">
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              options={[
-                { value: 'all', label: 'All Status' },
-                { value: 'COMPLETED', label: 'Completed' },
-                { value: 'PARTIAL', label: 'Partial' },
-              ]}
-            />
-          </div>
-        </div>
-
-        {/* Table */}
-        {filteredPayments.length === 0 ? (
-          <EmptyState
-            icon={<HiOutlineBanknotes className="w-8 h-8" />}
-            title="No payments found"
-            description="Record your first payment to get started."
-          />
-        ) : (
-          <Card padding={false}>
-            <div className="overflow-x-auto">
-              <table className="glass-table w-full">
-                <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Ticket</th>
-                    <th>Month</th>
-                    <th>Amount Paid</th>
-                    <th>Method</th>
-                    <th>UPI ID</th>
-                    <th>Payment Date</th>
-                    <th>Status</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPayments.map((payment) => (
-                    <tr key={payment.id}>
-                      <td className="font-medium text-foreground">
-                        {payment.chit_member?.member?.name?.value || 'N/A'}
-                      </td>
-                      <td>#{payment.chit_member?.ticket_number}</td>
-                      <td>{payment.month_number}</td>
-                      <td className="font-semibold text-cyan-400">
-                        {formatCurrency(Number(payment.amount_paid))}
-                      </td>
-                      <td>
-                        <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-surface border border-border text-foreground-secondary">
-                          {payment.payment_method}
-                        </span>
-                      </td>
-                      <td className="text-foreground-muted">
-                        {payment.upi_id || '—'}
-                      </td>
-                      <td className="text-foreground-muted">
-                        {new Date(payment.payment_date).toLocaleDateString('en-IN')}
-                      </td>
-                      <td>
-                        <StatusBadge status={payment.status} />
-                      </td>
-                      <td className="text-foreground-muted">
-                        {payment.notes || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-      </div>
-
-      {/* Record Payment Modal */}
-      <PaymentFormModal
-        isOpen={showCreateModal}
-        groups={groups}
-        onClose={() => setShowCreateModal(false)}
-        onSaved={() => {
-          setShowCreateModal(false);
-          refreshData();
-        }}
+      <Header
+        title="Payments"
+        subtitle={filterGroup === 'all' ? 'All groups combined' : selectedStats?.group.name}
       />
+
+      <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+
+        {/* ── Group filter ───────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-40">
+            <Select
+              label="Status"
+              value={groupStatusFilter}
+              onChange={(e) => setAndPersistStatusFilter(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'All statuses' },
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'COMPLETED', label: 'Completed' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+              ]}
+            />
+          </div>
+
+          <div className="w-72">
+            <Select
+              label="Chit Group"
+              value={filterGroup}
+              onChange={(e) => setAndPersistFilterGroup(e.target.value)}
+              options={[
+                { value: 'all', label: '📊 All Groups Combined' },
+                ...groups
+                  .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
+                  .map((g) => ({
+                    value: g.id,
+                    label: `${g.name} · ${g.total_members}M`,
+                  })),
+              ]}
+            />
+          </div>
+
+        </div>
+
+        <div className="mt-2">
+          <span className="text-sm text-foreground-muted">
+            {filterGroup === 'all'
+              ? `${visibleGroups.length} groups · ${payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id)).length} payments`
+              : `${recentPayments.length} recent payments`}
+          </span>
+        </div>
+
+        {/* ── Summary Cards ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <SummaryCard
+            label="Total Inflow"
+            value={fmt(displayInflow)}
+            sub="Money collected from members"
+            icon={<HiOutlineArrowTrendingUp className="w-5 h-5" />}
+            color="bg-emerald-500/10 text-emerald-400"
+          />
+          <SummaryCard
+            label="Total Payouts"
+            value={fmt(displayPayouts)}
+            sub="Winning amounts disbursed"
+            icon={<HiOutlineArrowTrendingDown className="w-5 h-5" />}
+            color="bg-purple-500/10 text-purple-400"
+          />
+          <SummaryCard
+            label="Commission Earned"
+            value={fmt(displayCommission)}
+            sub={`${pct(displayCommission, displayInflow)} of inflow`}
+            icon={<HiOutlineScissors className="w-5 h-5" />}
+            color="bg-amber-500/10 text-amber-400"
+          />
+          <SummaryCard
+            label="Net Balance"
+            value={fmt(displayNet)}
+            sub={displayNet >= 0 ? 'Surplus' : 'Deficit'}
+            icon={<HiOutlineCurrencyRupee className="w-5 h-5" />}
+            color={displayNet >= 0 ? 'bg-cyan-500/10 text-cyan-400' : 'bg-red-500/10 text-red-400'}
+          />
+        </div>
+
+        {/* ── Group-wise Cards ───────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
+            Group Breakdown
+          </h2>
+          {filterGroup === 'all' ? (
+            visibleGroupStats.length === 0 ? (
+              <EmptyState
+                icon={<HiOutlineUserGroup className="w-8 h-8" />}
+                title="No chit groups yet"
+                description="Create a chit group to start tracking payments."
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {visibleGroupStats.map((gs) => (
+                  <GroupFinanceCard key={gs.group.id} stats={gs} />
+                ))}
+              </div>
+            )
+          ) : (
+            // single selected group
+            selectedStats ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                <GroupFinanceCard key={selectedStats.group.id} stats={selectedStats} />
+              </div>
+            ) : (
+              <EmptyState
+                icon={<HiOutlineUserGroup className="w-8 h-8" />}
+                title="No group selected"
+                description="Choose a chit group to view its breakdown."
+              />
+            )
+          )}
+        </section>
+
+        {/* ── Recent Payments ─────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
+            {filterGroup === 'all' ? 'Recent Payments (All Groups)' : 'Recent Payments'}
+          </h2>
+          {recentPayments.length === 0 ? (
+            <EmptyState
+              icon={<HiOutlineBanknotes className="w-8 h-8" />}
+              title="No payments recorded yet"
+              description="Use the Payment Tracker to record member payments."
+            />
+          ) : (
+            <Card padding={false}>
+              <div className="overflow-x-auto">
+                <table className="glass-table w-full">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Member</th>
+                      <th>Ticket</th>
+                      <th>Total Paid</th>
+                      <th>Total Due</th>
+                      <th>Remaining</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      // Group payments by chit_member_id
+                      const grouped = new Map<string, typeof recentPayments>();
+                      recentPayments.forEach((p) => {
+                        const key = p.chit_member_id;
+                        if (!grouped.has(key)) grouped.set(key, []);
+                        grouped.get(key)!.push(p);
+                      });
+
+                      // Calculate aggregates per member
+                      const memberSummaries = Array.from(grouped.entries()).map(([memberId, payments]) => {
+                        const totalPaid = payments.reduce((s, p) => s + Number(p.amount_paid), 0);
+                        const totalDue = payments.reduce((s, p) => {
+                          const auction = auctions.find(a => a.chit_group_id === p.chit_group_id && a.month_number === p.month_number);
+                          return s + (auction?.calculation_data?.amount_to_collect ?? 0);
+                        }, 0);
+                        const remaining = totalDue - totalPaid;
+                        const member = payments[0]?.chit_member;
+                        const status = remaining <= 0 && totalDue > 0 ? 'COMPLETED' : remaining > 0 ? 'PARTIAL' : 'PENDING';
+
+                        return { memberId, member, payments, totalPaid, totalDue, remaining, status };
+                      });
+
+                      return memberSummaries.map((summary) => {
+                        const isExpanded = expandedPaymentId === summary.memberId;
+                        return (
+                          <Fragment key={summary.memberId}>
+                            <tr
+                              className="cursor-pointer hover:bg-surface/50"
+                              onClick={() => setExpandedPaymentId(isExpanded ? null : summary.memberId)}
+                            >
+                              <td>
+                                <HiOutlineChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </td>
+                              <td className="font-medium text-foreground">
+                                <Link href={`/members/${summary.member?.member?.id}`} className="hover:underline">
+                                  {summary.member?.member?.name?.value || 'N/A'}
+                                </Link>
+                              </td>
+                              <td>#{summary.member?.ticket_number}</td>
+                              <td className="font-semibold text-emerald-400">{fmt(summary.totalPaid)}</td>
+                              <td className="font-semibold text-amber-400">{fmt(summary.totalDue)}</td>
+                              <td className={`font-semibold ${summary.remaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>
+                                {fmt(summary.remaining)}
+                              </td>
+                              <td>
+                                <StatusBadge status={summary.status} />
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan={7} className="bg-surface/30 p-6">
+                                  <div className="space-y-4">
+                                    <div className="text-base font-semibold text-foreground-secondary">Payment History ({summary.payments.length} payments)</div>
+                                    <div className="space-y-3">
+                                      {summary.payments
+                                        .slice()
+                                        .sort((a, b) => a.month_number - b.month_number)
+                                        .map((p, idx) => {
+                                          const auction = auctions.find(a => a.chit_group_id === p.chit_group_id && a.month_number === p.month_number);
+                                          const monthDue = auction?.calculation_data?.amount_to_collect ?? 0;
+                                          const monthPaid = Number(p.amount_paid);
+                                          const monthRemaining = monthDue - monthPaid;
+                                          const group = groups.find(g => g.id === p.chit_group_id);
+
+                                          return (
+                                            <div key={p.id} className="flex flex-col gap-2 bg-surface/40 rounded-lg p-3 border border-border">
+                                              <div className="flex items-center justify-between flex-wrap gap-3">
+                                                <div className="flex items-center gap-4">
+                                                  <span className="text-sm font-semibold text-foreground">{group?.name || 'N/A'}</span>
+                                                  <span className="text-sm font-semibold text-cyan-400">Month {p.month_number}</span>
+                                                  <span className="px-3 py-1 rounded bg-surface border border-border text-sm font-medium text-foreground-secondary">{p.payment_method}</span>
+                                                </div>
+                                                <div className="text-sm text-foreground-muted">
+                                                  {new Date(p.payment_date).toLocaleDateString('en-IN')} · {new Date(p.payment_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4">
+                                                <div className="text-center">
+                                                  <div className="text-base font-bold text-emerald-400">{fmt(monthPaid)}</div>
+                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Paid</div>
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className="text-base font-bold text-amber-400">{fmt(monthDue)}</div>
+                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Due</div>
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className={`text-base font-bold ${monthRemaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>{fmt(monthRemaining)}</div>
+                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Remaining</div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </section>
+
+      </div>
     </>
-  );
-}
-
-// ─── Payment Form Modal ─────────────────────────────────────────────────────
-
-function PaymentFormModal({
-  isOpen,
-  groups,
-  onClose,
-  onSaved,
-}: {
-  isOpen: boolean;
-  groups: ChitGroup[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
-  const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [monthNumber, setMonthNumber] = useState('');
-  const [amountPaid, setAmountPaid] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
-  const [upiId, setUpiId] = useState('');
-  const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
-  const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // load chit members when group selected
-  useEffect(() => {
-    if (!selectedGroupId) return;
-    fetch(`/api/chit-members?chit_group_id=${selectedGroupId}`)
-      .then((r) => r.json())
-      .then(setChitMembers);
-  }, [selectedGroupId]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    const res = await fetch('/api/payments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chit_group_id: selectedGroupId,
-        chit_member_id: selectedMemberId,
-        month_number: Number(monthNumber),
-        amount_paid: Number(amountPaid),
-        payment_method: paymentMethod,
-        upi_id: paymentMethod === 'UPI' ? upiId : undefined,
-        payment_date: new Date(paymentDate).toISOString(),
-        notes: notes || undefined,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      toast.error(data.error || 'Failed to record payment');
-    } else {
-      toast.success(
-        `Payment recorded! Status: ${data.status} · Remaining: ${
-          data.remaining > 0
-            ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(data.remaining)
-            : '₹0'
-        }`
-      );
-      onSaved();
-    }
-
-    setIsSubmitting(false);
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Record Payment" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Select
-          label="Chit Group"
-          value={selectedGroupId}
-          onChange={(e) => {
-            setSelectedGroupId(e.target.value);
-            setSelectedMemberId('');
-          }}
-          options={[
-            { value: '', label: 'Select a group...' },
-            ...groups.map((g) => ({
-              value: g.id,
-              label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
-            })),
-          ]}
-        />
-
-        <Select
-          label="Member (Ticket)"
-          value={selectedMemberId}
-          onChange={(e) => setSelectedMemberId(e.target.value)}
-          options={[
-            { value: '', label: 'Select member...' },
-            ...chitMembers.map((cm) => ({
-              value: cm.id,
-              label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
-            })),
-          ]}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Month Number"
-            type="number"
-            value={monthNumber}
-            onChange={(e) => setMonthNumber(e.target.value)}
-            placeholder="e.g. 1"
-            required
-          />
-          <Input
-            label="Amount Paid (₹)"
-            type="number"
-            value={amountPaid}
-            onChange={(e) => setAmountPaid(e.target.value)}
-            placeholder="e.g. 990"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            label="Payment Method"
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            options={[
-              { value: 'CASH', label: 'Cash' },
-              { value: 'UPI', label: 'UPI' },
-              { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-            ]}
-          />
-          <Input
-            label="Payment Date"
-            type="date"
-            value={paymentDate}
-            onChange={(e) => setPaymentDate(e.target.value)}
-            required
-          />
-        </div>
-
-        {paymentMethod === 'UPI' && (
-          <Input
-            label="UPI ID"
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value)}
-            placeholder="e.g. john@upi"
-            required
-          />
-        )}
-
-        <Input
-          label="Notes (optional)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="e.g. Cash payment received"
-        />
-
-        <div className="flex justify-end gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={onClose} type="button">
-            Cancel
-          </Button>
-          <Button type="submit" isLoading={isSubmitting}>
-            Record Payment
-          </Button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 ========================================
@@ -5708,7 +6394,6 @@ interface ChitMember {
   member: {
     id: string;
     name: { value: string };
-    mobile: { value: string };
   };
 }
 
@@ -5724,7 +6409,6 @@ interface MemberRow {
   chitMemberId: string;
   ticketNumber: number;
   memberName: string;
-  mobile: string;
   isWinner: boolean;
   monthlyDue: number;
   totalPaid: number;
@@ -5737,7 +6421,6 @@ interface AggregatedRow {
   chitMemberId: string;
   ticketNumber: number;
   memberName: string;
-  mobile: string;
   totalDue: number;       // sum of amount_to_collect for non-winner months
   totalPaid: number;      // sum of all payments across all months
   remaining: number;      // totalDue - totalPaid
@@ -5765,10 +6448,33 @@ function formatCurrency(amount: number) {
 export default function PaymentTrackingPage() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<ChitGroup[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('payments-tracking:group') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [groupStatusFilter, setGroupStatusFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('payments-tracking:status') || 'ACTIVE';
+    } catch {
+      return 'ACTIVE';
+    }
+  });
   const [auctions, setAuctions] = useState<Auction[]>([]);
   // 'all' = aggregated view across all months
-  const [selectedMonth, setSelectedMonth] = useState<number | 'all' | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all' | null>(() => {
+    try {
+      const v = localStorage.getItem('payments-tracking:month');
+      if (!v) return null;
+      if (v === 'all') return 'all';
+      const n = Number(v);
+      return Number.isNaN(n) ? null : n;
+    } catch {
+      return null;
+    }
+  });
   const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
@@ -5798,10 +6504,50 @@ export default function PaymentTrackingPage() {
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         setAuctions(list);
-        // default to 'All Months' aggregated view when auctions exist
-        setSelectedMonth(list.length > 0 ? 'all' : null);
+        // Restore stored month if valid for this group's auctions, else default
+        try {
+          const stored = localStorage.getItem('payments-tracking:month');
+          if (list.length > 0) {
+            if (stored) {
+              if (stored === 'all') setSelectedMonth('all');
+              else {
+                const n = Number(stored);
+                if (!Number.isNaN(n) && list.some((a) => a.month_number === n)) setSelectedMonth(n);
+                else setSelectedMonth('all');
+              }
+            } else {
+              setSelectedMonth('all');
+            }
+          } else {
+            setSelectedMonth(null);
+          }
+        } catch {
+          setSelectedMonth(list.length > 0 ? 'all' : null);
+        }
       });
   }, [selectedGroupId]);
+
+  // If stored selectedGroupId is not present in fetched groups, clear it
+  useEffect(() => {
+    if (!groups || groups.length === 0) return;
+    if (selectedGroupId && !groups.some((g) => g.id === selectedGroupId)) {
+      setSelectedGroupId('');
+    }
+  }, [groups]);
+
+  // Clear selected group when status filter changes only if it no longer matches
+  useEffect(() => {
+    if (!selectedGroupId) return;
+    if (!groups || groups.length === 0) return;
+    const g = groups.find((x) => x.id === selectedGroupId);
+    if (!g) {
+      setSelectedGroupId('');
+      return;
+    }
+    if (groupStatusFilter !== 'ALL' && g.status !== groupStatusFilter) {
+      setSelectedGroupId('');
+    }
+  }, [groupStatusFilter, selectedGroupId, groups]);
 
   // Load chit members + payments when group/month changes
   const loadMonthData = useCallback(async () => {
@@ -5831,6 +6577,26 @@ export default function PaymentTrackingPage() {
     loadMonthData();
   }, [loadMonthData]);
 
+  // Persist filters/state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('payments-tracking:status', groupStatusFilter);
+    } catch {}
+  }, [groupStatusFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('payments-tracking:group', selectedGroupId);
+    } catch {}
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+    try {
+      if (selectedMonth === null) localStorage.setItem('payments-tracking:month', '');
+      else localStorage.setItem('payments-tracking:month', String(selectedMonth));
+    } catch {}
+  }, [selectedMonth]);
+
   // Derive per-member rows (single-month mode)
   const currentAuction = selectedMonth !== 'all'
     ? auctions.find((a) => a.month_number === selectedMonth)
@@ -5859,7 +6625,6 @@ export default function PaymentTrackingPage() {
       chitMemberId: cm.id,
       ticketNumber: cm.ticket_number,
       memberName: cm.member?.name?.value || 'Unknown',
-      mobile: cm.member?.mobile?.value || '—',
       isWinner,
       monthlyDue,
       totalPaid,
@@ -5903,7 +6668,7 @@ export default function PaymentTrackingPage() {
     else if (totalPaid > 0 && remaining > 0) status = 'PARTIAL';
     else status = 'PENDING';
 
-    return { chitMemberId: cm.id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', mobile: cm.member?.mobile?.value || '—', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
+    return { chitMemberId: cm.id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
   });
 
   const counts = isAllMode
@@ -5948,19 +6713,35 @@ export default function PaymentTrackingPage() {
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Filters */}
         <Card>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Select
+              label="Status"
+              value={groupStatusFilter}
+              onChange={(e) => setGroupStatusFilter(e.target.value)}
+              options={[
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'COMPLETED', label: 'Completed' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'ALL', label: 'All statuses' },
+              ]}
+            />
+
             <Select
               label="Chit Group"
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
               options={[
                 { value: '', label: 'Select a group...' },
-                ...groups.map((g) => ({
-                  value: g.id,
-                  label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
-                })),
+                ...groups
+                  .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
+                  .map((g) => ({
+                    value: g.id,
+                    label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
+                  })),
               ]}
             />
+
             <Select
               label="Month"
               value={selectedMonth?.toString() ?? ''}
@@ -6074,7 +6855,6 @@ export default function PaymentTrackingPage() {
                         <tr>
                           <th>Ticket</th>
                           <th>Member</th>
-                          <th>Mobile</th>
                           <th>Total Due</th>
                           <th>Total Paid</th>
                           <th>Remaining</th>
@@ -6096,7 +6876,6 @@ export default function PaymentTrackingPage() {
                               >
                                 <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
                                 <td className="font-medium text-foreground">{row.memberName}</td>
-                                <td className="text-foreground-muted">{row.mobile}</td>
                                 <td className="text-foreground">{formatCurrency(row.totalDue)}</td>
                                 <td>
                                   {row.totalPaid > 0
@@ -6125,7 +6904,6 @@ export default function PaymentTrackingPage() {
                                             chitMemberId: row.chitMemberId,
                                             ticketNumber: row.ticketNumber,
                                             memberName: row.memberName,
-                                            mobile: row.mobile,
                                             isWinner: false,
                                             monthlyDue: firstDue.due,
                                             totalPaid: firstDue.paid,
@@ -6226,7 +7004,6 @@ export default function PaymentTrackingPage() {
                       <tr>
                         <th>Ticket</th>
                         <th>Member</th>
-                        <th>Mobile</th>
                         <th>Due</th>
                         <th>Paid</th>
                         <th>Remaining</th>
@@ -6241,7 +7018,6 @@ export default function PaymentTrackingPage() {
                           <tr key={row.chitMemberId}>
                             <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
                             <td className="font-medium text-foreground">{row.memberName}</td>
-                            <td className="text-foreground-muted">{row.mobile}</td>
                             <td>
                               {row.isWinner ? (
                                 <span className="text-foreground-muted text-xs">—</span>
@@ -6968,9 +7744,17 @@ export default function RegisterPage() {
 //src/components/layout/Header.tsx
 'use client';
 
+import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { HiOutlineBell, HiOutlineUserCircle, HiOutlineSun, HiOutlineMoon } from 'react-icons/hi2';
-import { useEffect, useState } from 'react';
+import {
+  HiOutlineBell,
+  HiOutlineUserCircle,
+  HiOutlineSun,
+  HiOutlineMoon,
+  HiOutlineArrowRightOnRectangle,
+  HiOutlineChevronDown,
+} from 'react-icons/hi2';
+import { useEffect, useRef, useState } from 'react';
 
 interface HeaderProps {
   title: string;
@@ -6979,8 +7763,10 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, children }: HeaderProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isDark, setIsDark] = useState(true);
+  const [open, setOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('bidnest-theme');
@@ -6993,48 +7779,106 @@ export function Header({ title, subtitle, children }: HeaderProps) {
     }
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme = isDark ? 'light' : 'dark';
-    setIsDark(!isDark);
-    localStorage.setItem('bidnest-theme', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const toggleTheme = () => {
+    const next = isDark ? 'light' : 'dark';
+    setIsDark(!isDark);
+    localStorage.setItem('bidnest-theme', next);
+    document.documentElement.classList.toggle('dark', next === 'dark');
   };
+
+  const displayName = user?.name || user?.username || '';
+  const initials = displayName.charAt(0).toUpperCase();
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 border-b border-border"
+      className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 border-b border-border"
       style={{ background: 'var(--header-bg)', backdropFilter: 'blur(12px)' }}
     >
-      <div>
-        <h1 className="text-xl font-bold text-foreground">{title}</h1>
-        {subtitle && <p className="text-sm text-foreground-muted mt-0.5">{subtitle}</p>}
+      {/* Title */}
+      <div className="min-w-0 mr-4">
+        <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">{title}</h1>
+        {subtitle && <p className="text-xs sm:text-sm text-foreground-muted mt-0.5 truncate">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-3">
+
+      {/* Right side */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {children}
-        {/* Theme Toggle */}
+
+        {/* Theme toggle */}
         <button
           onClick={toggleTheme}
           className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
           title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {isDark ? (
-            <HiOutlineSun className="w-5 h-5" />
-          ) : (
-            <HiOutlineMoon className="w-5 h-5" />
-          )}
+          {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
         </button>
+
+        {/* Bell */}
         <button className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground">
           <HiOutlineBell className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass text-sm">
-          <HiOutlineUserCircle className="w-5 h-5 text-cyan-400" />
-          <span className="text-foreground-secondary font-medium hidden sm:block">
-            {user?.name || user?.username}
-          </span>
+
+        {/* User dropdown */}
+        <div className="relative" ref={dropRef}>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-xl glass hover:bg-surface-hover transition-all text-sm"
+          >
+            {/* Avatar */}
+            <div className="w-7 h-7 rounded-lg bg-linear-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
+              {initials}
+            </div>
+            <span className="text-foreground-secondary font-medium hidden sm:block max-w-[110px] truncate">
+              {displayName}
+            </span>
+            <HiOutlineChevronDown
+              className={`w-3.5 h-3.5 text-foreground-muted hidden sm:block transition-transform duration-200 ${
+                open ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {/* Dropdown panel */}
+          {open && (
+            <div className="absolute right-0 top-full mt-2 w-52 glass-strong rounded-2xl border border-border shadow-xl shadow-black/40 overflow-hidden z-50">
+              {/* User info */}
+              <div className="px-4 py-3 border-b border-border">
+                <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                <p className="text-xs text-foreground-muted truncate mt-0.5">{user?.email}</p>
+              </div>
+
+              {/* Profile */}
+              <Link
+                href="/profile"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground-secondary hover:bg-surface-hover hover:text-foreground transition-colors"
+              >
+                <HiOutlineUserCircle className="w-4 h-4 shrink-0" />
+                My Profile
+              </Link>
+
+              {/* Sign out */}
+              <button
+                onClick={() => { setOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground-secondary hover:bg-red-500/10 hover:text-red-400 transition-colors"
+              >
+                <HiOutlineArrowRightOnRectangle className="w-4 h-4 shrink-0" />
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
@@ -7046,15 +7890,12 @@ export function Header({ title, subtitle, children }: HeaderProps) {
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/components/providers/AuthProvider';
 import {
   HiOutlineSquares2X2,
   HiOutlineUsers,
   HiOutlineUserGroup,
   HiOutlineTrophy,
   HiOutlineBanknotes,
-  HiOutlineArrowRightOnRectangle,
-  HiOutlineUserCircle,
   HiOutlineClipboardDocumentList,
 } from 'react-icons/hi2';
 
@@ -7069,7 +7910,6 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
 
   return (
     <>
@@ -7113,43 +7953,38 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* User section */}
-        <div className="px-3 py-4 border-t border-border space-y-1">
-          <Link
-            href="/profile"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground-secondary hover:bg-surface-hover hover:text-foreground transition-all"
-          >
-            <HiOutlineUserCircle className="w-5 h-5" />
-            {user?.name || user?.username}
-          </Link>
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground-secondary hover:bg-red-500/10 hover:text-red-400 transition-all"
-          >
-            <HiOutlineArrowRightOnRectangle className="w-5 h-5" />
-            Sign Out
-          </button>
-        </div>
       </aside>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border px-2 py-2 flex items-center justify-around"
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border flex items-center justify-around px-1 py-1.5"
         style={{ background: 'var(--sidebar-bg)', backdropFilter: 'blur(20px)' }}
       >
         {navItems.map((item) => {
           const isActive = item.exact
             ? pathname === item.href
             : pathname === item.href || pathname.startsWith(item.href + '/');
+          // Shorten labels for tight mobile bar
+          const shortLabel: Record<string, string> = {
+            Dashboard: 'Home',
+            Members: 'Members',
+            'Chit Groups': 'Groups',
+            Auctions: 'Auctions',
+            Payments: 'Payments',
+            'Payment Tracker': 'Tracker',
+          };
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${
+              className={`flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl transition-all ${
                 isActive ? 'text-cyan-400' : 'text-foreground-muted'
               }`}
             >
               <item.icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="text-[10px] font-medium leading-tight text-center">
+                {shortLabel[item.label] ?? item.label}
+              </span>
             </Link>
           );
         })}
@@ -7789,12 +8624,18 @@ export interface AuctionCalculation {
   commission: number;
   carry_previous: number;
   raw_dividend: number;
+  /** Per-member rounded dividend (divided by total_members first, then rounded down) */
+  per_member_dividend: number;
+  /** Total rounded pool = per_member_dividend × total_members */
   roundoff_dividend: number;
+  /** Remaining amount carried to next month = raw_dividend - roundoff_dividend */
   carry_next: number;
 }
 
 export interface CalculationInput {
   total_amount: number;
+  /** Number of members in the chit group (used for per-member division) */
+  total_members: number;
   original_bid: number;
   commission_type: "PERCENT" | "FIXED";
   commission_value: number;
@@ -7805,6 +8646,7 @@ export interface CalculationInput {
 export function calculateAuction(input: CalculationInput): AuctionCalculation {
   const {
     total_amount,
+    total_members,
     original_bid,
     commission_type,
     commission_value,
@@ -7812,30 +8654,39 @@ export function calculateAuction(input: CalculationInput): AuctionCalculation {
     carry_previous,
   } = input;
 
-  // winning amount = total - bid
+  // winning amount = total pot - bid
   const winning_amount = total_amount - original_bid;
 
-  // commission = percent of winning amount or fixed value
+  // commission on winning amount (percent) or a fixed fee
   const commission =
     commission_type === "PERCENT"
       ? (winning_amount * commission_value) / 100
       : commission_value;
 
-  // raw dividend = bid - commission + carry from previous month
+  // raw dividend pool = bid - commission + carry from previous month
   const raw_dividend = original_bid - commission + carry_previous;
 
-  // round down to nearest round_off_value
-  const roundoff_dividend =
-    Math.floor(raw_dividend / round_off_value) * round_off_value;
+  // ── NEW per-member-first logic ──────────────────────────────────────────
+  // 1. Divide the pool per member FIRST
+  const per_member_raw = raw_dividend / total_members;
 
-  // carry forward to next month
+  // 2. Round each member's share DOWN to the nearest round_off_value
+  const per_member_dividend =
+    Math.floor(per_member_raw / round_off_value) * round_off_value;
+
+  // 3. Total rounded pool (what actually gets distributed)
+  const roundoff_dividend = per_member_dividend * total_members;
+
+  // 4. Remainder carries to next month
   const carry_next = raw_dividend - roundoff_dividend;
+  // ────────────────────────────────────────────────────────────────────────
 
   return {
     winning_amount,
     commission,
     carry_previous,
     raw_dividend,
+    per_member_dividend,
     roundoff_dividend,
     carry_next,
   };
