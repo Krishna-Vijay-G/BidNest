@@ -41,7 +41,6 @@ interface ChitMember {
   member: {
     id: string;
     name: { value: string };
-    mobile: { value: string };
   };
 }
 
@@ -57,7 +56,6 @@ interface MemberRow {
   chitMemberId: string;
   ticketNumber: number;
   memberName: string;
-  mobile: string;
   isWinner: boolean;
   monthlyDue: number;
   totalPaid: number;
@@ -70,7 +68,6 @@ interface AggregatedRow {
   chitMemberId: string;
   ticketNumber: number;
   memberName: string;
-  mobile: string;
   totalDue: number;       // sum of amount_to_collect for non-winner months
   totalPaid: number;      // sum of all payments across all months
   remaining: number;      // totalDue - totalPaid
@@ -192,7 +189,6 @@ export default function PaymentTrackingPage() {
       chitMemberId: cm.id,
       ticketNumber: cm.ticket_number,
       memberName: cm.member?.name?.value || 'Unknown',
-      mobile: cm.member?.mobile?.value || '—',
       isWinner,
       monthlyDue,
       totalPaid,
@@ -236,7 +232,7 @@ export default function PaymentTrackingPage() {
     else if (totalPaid > 0 && remaining > 0) status = 'PARTIAL';
     else status = 'PENDING';
 
-    return { chitMemberId: cm.id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', mobile: cm.member?.mobile?.value || '—', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
+    return { chitMemberId: cm.id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
   });
 
   const counts = isAllMode
@@ -407,7 +403,6 @@ export default function PaymentTrackingPage() {
                         <tr>
                           <th>Ticket</th>
                           <th>Member</th>
-                          <th>Mobile</th>
                           <th>Total Due</th>
                           <th>Total Paid</th>
                           <th>Remaining</th>
@@ -429,7 +424,6 @@ export default function PaymentTrackingPage() {
                               >
                                 <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
                                 <td className="font-medium text-foreground">{row.memberName}</td>
-                                <td className="text-foreground-muted">{row.mobile}</td>
                                 <td className="text-foreground">{formatCurrency(row.totalDue)}</td>
                                 <td>
                                   {row.totalPaid > 0
@@ -458,7 +452,6 @@ export default function PaymentTrackingPage() {
                                             chitMemberId: row.chitMemberId,
                                             ticketNumber: row.ticketNumber,
                                             memberName: row.memberName,
-                                            mobile: row.mobile,
                                             isWinner: false,
                                             monthlyDue: firstDue.due,
                                             totalPaid: firstDue.paid,
@@ -559,7 +552,6 @@ export default function PaymentTrackingPage() {
                       <tr>
                         <th>Ticket</th>
                         <th>Member</th>
-                        <th>Mobile</th>
                         <th>Due</th>
                         <th>Paid</th>
                         <th>Remaining</th>
@@ -574,7 +566,6 @@ export default function PaymentTrackingPage() {
                           <tr key={row.chitMemberId}>
                             <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
                             <td className="font-medium text-foreground">{row.memberName}</td>
-                            <td className="text-foreground-muted">{row.mobile}</td>
                             <td>
                               {row.isWinner ? (
                                 <span className="text-foreground-muted text-xs">—</span>

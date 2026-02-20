@@ -4,10 +4,18 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
+import { Card, PageLoader, EmptyState, Select } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/Badge';
-import { HiOutlineBanknotes, HiOutlinePlus } from 'react-icons/hi2';
-import toast from 'react-hot-toast';
+import {
+  HiOutlineBanknotes,
+  HiOutlineArrowTrendingUp,
+  HiOutlineArrowTrendingDown,
+  HiOutlineCurrencyRupee,
+  HiOutlineScissors,
+  HiOutlineUserGroup,
+} from 'react-icons/hi2';
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface ChitGroup {
   id: string;
@@ -15,16 +23,17 @@ interface ChitGroup {
   total_amount: string;
   total_members: number;
   monthly_amount: string;
+  duration_months: number;
   status: string;
 }
 
-interface ChitMember {
+interface Auction {
   id: string;
-  ticket_number: number;
   chit_group_id: string;
-  member: {
-    name: { value: string };
-  };
+  month_number: number;
+  winning_amount: string;
+  commission: string;
+  original_bid: string;
 }
 
 interface Payment {
@@ -34,18 +43,17 @@ interface Payment {
   month_number: number;
   amount_paid: string;
   payment_method: string;
-  upi_id: string | null;
   payment_date: string;
   status: string;
-  notes: string | null;
-  created_at: string;
   chit_member: {
     ticket_number: number;
     member: { name: { value: string } };
   };
 }
 
-function formatCurrency(amount: number) {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmt(amount: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
@@ -53,60 +61,195 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+function pct(part: number, total: number) {
+  if (!total) return '0%';
+  return `${Math.round((part / total) * 100)}%`;
+}
+
+// ─── Per-group stats ─────────────────────────────────────────────────────────
+
+interface GroupStats {
+  group: ChitGroup;
+  inflow: number;
+  payouts: number;
+  commission: number;
+  net: number;
+  auctionsCount: number;
+}
+
+function buildGroupStats(
+  groups: ChitGroup[],
+  payments: Payment[],
+  auctions: Auction[]
+): GroupStats[] {
+  return groups.map((g) => {
+    const gPayments = payments.filter((p) => p.chit_group_id === g.id);
+    const gAuctions = auctions.filter((a) => a.chit_group_id === g.id);
+    const inflow = gPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
+    const payouts = gAuctions.reduce((s, a) => s + Number(a.winning_amount), 0);
+    const commission = gAuctions.reduce((s, a) => s + Number(a.commission), 0);
+    return {
+      group: g,
+      inflow,
+      payouts,
+      commission,
+      net: inflow - payouts - commission,
+      auctionsCount: gAuctions.length,
+    };
+  });
+}
+
+// ─── Summary Card ────────────────────────────────────────────────────────────
+
+function SummaryCard({
+  label,
+  value,
+  sub,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <div className="glass rounded-2xl border border-border p-5 flex items-start gap-4">
+      <div className={`p-2.5 rounded-xl shrink-0 ${color}`}>{icon}</div>
+      <div className="min-w-0">
+        <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">{label}</p>
+        <p className="text-2xl font-bold text-foreground truncate">{value}</p>
+        {sub && <p className="text-xs text-foreground-muted mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Group Finance Card ───────────────────────────────────────────────────────
+
+function GroupFinanceCard({ stats }: { stats: GroupStats }) {
+  const { group, inflow, payouts, commission, net, auctionsCount } = stats;
+  const isPositive = net >= 0;
+
+  return (
+    <div className="glass glass-hover rounded-2xl border border-border p-5 space-y-4 transition-all duration-200">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2 rounded-xl bg-cyan-500/10 shrink-0">
+            <HiOutlineUserGroup className="w-5 h-5 text-cyan-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{group.name}</p>
+            <p className="text-xs text-foreground-muted">
+              {fmt(Number(group.total_amount))} · {group.total_members} members
+            </p>
+          </div>
+        </div>
+        <StatusBadge status={group.status} />
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+          <p className="text-xs text-foreground-muted mb-0.5">Inflow</p>
+          <p className="text-base font-bold text-emerald-400">{fmt(inflow)}</p>
+        </div>
+        <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-3">
+          <p className="text-xs text-foreground-muted mb-0.5">Payouts</p>
+          <p className="text-base font-bold text-purple-400">{fmt(payouts)}</p>
+        </div>
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+          <p className="text-xs text-foreground-muted mb-0.5">Commission</p>
+          <p className="text-base font-bold text-amber-400">{fmt(commission)}</p>
+        </div>
+        <div className={`rounded-xl p-3 border ${isPositive ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+          <p className="text-xs text-foreground-muted mb-0.5">Net</p>
+          <p className={`text-base font-bold ${isPositive ? 'text-cyan-400' : 'text-red-400'}`}>
+            {fmt(net)}
+          </p>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div>
+        <div className="flex justify-between text-xs text-foreground-muted mb-1.5">
+          <span>Auctions conducted</span>
+          <span>{auctionsCount} / {group.duration_months}</span>
+        </div>
+        <div className="neon-progress">
+          <div
+            className="neon-progress-bar"
+            style={{ width: pct(auctionsCount, group.duration_months) }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
+
 export default function PaymentsPage() {
+  const { user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [groups, setGroups] = useState<ChitGroup[]>([]);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterGroup, setFilterGroup] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
   const hasFetched = useRef(false);
 
-  const loadData = useCallback(async (force = false) => {
-    if (!user) return;
-    if (!force && hasFetched.current) return;
+  const loadData = useCallback(async () => {
+    if (!user || hasFetched.current) return;
     hasFetched.current = true;
     try {
-      const [paymentsRes, groupsRes] = await Promise.all([
+      const [pRes, gRes, aRes] = await Promise.all([
         fetch(`/api/payments?user_id=${user.id}`),
         fetch(`/api/chit-groups?user_id=${user.id}`),
+        fetch(`/api/auctions?user_id=${user.id}`),
       ]);
-      const p = await paymentsRes.json();
-      const g = await groupsRes.json();
+      const [p, g, a] = await Promise.all([pRes.json(), gRes.json(), aRes.json()]);
       setPayments(Array.isArray(p) ? p : []);
       setGroups(Array.isArray(g) ? g : []);
+      setAuctions(Array.isArray(a) ? a : []);
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const refreshData = useCallback(async () => {
-    if (!user) return;
-    const [paymentsRes, groupsRes] = await Promise.all([
-      fetch(`/api/payments?user_id=${user.id}`),
-      fetch(`/api/chit-groups?user_id=${user.id}`),
-    ]);
-    const p = await paymentsRes.json();
-    const g = await groupsRes.json();
-    setPayments(Array.isArray(p) ? p : []);
-    setGroups(Array.isArray(g) ? g : []);
-  }, [user]);
+  // ── Derived data ──────────────────────────────────────────────────────────
 
-  const filteredPayments = payments.filter((p) => {
-    if (filterGroup !== 'all' && p.chit_group_id !== filterGroup) return false;
-    if (filterStatus !== 'all' && p.status !== filterStatus) return false;
-    return true;
-  });
+  const groupStats = buildGroupStats(groups, payments, auctions);
 
-  // summary stats
-  const totalCollected = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
-  const totalCompleted = payments.filter((p) => p.status === 'COMPLETED').length;
-  const totalPartial = payments.filter((p) => p.status === 'PARTIAL').length;
+  // combined totals
+  const totalInflow = payments.reduce((s, p) => s + Number(p.amount_paid), 0);
+  const totalPayouts = auctions.reduce((s, a) => s + Number(a.winning_amount), 0);
+  const totalCommission = auctions.reduce((s, a) => s + Number(a.commission), 0);
+  const totalNet = totalInflow - totalPayouts - totalCommission;
+
+  // filtered to selected group
+  const selectedStats =
+    filterGroup === 'all'
+      ? null
+      : groupStats.find((gs) => gs.group.id === filterGroup) ?? null;
+
+  const displayInflow = selectedStats ? selectedStats.inflow : totalInflow;
+  const displayPayouts = selectedStats ? selectedStats.payouts : totalPayouts;
+  const displayCommission = selectedStats ? selectedStats.commission : totalCommission;
+  const displayNet = selectedStats ? selectedStats.net : totalNet;
+
+  // recent payments for selected group (last 15)
+  const recentPayments = (
+    filterGroup === 'all'
+      ? payments
+      : payments.filter((p) => p.chit_group_id === filterGroup)
+  )
+    .slice()
+    .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+    .slice(0, 15);
 
   if (isLoading) {
     return (
@@ -119,303 +262,147 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <Header title="Payments" subtitle={`${payments.length} total records`}>
-        <Button
-          icon={<HiOutlinePlus className="w-4 h-4" />}
-          onClick={() => setShowCreateModal(true)}
-        >
-          Record Payment
-        </Button>
-      </Header>
+      <Header
+        title="Payments"
+        subtitle={filterGroup === 'all' ? 'All groups combined' : selectedStats?.group.name}
+      />
 
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass rounded-2xl border border-border p-5">
-            <p className="text-sm text-foreground-muted mb-1">Total Collected</p>
-            <p className="text-2xl font-bold text-cyan-400">{formatCurrency(totalCollected)}</p>
-          </div>
-          <div className="glass rounded-2xl border border-border p-5">
-            <p className="text-sm text-foreground-muted mb-1">Completed</p>
-            <p className="text-2xl font-bold text-emerald-400">{totalCompleted}</p>
-          </div>
-          <div className="glass rounded-2xl border border-border p-5">
-            <p className="text-sm text-foreground-muted mb-1">Partial</p>
-            <p className="text-2xl font-bold text-amber-400">{totalPartial}</p>
-          </div>
-        </div>
+      <div className="p-4 sm:p-6 lg:p-8 space-y-8">
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4">
-          <div className="w-48">
+        {/* ── Group filter ───────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-56">
             <Select
               value={filterGroup}
               onChange={(e) => setFilterGroup(e.target.value)}
               options={[
-                { value: 'all', label: 'All Groups' },
+                { value: 'all', label: '📊 All Groups Combined' },
                 ...groups.map((g) => ({
                   value: g.id,
-                  label: `${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
+                  label: `${g.name} · ${g.total_members}M`,
                 })),
               ]}
             />
           </div>
-          <div className="w-48">
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              options={[
-                { value: 'all', label: 'All Status' },
-                { value: 'COMPLETED', label: 'Completed' },
-                { value: 'PARTIAL', label: 'Partial' },
-              ]}
+          <span className="text-sm text-foreground-muted">
+            {filterGroup === 'all'
+              ? `${groups.length} groups · ${payments.length} payments`
+              : `${recentPayments.length} recent payments`}
+          </span>
+        </div>
+
+        {/* ── Summary Cards ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <SummaryCard
+            label="Total Inflow"
+            value={fmt(displayInflow)}
+            sub="Money collected from members"
+            icon={<HiOutlineArrowTrendingUp className="w-5 h-5" />}
+            color="bg-emerald-500/10 text-emerald-400"
+          />
+          <SummaryCard
+            label="Total Payouts"
+            value={fmt(displayPayouts)}
+            sub="Winning amounts disbursed"
+            icon={<HiOutlineArrowTrendingDown className="w-5 h-5" />}
+            color="bg-purple-500/10 text-purple-400"
+          />
+          <SummaryCard
+            label="Commission Earned"
+            value={fmt(displayCommission)}
+            sub={`${pct(displayCommission, displayInflow)} of inflow`}
+            icon={<HiOutlineScissors className="w-5 h-5" />}
+            color="bg-amber-500/10 text-amber-400"
+          />
+          <SummaryCard
+            label="Net Balance"
+            value={fmt(displayNet)}
+            sub={displayNet >= 0 ? 'Surplus' : 'Deficit'}
+            icon={<HiOutlineCurrencyRupee className="w-5 h-5" />}
+            color={displayNet >= 0 ? 'bg-cyan-500/10 text-cyan-400' : 'bg-red-500/10 text-red-400'}
+          />
+        </div>
+
+        {/* ── Group-wise Cards ───────────────────────────────────────────── */}
+        {filterGroup === 'all' && (
+          <section>
+            <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
+              Group Breakdown
+            </h2>
+            {groupStats.length === 0 ? (
+              <EmptyState
+                icon={<HiOutlineUserGroup className="w-8 h-8" />}
+                title="No chit groups yet"
+                description="Create a chit group to start tracking payments."
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {groupStats.map((gs) => (
+                  <GroupFinanceCard key={gs.group.id} stats={gs} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Recent Payments ─────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
+            {filterGroup === 'all' ? 'Recent Payments (All Groups)' : 'Recent Payments'}
+          </h2>
+          {recentPayments.length === 0 ? (
+            <EmptyState
+              icon={<HiOutlineBanknotes className="w-8 h-8" />}
+              title="No payments recorded yet"
+              description="Use the Payment Tracker to record member payments."
             />
-          </div>
-        </div>
-
-        {/* Table */}
-        {filteredPayments.length === 0 ? (
-          <EmptyState
-            icon={<HiOutlineBanknotes className="w-8 h-8" />}
-            title="No payments found"
-            description="Record your first payment to get started."
-          />
-        ) : (
-          <Card padding={false}>
-            <div className="overflow-x-auto">
-              <table className="glass-table w-full">
-                <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Ticket</th>
-                    <th>Month</th>
-                    <th>Amount Paid</th>
-                    <th>Method</th>
-                    <th>UPI ID</th>
-                    <th>Payment Date</th>
-                    <th>Status</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPayments.map((payment) => (
-                    <tr key={payment.id}>
-                      <td className="font-medium text-foreground">
-                        {payment.chit_member?.member?.name?.value || 'N/A'}
-                      </td>
-                      <td>#{payment.chit_member?.ticket_number}</td>
-                      <td>{payment.month_number}</td>
-                      <td className="font-semibold text-cyan-400">
-                        {formatCurrency(Number(payment.amount_paid))}
-                      </td>
-                      <td>
-                        <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-surface border border-border text-foreground-secondary">
-                          {payment.payment_method}
-                        </span>
-                      </td>
-                      <td className="text-foreground-muted">
-                        {payment.upi_id || '—'}
-                      </td>
-                      <td className="text-foreground-muted">
-                        {new Date(payment.payment_date).toLocaleDateString('en-IN')}
-                      </td>
-                      <td>
-                        <StatusBadge status={payment.status} />
-                      </td>
-                      <td className="text-foreground-muted">
-                        {payment.notes || '—'}
-                      </td>
+          ) : (
+            <Card padding={false}>
+              <div className="overflow-x-auto">
+                <table className="glass-table w-full">
+                  <thead>
+                    <tr>
+                      <th>Member</th>
+                      <th>Ticket</th>
+                      <th>Month</th>
+                      <th>Amount</th>
+                      <th>Method</th>
+                      <th>Date</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
+                  </thead>
+                  <tbody>
+                    {recentPayments.map((p) => (
+                      <tr key={p.id}>
+                        <td className="font-medium text-foreground">
+                          {p.chit_member?.member?.name?.value || 'N/A'}
+                        </td>
+                        <td>#{p.chit_member?.ticket_number}</td>
+                        <td>Month {p.month_number}</td>
+                        <td className="font-semibold text-cyan-400">
+                          {fmt(Number(p.amount_paid))}
+                        </td>
+                        <td>
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-surface border border-border text-foreground-secondary">
+                            {p.payment_method}
+                          </span>
+                        </td>
+                        <td className="text-foreground-muted">
+                          {new Date(p.payment_date).toLocaleDateString('en-IN')}
+                        </td>
+                        <td>
+                          <StatusBadge status={p.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </section>
+
       </div>
-
-      {/* Record Payment Modal */}
-      <PaymentFormModal
-        isOpen={showCreateModal}
-        groups={groups}
-        onClose={() => setShowCreateModal(false)}
-        onSaved={() => {
-          setShowCreateModal(false);
-          refreshData();
-        }}
-      />
     </>
-  );
-}
-
-// ─── Payment Form Modal ─────────────────────────────────────────────────────
-
-function PaymentFormModal({
-  isOpen,
-  groups,
-  onClose,
-  onSaved,
-}: {
-  isOpen: boolean;
-  groups: ChitGroup[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
-  const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [monthNumber, setMonthNumber] = useState('');
-  const [amountPaid, setAmountPaid] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
-  const [upiId, setUpiId] = useState('');
-  const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
-  const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // load chit members when group selected
-  useEffect(() => {
-    if (!selectedGroupId) return;
-    fetch(`/api/chit-members?chit_group_id=${selectedGroupId}`)
-      .then((r) => r.json())
-      .then(setChitMembers);
-  }, [selectedGroupId]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    const res = await fetch('/api/payments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chit_group_id: selectedGroupId,
-        chit_member_id: selectedMemberId,
-        month_number: Number(monthNumber),
-        amount_paid: Number(amountPaid),
-        payment_method: paymentMethod,
-        upi_id: paymentMethod === 'UPI' ? upiId : undefined,
-        payment_date: new Date(paymentDate).toISOString(),
-        notes: notes || undefined,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      toast.error(data.error || 'Failed to record payment');
-    } else {
-      toast.success(
-        `Payment recorded! Status: ${data.status} · Remaining: ${
-          data.remaining > 0
-            ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(data.remaining)
-            : '₹0'
-        }`
-      );
-      onSaved();
-    }
-
-    setIsSubmitting(false);
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Record Payment" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Select
-          label="Chit Group"
-          value={selectedGroupId}
-          onChange={(e) => {
-            setSelectedGroupId(e.target.value);
-            setSelectedMemberId('');
-          }}
-          options={[
-            { value: '', label: 'Select a group...' },
-            ...groups.map((g) => ({
-              value: g.id,
-              label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
-            })),
-          ]}
-        />
-
-        <Select
-          label="Member (Ticket)"
-          value={selectedMemberId}
-          onChange={(e) => setSelectedMemberId(e.target.value)}
-          options={[
-            { value: '', label: 'Select member...' },
-            ...chitMembers.map((cm) => ({
-              value: cm.id,
-              label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
-            })),
-          ]}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Month Number"
-            type="number"
-            value={monthNumber}
-            onChange={(e) => setMonthNumber(e.target.value)}
-            placeholder="e.g. 1"
-            required
-          />
-          <Input
-            label="Amount Paid (₹)"
-            type="number"
-            value={amountPaid}
-            onChange={(e) => setAmountPaid(e.target.value)}
-            placeholder="e.g. 990"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            label="Payment Method"
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            options={[
-              { value: 'CASH', label: 'Cash' },
-              { value: 'UPI', label: 'UPI' },
-              { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-            ]}
-          />
-          <Input
-            label="Payment Date"
-            type="date"
-            value={paymentDate}
-            onChange={(e) => setPaymentDate(e.target.value)}
-            required
-          />
-        </div>
-
-        {paymentMethod === 'UPI' && (
-          <Input
-            label="UPI ID"
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value)}
-            placeholder="e.g. john@upi"
-            required
-          />
-        )}
-
-        <Input
-          label="Notes (optional)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="e.g. Cash payment received"
-        />
-
-        <div className="flex justify-end gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={onClose} type="button">
-            Cancel
-          </Button>
-          <Button type="submit" isLoading={isSubmitting}>
-            Record Payment
-          </Button>
-        </div>
-      </form>
-    </Modal>
   );
 }
