@@ -10,6 +10,7 @@ import {
   HiOutlineMoon,
   HiOutlineArrowRightOnRectangle,
   HiOutlineChevronDown,
+  HiOutlineStar,
 } from 'react-icons/hi2';
 import { useEffect, useRef, useState } from 'react';
 
@@ -82,10 +83,16 @@ export function Header({ title, subtitle, children }: HeaderProps) {
           {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
         </button>
 
-        {/* Bell */}
-        <button className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground">
-          <HiOutlineBell className="w-5 h-5" />
-        </button>
+        {/* GitHub link (replaces bell) */}
+        <a
+          href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
+          title="Open GitHub"
+        >
+          <HiOutlineStar className="w-5 h-5" />
+        </a>
 
         {/* User dropdown */}
         <div className="relative" ref={dropRef}>
@@ -97,7 +104,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
             <div className="w-7 h-7 rounded-lg bg-linear-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
               {initials}
             </div>
-            <span className="text-foreground-secondary font-medium hidden sm:block max-w-[110px] truncate">
+            <span className="text-foreground-secondary font-medium hidden sm:block max-w-27.5 truncate">
               {displayName}
             </span>
             <HiOutlineChevronDown
@@ -109,7 +116,13 @@ export function Header({ title, subtitle, children }: HeaderProps) {
 
           {/* Dropdown panel */}
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-52 glass-strong rounded-2xl border border-border shadow-xl shadow-black/40 overflow-hidden z-50">
+            <div
+              className="absolute right-0 top-full mt-2 w-52 glass-strong rounded-2xl border border-border shadow-xl shadow-black/40 overflow-hidden z-50"
+              style={isDark
+                ? { background: 'rgba(5,5,16,0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
+                : { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
+              }
+            >
               {/* User info */}
               <div className="px-4 py-3 border-b border-border">
                 <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>

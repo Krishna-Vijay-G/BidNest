@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { HiOutlineChevronLeft } from 'react-icons/hi2';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -37,6 +38,12 @@ export default function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-md animate-slide-up">
+        <div className="mb-4">
+          <Link href="/" className="inline-flex items-center gap-2 text-foreground-muted hover:text-foreground">
+            <HiOutlineChevronLeft className="w-4 h-4" />
+            <span className="text-sm">Back to home</span>
+          </Link>
+        </div>
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-6">

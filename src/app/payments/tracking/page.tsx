@@ -571,48 +571,52 @@ export default function PaymentTrackingPage() {
                                 <tr key={`${row.chitMemberId}-breakdown`}>
                                   <td colSpan={9} className="bg-surface/40 px-4 py-3">
                                     <div className="rounded-xl border border-border overflow-hidden">
-                                      <table className="w-full text-sm">
+                                      <table className="glass-table w-full text-sm">
                                         <thead>
                                           <tr className="border-b border-border">
-                                            <th className="text-left px-4 py-2 text-foreground-muted font-medium">Month</th>
-                                            <th className="text-right px-4 py-2 text-foreground-muted font-medium">Due</th>
-                                            <th className="text-right px-4 py-2 text-foreground-muted font-medium">Paid</th>
-                                            <th className="text-right px-4 py-2 text-foreground-muted font-medium">Remaining</th>
-                                            <th className="text-center px-4 py-2 text-foreground-muted font-medium">Note</th>
+                                            <th className="text-left! px-4 py-2 text-foreground-muted font-medium">Month</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Due</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Paid</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Remaining</th>
+                                            <th className="text-center! px-4 py-2 text-foreground-muted font-medium">Note</th>
                                           </tr>
                                         </thead>
                                         <tbody>
                                           {row.monthBreakdown.map((mb) => (
                                             <tr key={mb.month} className="border-b border-border/50 last:border-0">
-                                              <td className="px-4 py-2 text-cyan-400 font-medium">Month {mb.month}</td>
-                                              <td className="px-4 py-2 text-right text-foreground">
+                                              <td className="px-4 py-2 text-left! text-cyan-400 font-medium">Month {mb.month}</td>
+                                              <td className="px-4 py-2 text-right! text-foreground">
                                                 {mb.isWinner ? <span className="text-foreground-muted">—</span> : formatCurrency(mb.due)}
                                               </td>
-                                              <td className="px-4 py-2 text-right">
+                                              <td className="px-4 py-2 text-right!">
                                                 {mb.paid > 0
                                                   ? <span className="text-emerald-400">{formatCurrency(mb.paid)}</span>
                                                   : <span className="text-foreground-muted">₹0</span>}
                                               </td>
-                                              <td className="px-4 py-2 text-right">
+                                              <td className="px-4 py-2 text-right!">
                                                 {mb.isWinner
                                                   ? <span className="text-foreground-muted">—</span>
                                                   : mb.remaining > 0
                                                     ? <span className="text-red-400">{formatCurrency(mb.remaining)}</span>
                                                     : <span className="text-emerald-400">₹0</span>}
                                               </td>
-                                              <td className="px-4 py-2 text-center">
-                                                {mb.isWinner && (
+                                              <td className="px-4 py-2 text-center!">
+                                                {mb.isWinner ? (
                                                   <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 Winner</span>
+                                                ) : (
+                                                  <span className="text-foreground-muted">—</span>
                                                 )}
                                               </td>
                                             </tr>
                                           ))}
                                           <tr className="bg-surface border-t-2 border-border font-semibold">
-                                            <td className="px-4 py-2 text-foreground-muted">Total</td>
-                                            <td className="px-4 py-2 text-right text-foreground">{formatCurrency(row.totalDue)}</td>
-                                            <td className="px-4 py-2 text-right text-emerald-400">{formatCurrency(row.totalPaid)}</td>
-                                            <td className="px-4 py-2 text-right text-red-400">{formatCurrency(row.remaining)}</td>
-                                            <td />
+                                            <td className="px-4 py-2 text-left! text-foreground-muted">Total</td>
+                                            <td className="px-4 py-2 text-right! text-foreground">{formatCurrency(row.totalDue)}</td>
+                                            <td className="px-4 py-2 text-right! text-emerald-400">{formatCurrency(row.totalPaid)}</td>
+                                            <td className="px-4 py-2 text-right! text-red-400">{formatCurrency(row.remaining)}</td>
+                                            <td className="px-4 py-2 text-center!">
+                                              <span className="text-foreground-muted">—</span>
+                                            </td>
                                           </tr>
                                         </tbody>
                                       </table>

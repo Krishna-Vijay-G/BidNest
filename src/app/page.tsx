@@ -1,4 +1,6 @@
 //src/app/page.tsx
+'use client';
+
 import Link from 'next/link';
 import {
   HiOutlineUserGroup,
@@ -7,7 +9,63 @@ import {
   HiOutlineBell,
   HiOutlineBanknotes,
   HiOutlineArrowTrendingUp,
+  HiOutlineSun,
+  HiOutlineMoon,
+  HiOutlineStar,
 } from 'react-icons/hi2';
+import { useState, useEffect } from 'react';
+
+// Theme toggle client component
+function ThemeToggle() {
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('bidnest-theme');
+    if (stored === 'light') {
+      setIsDark(false);
+      document.documentElement.classList.remove('dark');
+    } else {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = isDark ? 'light' : 'dark';
+    setIsDark(!isDark);
+    localStorage.setItem('bidnest-theme', next);
+    document.documentElement.classList.toggle('dark', next === 'dark');
+  };
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
+      title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+    >
+      {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
+    </button>
+  );
+}
+
+// GitHub star client component
+function GitHubStar() {
+  const url =
+    process.env.NEXT_PUBLIC_GITHUB_URL ||
+    'https://Krishna-Vijay-G.github.io/Portfolio';
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
+      title="Open GitHub"
+    >
+      <HiOutlineStar className="w-5 h-5" />
+    </a>
+  );
+}
 
 export default function HomePage() {
   return (
@@ -30,6 +88,8 @@ export default function HomePage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <GitHubStar />
           <Link
             href="/login"
             className="text-foreground-secondary hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors"
@@ -161,7 +221,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-border py-8 text-center">
         <p className="text-foreground-muted text-sm">
-          &copy; {new Date().getFullYear()} BidNest. Built for the chit fund community.
+          &copy; {new Date().getFullYear()} BidNest. Built for G.K Finance.
         </p>
       </footer>
     </div>
