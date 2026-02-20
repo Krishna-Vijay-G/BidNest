@@ -67,6 +67,7 @@ export default function AuctionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterGroup, setFilterGroup] = useState('all');
+  const [groupStatusFilter, setGroupStatusFilter] = useState('ACTIVE');
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
@@ -103,8 +104,15 @@ export default function AuctionsPage() {
     setGroups(Array.isArray(g) ? g : []);
   }, [user]);
 
+  // If no specific group is selected, limit auctions to groups matching selected status
+  const allowedGroupIds = new Set(
+    groups
+      .filter((g) => (groupStatusFilter === 'all' ? true : g.status === groupStatusFilter))
+      .map((g) => g.id)
+  );
+
   const filteredAuctions = auctions.filter((a) =>
-    filterGroup === 'all' ? true : a.chit_group_id === filterGroup
+    filterGroup === 'all' ? allowedGroupIds.has(a.chit_group_id) : a.chit_group_id === filterGroup
   );
 
   if (isLoading) {
@@ -129,18 +137,40 @@ export default function AuctionsPage() {
 
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Filter */}
-        <div className="mb-6 w-64">
-          <Select
-            value={filterGroup}
-            onChange={(e) => setFilterGroup(e.target.value)}
-            options={[
-              { value: 'all', label: 'All Groups' },
-              ...groups.map((g) => ({
-                value: g.id,
-                label: `${g.name} — ${formatCurrency(Number(g.total_amount))}`,
-              })),
-            ]}
-          />
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="w-48">
+            <Select
+              value={groupStatusFilter}
+              onChange={(e) => {
+                setGroupStatusFilter(e.target.value);
+                // reset group selection when status changes
+                setFilterGroup('all');
+              }}
+              options={[
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'COMPLETED', label: 'Completed' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'all', label: 'All Statuses' },
+              ]}
+            />
+          </div>
+
+          <div className="w-64">
+            <Select
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              options={[
+                { value: 'all', label: groupStatusFilter === 'all' ? 'All Groups' : `All ${groupStatusFilter} Groups` },
+                ...groups
+                  .filter((g) => (groupStatusFilter === 'all' ? true : g.status === groupStatusFilter))
+                  .map((g) => ({
+                    value: g.id,
+                    label: `${g.name} — ${formatCurrency(Number(g.total_amount))}`,
+                  })),
+              ]}
+            />
+          </div>
         </div>
 
         {filteredAuctions.length === 0 ? (
@@ -354,8 +384,9 @@ function AuctionFormModal({
           }}
           options={[
             { value: '', label: 'Select a group...' },
+            // only active groups should be available for conducting auctions
             ...groups
-              .filter((g) => g.status === 'ACTIVE' || g.status === 'PENDING')
+              .filter((g) => g.status === 'ACTIVE')
               .map((g) => ({
                 value: g.id,
                 label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,

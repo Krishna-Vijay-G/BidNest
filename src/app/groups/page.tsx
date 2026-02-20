@@ -82,8 +82,22 @@ export default function GroupsPage() {
     }
   };
 
-  const filteredGroups = groups.filter((g) =>
-    filterStatus === 'all' ? true : g.status === filterStatus
+  const statusPriority: Record<string, number> = {
+    ACTIVE: 1,
+    PENDING: 2,
+    COMPLETED: 3,
+    CANCELLED: 4,
+  };
+
+  const displayedGroups = (filterStatus === 'all'
+    ? [...groups].sort((a, b) => {
+        const pa = statusPriority[a.status] ?? 99;
+        const pb = statusPriority[b.status] ?? 99;
+        if (pa !== pb) return pa - pb;
+        // fallback: newest first
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      })
+    : groups.filter((g) => g.status === filterStatus)
   );
 
   if (isLoading) {
@@ -122,7 +136,7 @@ export default function GroupsPage() {
           />
         </div>
 
-        {filteredGroups.length === 0 ? (
+        {displayedGroups.length === 0 ? (
           <EmptyState
             icon={<HiOutlineUserGroup className="w-8 h-8" />}
             title="No chit groups found"
@@ -130,7 +144,7 @@ export default function GroupsPage() {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredGroups.map((group) => (
+            {displayedGroups.map((group: ChitGroup) => (
               <div key={group.id} className="glass rounded-2xl border border-border p-5 flex flex-col gap-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">

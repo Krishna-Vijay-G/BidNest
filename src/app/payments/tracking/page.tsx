@@ -95,10 +95,33 @@ function formatCurrency(amount: number) {
 export default function PaymentTrackingPage() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<ChitGroup[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('payments-tracking:group') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [groupStatusFilter, setGroupStatusFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('payments-tracking:status') || 'ACTIVE';
+    } catch {
+      return 'ACTIVE';
+    }
+  });
   const [auctions, setAuctions] = useState<Auction[]>([]);
   // 'all' = aggregated view across all months
-  const [selectedMonth, setSelectedMonth] = useState<number | 'all' | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all' | null>(() => {
+    try {
+      const v = localStorage.getItem('payments-tracking:month');
+      if (!v) return null;
+      if (v === 'all') return 'all';
+      const n = Number(v);
+      return Number.isNaN(n) ? null : n;
+    } catch {
+      return null;
+    }
+  });
   const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
@@ -128,10 +151,50 @@ export default function PaymentTrackingPage() {
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         setAuctions(list);
-        // default to 'All Months' aggregated view when auctions exist
-        setSelectedMonth(list.length > 0 ? 'all' : null);
+        // Restore stored month if valid for this group's auctions, else default
+        try {
+          const stored = localStorage.getItem('payments-tracking:month');
+          if (list.length > 0) {
+            if (stored) {
+              if (stored === 'all') setSelectedMonth('all');
+              else {
+                const n = Number(stored);
+                if (!Number.isNaN(n) && list.some((a) => a.month_number === n)) setSelectedMonth(n);
+                else setSelectedMonth('all');
+              }
+            } else {
+              setSelectedMonth('all');
+            }
+          } else {
+            setSelectedMonth(null);
+          }
+        } catch {
+          setSelectedMonth(list.length > 0 ? 'all' : null);
+        }
       });
   }, [selectedGroupId]);
+
+  // If stored selectedGroupId is not present in fetched groups, clear it
+  useEffect(() => {
+    if (!groups || groups.length === 0) return;
+    if (selectedGroupId && !groups.some((g) => g.id === selectedGroupId)) {
+      setSelectedGroupId('');
+    }
+  }, [groups]);
+
+  // Clear selected group when status filter changes only if it no longer matches
+  useEffect(() => {
+    if (!selectedGroupId) return;
+    if (!groups || groups.length === 0) return;
+    const g = groups.find((x) => x.id === selectedGroupId);
+    if (!g) {
+      setSelectedGroupId('');
+      return;
+    }
+    if (groupStatusFilter !== 'ALL' && g.status !== groupStatusFilter) {
+      setSelectedGroupId('');
+    }
+  }, [groupStatusFilter, selectedGroupId, groups]);
 
   // Load chit members + payments when group/month changes
   const loadMonthData = useCallback(async () => {
@@ -160,6 +223,26 @@ export default function PaymentTrackingPage() {
   useEffect(() => {
     loadMonthData();
   }, [loadMonthData]);
+
+  // Persist filters/state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('payments-tracking:status', groupStatusFilter);
+    } catch {}
+  }, [groupStatusFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('payments-tracking:group', selectedGroupId);
+    } catch {}
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+    try {
+      if (selectedMonth === null) localStorage.setItem('payments-tracking:month', '');
+      else localStorage.setItem('payments-tracking:month', String(selectedMonth));
+    } catch {}
+  }, [selectedMonth]);
 
   // Derive per-member rows (single-month mode)
   const currentAuction = selectedMonth !== 'all'
@@ -277,19 +360,35 @@ export default function PaymentTrackingPage() {
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Filters */}
         <Card>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Select
+              label="Status"
+              value={groupStatusFilter}
+              onChange={(e) => setGroupStatusFilter(e.target.value)}
+              options={[
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'COMPLETED', label: 'Completed' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'ALL', label: 'All statuses' },
+              ]}
+            />
+
             <Select
               label="Chit Group"
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
               options={[
                 { value: '', label: 'Select a group...' },
-                ...groups.map((g) => ({
-                  value: g.id,
-                  label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
-                })),
+                ...groups
+                  .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
+                  .map((g) => ({
+                    value: g.id,
+                    label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
+                  })),
               ]}
             />
+
             <Select
               label="Month"
               value={selectedMonth?.toString() ?? ''}

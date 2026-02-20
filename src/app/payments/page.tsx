@@ -200,7 +200,21 @@ export default function PaymentsPage() {
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filterGroup, setFilterGroup] = useState('all');
+  const [filterGroup, setFilterGroup] = useState<string>('all');
+  const [groupStatusFilter, setGroupStatusFilter] = useState<string>('ALL');
+  // Persist immediately when user changes the dropdowns
+  const setAndPersistFilterGroup = (v: string) => {
+    setFilterGroup(v);
+    try {
+      localStorage.setItem('payments:group', v);
+    } catch {}
+  };
+  const setAndPersistStatusFilter = (v: string) => {
+    setGroupStatusFilter(v);
+    try {
+      localStorage.setItem('payments:status', v);
+    } catch {}
+  };
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async () => {
@@ -223,15 +237,37 @@ export default function PaymentsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Validate stored status and filterGroup against fetched groups and set if valid
+  useEffect(() => {
+    if (!groups || groups.length === 0) return;
+    try {
+      const storedStatus = localStorage.getItem('payments:status') || 'ALL';
+      setGroupStatusFilter(storedStatus);
+
+      const storedGroup = localStorage.getItem('payments:group');
+      if (storedGroup && storedGroup !== 'all') {
+        const filteredGroups = groups.filter((g) => storedStatus === 'ALL' ? true : g.status === storedStatus);
+        if (filteredGroups.some((g) => g.id === storedGroup)) {
+          setFilterGroup(storedGroup);
+        } else {
+          setFilterGroup('all');
+        }
+      }
+    } catch {}
+  }, [groups]);
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
+  // groups visible given current status filter
+  const visibleGroups = groups.filter((g) => (groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter));
   const groupStats = buildGroupStats(groups, payments, auctions);
+  const visibleGroupStats = buildGroupStats(visibleGroups, payments, auctions);
 
-  // combined totals
-  const totalInflow = payments.reduce((s, p) => s + Number(p.amount_paid), 0);
-  const totalPayouts = auctions.reduce((s, a) => s + Number(a.winning_amount), 0);
-  const totalCommission = auctions.reduce((s, a) => s + Number(a.commission), 0);
-  const totalNet = totalInflow - totalPayouts - totalCommission;
+  // combined totals (respect visibleGroups when showing "All Groups Combined")
+  const totalInflow = visibleGroupStats.reduce((s, gs) => s + gs.inflow, 0);
+  const totalPayouts = visibleGroupStats.reduce((s, gs) => s + gs.payouts, 0);
+  const totalCommission = visibleGroupStats.reduce((s, gs) => s + gs.commission, 0);
+  const totalNet = visibleGroupStats.reduce((s, gs) => s + gs.net, 0);
 
   // filtered to selected group
   const selectedStats =
@@ -247,7 +283,7 @@ export default function PaymentsPage() {
   // recent payments for selected group (last 15)
   const recentPayments = (
     filterGroup === 'all'
-      ? payments
+      ? payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id))
       : payments.filter((p) => p.chit_group_id === filterGroup)
   )
     .slice()
@@ -274,22 +310,44 @@ export default function PaymentsPage() {
 
         {/* ── Group filter ───────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="w-56">
+          <div className="w-40">
             <Select
-              value={filterGroup}
-              onChange={(e) => setFilterGroup(e.target.value)}
+              label="Status"
+              value={groupStatusFilter}
+              onChange={(e) => setAndPersistStatusFilter(e.target.value)}
               options={[
-                { value: 'all', label: '📊 All Groups Combined' },
-                ...groups.map((g) => ({
-                  value: g.id,
-                  label: `${g.name} · ${g.total_members}M`,
-                })),
+                { value: 'ALL', label: 'All statuses' },
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'COMPLETED', label: 'Completed' },
+                { value: 'CANCELLED', label: 'Cancelled' },
               ]}
             />
           </div>
+
+          <div className="w-72">
+            <Select
+              label="Chit Group"
+              value={filterGroup}
+              onChange={(e) => setAndPersistFilterGroup(e.target.value)}
+              options={[
+                { value: 'all', label: '📊 All Groups Combined' },
+                ...groups
+                  .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
+                  .map((g) => ({
+                    value: g.id,
+                    label: `${g.name} · ${g.total_members}M`,
+                  })),
+              ]}
+            />
+          </div>
+
+        </div>
+
+        <div className="mt-2">
           <span className="text-sm text-foreground-muted">
             {filterGroup === 'all'
-              ? `${groups.length} groups · ${payments.length} payments`
+              ? `${visibleGroups.length} groups · ${payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id)).length} payments`
               : `${recentPayments.length} recent payments`}
           </span>
         </div>
@@ -330,9 +388,9 @@ export default function PaymentsPage() {
         {filterGroup === 'all' && (
           <section>
             <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
-              Group Breakdown
-            </h2>
-            {groupStats.length === 0 ? (
+                Group Breakdown
+              </h2>
+              {visibleGroupStats.length === 0 ? (
               <EmptyState
                 icon={<HiOutlineUserGroup className="w-8 h-8" />}
                 title="No chit groups yet"
@@ -340,9 +398,9 @@ export default function PaymentsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {groupStats.map((gs) => (
-                  <GroupFinanceCard key={gs.group.id} stats={gs} />
-                ))}
+                  {visibleGroupStats.map((gs) => (
+                    <GroupFinanceCard key={gs.group.id} stats={gs} />
+                  ))}
               </div>
             )}
           </section>
