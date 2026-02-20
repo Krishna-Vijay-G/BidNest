@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState } from '@/components/ui';
 import { Badge } from '@/components/ui/Badge';
+import Link from 'next/link';
 import {
   HiOutlineUserPlus,
   HiOutlineUsers,
@@ -144,14 +145,14 @@ export default function MembersPage() {
                   {filteredMembers.map((member) => (
                     <tr key={member.id}>
                       <td>
-                        <div className="flex items-center gap-3">
+                        <Link href={`/members/${member.id}`} className="flex items-center gap-3 group">
                           <div className="w-8 h-8 bg-cyan-500/10 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">
                             {member.name.value.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-foreground">
+                          <span className="font-medium text-foreground group-hover:text-cyan-400 transition-colors">
                             {member.name.value}
                           </span>
-                        </div>
+                        </Link>
                       </td>
                       <td>
                         <Badge variant="default">{member.nickname.value}</Badge>
