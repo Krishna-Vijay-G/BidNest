@@ -14,6 +14,7 @@ import {
   HiOutlineCurrencyRupee,
   HiOutlineScissors,
   HiOutlineUserGroup,
+  HiOutlineChevronDown,
 } from 'react-icons/hi2';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -35,6 +36,11 @@ interface Auction {
   winning_amount: string;
   commission: string;
   original_bid: string;
+  calculation_data?: {
+    amount_to_collect: number;
+    dividend_per_member: number;
+    monthly_contribution: number;
+  };
 }
 
 interface Payment {
@@ -48,7 +54,7 @@ interface Payment {
   status: string;
   chit_member: {
     ticket_number: number;
-    member: { name: { value: string } };
+    member: { id: string; name: { value: string } };
   };
 }
 
@@ -216,6 +222,7 @@ export default function PaymentsPage() {
     } catch {}
   };
   const hasFetched = useRef(false);
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user || hasFetched.current) return;
@@ -385,12 +392,12 @@ export default function PaymentsPage() {
         </div>
 
         {/* ── Group-wise Cards ───────────────────────────────────────────── */}
-        {filterGroup === 'all' && (
-          <section>
-            <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
-                Group Breakdown
-              </h2>
-              {visibleGroupStats.length === 0 ? (
+        <section>
+          <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
+            Group Breakdown
+          </h2>
+          {filterGroup === 'all' ? (
+            visibleGroupStats.length === 0 ? (
               <EmptyState
                 icon={<HiOutlineUserGroup className="w-8 h-8" />}
                 title="No chit groups yet"
@@ -398,13 +405,26 @@ export default function PaymentsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {visibleGroupStats.map((gs) => (
-                    <GroupFinanceCard key={gs.group.id} stats={gs} />
-                  ))}
+                {visibleGroupStats.map((gs) => (
+                  <GroupFinanceCard key={gs.group.id} stats={gs} />
+                ))}
               </div>
-            )}
-          </section>
-        )}
+            )
+          ) : (
+            // single selected group
+            selectedStats ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                <GroupFinanceCard key={selectedStats.group.id} stats={selectedStats} />
+              </div>
+            ) : (
+              <EmptyState
+                icon={<HiOutlineUserGroup className="w-8 h-8" />}
+                title="No group selected"
+                description="Choose a chit group to view its breakdown."
+              />
+            )
+          )}
+        </section>
 
         {/* ── Recent Payments ─────────────────────────────────────────────── */}
         <section>
@@ -423,39 +443,120 @@ export default function PaymentsPage() {
                 <table className="glass-table w-full">
                   <thead>
                     <tr>
+                      <th></th>
                       <th>Member</th>
                       <th>Ticket</th>
-                      <th>Month</th>
-                      <th>Amount</th>
-                      <th>Method</th>
-                      <th>Date</th>
+                      <th>Total Paid</th>
+                      <th>Total Due</th>
+                      <th>Remaining</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {recentPayments.map((p) => (
-                      <tr key={p.id}>
-                        <td className="font-medium text-foreground">
-                          {p.chit_member?.member?.name?.value || 'N/A'}
-                        </td>
-                        <td>#{p.chit_member?.ticket_number}</td>
-                        <td>Month {p.month_number}</td>
-                        <td className="font-semibold text-cyan-400">
-                          {fmt(Number(p.amount_paid))}
-                        </td>
-                        <td>
-                          <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-surface border border-border text-foreground-secondary">
-                            {p.payment_method}
-                          </span>
-                        </td>
-                        <td className="text-foreground-muted">
-                          {new Date(p.payment_date).toLocaleDateString('en-IN')}
-                        </td>
-                        <td>
-                          <StatusBadge status={p.status} />
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      // Group payments by chit_member_id
+                      const grouped = new Map<string, typeof recentPayments>();
+                      recentPayments.forEach((p) => {
+                        const key = p.chit_member_id;
+                        if (!grouped.has(key)) grouped.set(key, []);
+                        grouped.get(key)!.push(p);
+                      });
+
+                      // Calculate aggregates per member
+                      const memberSummaries = Array.from(grouped.entries()).map(([memberId, payments]) => {
+                        const totalPaid = payments.reduce((s, p) => s + Number(p.amount_paid), 0);
+                        const totalDue = payments.reduce((s, p) => {
+                          const auction = auctions.find(a => a.chit_group_id === p.chit_group_id && a.month_number === p.month_number);
+                          return s + (auction?.calculation_data?.amount_to_collect ?? 0);
+                        }, 0);
+                        const remaining = totalDue - totalPaid;
+                        const member = payments[0]?.chit_member;
+                        const status = remaining <= 0 && totalDue > 0 ? 'COMPLETED' : remaining > 0 ? 'PARTIAL' : 'PENDING';
+
+                        return { memberId, member, payments, totalPaid, totalDue, remaining, status };
+                      });
+
+                      return memberSummaries.map((summary) => {
+                        const isExpanded = expandedPaymentId === summary.memberId;
+                        return (
+                          <>
+                            <tr
+                              key={summary.memberId}
+                              className="cursor-pointer hover:bg-surface/50"
+                              onClick={() => setExpandedPaymentId(isExpanded ? null : summary.memberId)}
+                            >
+                              <td>
+                                <HiOutlineChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </td>
+                              <td className="font-medium text-foreground">
+                                <Link href={`/members/${summary.member?.member?.id}`} className="hover:underline">
+                                  {summary.member?.member?.name?.value || 'N/A'}
+                                </Link>
+                              </td>
+                              <td>#{summary.member?.ticket_number}</td>
+                              <td className="font-semibold text-emerald-400">{fmt(summary.totalPaid)}</td>
+                              <td className="font-semibold text-amber-400">{fmt(summary.totalDue)}</td>
+                              <td className={`font-semibold ${summary.remaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>
+                                {fmt(summary.remaining)}
+                              </td>
+                              <td>
+                                <StatusBadge status={summary.status} />
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan={7} className="bg-surface/30 p-6">
+                                  <div className="space-y-4">
+                                    <div className="text-base font-semibold text-foreground-secondary">Payment History ({summary.payments.length} payments)</div>
+                                    <div className="space-y-3">
+                                      {summary.payments
+                                        .slice()
+                                        .sort((a, b) => a.month_number - b.month_number)
+                                        .map((p, idx) => {
+                                          const auction = auctions.find(a => a.chit_group_id === p.chit_group_id && a.month_number === p.month_number);
+                                          const monthDue = auction?.calculation_data?.amount_to_collect ?? 0;
+                                          const monthPaid = Number(p.amount_paid);
+                                          const monthRemaining = monthDue - monthPaid;
+                                          const group = groups.find(g => g.id === p.chit_group_id);
+
+                                          return (
+                                            <div key={p.id} className="flex flex-col gap-2 bg-surface/40 rounded-lg p-3 border border-border">
+                                              <div className="flex items-center justify-between flex-wrap gap-3">
+                                                <div className="flex items-center gap-4">
+                                                  <span className="text-sm font-semibold text-foreground">{group?.name || 'N/A'}</span>
+                                                  <span className="text-sm font-semibold text-cyan-400">Month {p.month_number}</span>
+                                                  <span className="px-3 py-1 rounded bg-surface border border-border text-sm font-medium text-foreground-secondary">{p.payment_method}</span>
+                                                </div>
+                                                <div className="text-sm text-foreground-muted">
+                                                  {new Date(p.payment_date).toLocaleDateString('en-IN')} · {new Date(p.payment_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4">
+                                                <div className="text-center">
+                                                  <div className="text-base font-bold text-emerald-400">{fmt(monthPaid)}</div>
+                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Paid</div>
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className="text-base font-bold text-amber-400">{fmt(monthDue)}</div>
+                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Due</div>
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className={`text-base font-bold ${monthRemaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>{fmt(monthRemaining)}</div>
+                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Remaining</div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
