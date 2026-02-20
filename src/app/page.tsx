@@ -8,7 +8,6 @@ import {
   HiOutlineBanknotes,
   HiOutlineArrowTrendingUp,
 } from 'react-icons/hi2';
-import LandingControls from '../components/layout/LandingControls';
 
 export default function HomePage() {
   return (
@@ -31,7 +30,6 @@ export default function HomePage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <LandingControls />
           <Link
             href="/login"
             className="text-foreground-secondary hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors"
