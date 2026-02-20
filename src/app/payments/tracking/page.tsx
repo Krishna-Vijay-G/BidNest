@@ -4,13 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
-import { StatusBadge } from '@/components/ui/Badge';
 import {
   HiOutlineClipboardDocumentList,
   HiOutlineBanknotes,
-  HiOutlineCheckCircle,
-  HiOutlineExclamationCircle,
-  HiOutlineClock,
   HiOutlineTrophy,
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
@@ -68,6 +64,26 @@ interface MemberRow {
   status: 'WINNER' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
 }
 
+// All-months aggregated row
+interface AggregatedRow {
+  chitMemberId: string;
+  ticketNumber: number;
+  memberName: string;
+  mobile: string;
+  totalDue: number;       // sum of amount_to_collect for non-winner months
+  totalPaid: number;      // sum of all payments across all months
+  remaining: number;      // totalDue - totalPaid
+  wonMonths: number[];    // months this member won
+  monthBreakdown: {
+    month: number;
+    due: number;
+    paid: number;
+    remaining: number;
+    isWinner: boolean;
+  }[];
+  status: 'CLEAR' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
+}
+
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -83,12 +99,15 @@ export default function PaymentTrackingPage() {
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  // 'all' = aggregated view across all months
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all' | null>(null);
   const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [payingMember, setPayingMember] = useState<MemberRow | null>(null);
+  const [payingMemberBreakdown, setPayingMemberBreakdown] = useState<AggregatedRow['monthBreakdown']>([]);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   // Load user's groups
   useEffect(() => {
@@ -111,38 +130,43 @@ export default function PaymentTrackingPage() {
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         setAuctions(list);
-        if (list.length > 0) {
-          const latest = list.reduce((a: Auction, b: Auction) =>
-            a.month_number > b.month_number ? a : b
-          );
-          setSelectedMonth(latest.month_number);
-        } else {
-          setSelectedMonth(null);
-        }
+        // default to 'All Months' aggregated view when auctions exist
+        setSelectedMonth(list.length > 0 ? 'all' : null);
       });
   }, [selectedGroupId]);
 
   // Load chit members + payments when group/month changes
   const loadMonthData = useCallback(async () => {
-    if (!selectedGroupId || !selectedMonth) return;
+    if (!selectedGroupId || selectedMonth === null) return;
     setIsLoadingData(true);
-    const [membersRes, paymentsRes] = await Promise.all([
-      fetch(`/api/chit-members?chit_group_id=${selectedGroupId}`),
-      fetch(`/api/payments?chit_group_id=${selectedGroupId}&month_number=${selectedMonth}`),
-    ]);
-    const membersData = await membersRes.json();
-    const paymentsData = await paymentsRes.json();
-    setChitMembers(Array.isArray(membersData) ? membersData : []);
-    setPayments(Array.isArray(paymentsData) ? paymentsData : []);
-    setIsLoadingData(false);
+    try {
+      // For 'all' mode, fetch all payments (no month filter)
+      const paymentsUrl =
+        selectedMonth === 'all'
+          ? `/api/payments?chit_group_id=${selectedGroupId}`
+          : `/api/payments?chit_group_id=${selectedGroupId}&month_number=${selectedMonth}`;
+
+      const [membersRes, paymentsRes] = await Promise.all([
+        fetch(`/api/chit-members?chit_group_id=${selectedGroupId}`),
+        fetch(paymentsUrl),
+      ]);
+      const membersData = await membersRes.json();
+      const paymentsData = await paymentsRes.json();
+      setChitMembers(Array.isArray(membersData) ? membersData : []);
+      setPayments(Array.isArray(paymentsData) ? paymentsData : []);
+    } finally {
+      setIsLoadingData(false);
+    }
   }, [selectedGroupId, selectedMonth]);
 
   useEffect(() => {
     loadMonthData();
   }, [loadMonthData]);
 
-  // Derive per-member rows
-  const currentAuction = auctions.find((a) => a.month_number === selectedMonth);
+  // Derive per-member rows (single-month mode)
+  const currentAuction = selectedMonth !== 'all'
+    ? auctions.find((a) => a.month_number === selectedMonth)
+    : undefined;
 
   const memberRows: MemberRow[] = chitMembers.map((cm) => {
     const isWinner = currentAuction?.winner_chit_member_id === cm.id;
@@ -177,7 +201,52 @@ export default function PaymentTrackingPage() {
   });
 
   // Summary counts
-  const counts = {
+  const isAllMode = selectedMonth === 'all';
+
+  // ── All-months aggregated rows ──
+  const aggregatedRows: AggregatedRow[] = chitMembers.map((cm) => {
+    let totalDue = 0;
+    const wonMonths: number[] = [];
+    const monthBreakdown: AggregatedRow['monthBreakdown'] = [];
+
+    for (const auction of auctions.slice().sort((a, b) => a.month_number - b.month_number)) {
+      const isWinner = auction.winner_chit_member_id === cm.id;
+      const monthDue = isWinner ? 0 : (auction.calculation_data?.amount_to_collect ?? 0);
+      const monthPayments = payments.filter(
+        (p) => p.chit_member_id === cm.id && p.month_number === auction.month_number
+      );
+      const monthPaid = monthPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
+      const monthRemaining = isWinner ? 0 : Math.max(0, monthDue - monthPaid);
+
+      if (isWinner) wonMonths.push(auction.month_number);
+      totalDue += monthDue;
+      monthBreakdown.push({ month: auction.month_number, due: monthDue, paid: monthPaid, remaining: monthRemaining, isWinner });
+    }
+
+    const totalPaid = payments
+      .filter((p) => p.chit_member_id === cm.id)
+      .reduce((s, p) => s + Number(p.amount_paid), 0);
+    const remaining = Math.max(0, totalDue - totalPaid);
+
+    let status: AggregatedRow['status'];
+    if (auctions.length === 0) status = 'PENDING';
+    else if (remaining <= 0 && totalDue > 0) status = 'COMPLETED';
+    else if (totalDue === 0 && wonMonths.length === auctions.length) status = 'CLEAR';
+    else if (totalPaid > 0 && remaining > 0) status = 'PARTIAL';
+    else status = 'PENDING';
+
+    return { chitMemberId: cm.id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', mobile: cm.member?.mobile?.value || '—', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
+  });
+
+  const counts = isAllMode
+    ? {
+        total: aggregatedRows.length,
+        completed: aggregatedRows.filter((r) => r.status === 'COMPLETED').length,
+        partial: aggregatedRows.filter((r) => r.status === 'PARTIAL').length,
+        pending: aggregatedRows.filter((r) => r.status === 'PENDING').length,
+        winner: 0,
+      }
+    : {
     total: memberRows.length,
     completed: memberRows.filter((r) => r.status === 'COMPLETED').length,
     partial: memberRows.filter((r) => r.status === 'PARTIAL').length,
@@ -185,10 +254,12 @@ export default function PaymentTrackingPage() {
     winner: memberRows.filter((r) => r.status === 'WINNER').length,
   };
 
-  const totalCollected = memberRows.reduce((s, r) => s + r.totalPaid, 0);
-  const totalExpected = memberRows
-    .filter((r) => !r.isWinner)
-    .reduce((s, r) => s + r.monthlyDue, 0);
+  const totalCollected = isAllMode
+    ? aggregatedRows.reduce((s, r) => s + r.totalPaid, 0)
+    : memberRows.reduce((s, r) => s + r.totalPaid, 0);
+  const totalExpected = isAllMode
+    ? aggregatedRows.reduce((s, r) => s + r.totalDue, 0)
+    : memberRows.filter((r) => !r.isWinner).reduce((s, r) => s + r.monthlyDue, 0);
 
   if (isLoadingGroups) {
     return (
@@ -225,13 +296,20 @@ export default function PaymentTrackingPage() {
             <Select
               label="Month"
               value={selectedMonth?.toString() ?? ''}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSelectedMonth(v === 'all' ? 'all' : Number(v));
+              }}
               options={[
                 { value: '', label: 'Select month...' },
-                ...auctions.map((a) => ({
-                  value: String(a.month_number),
-                  label: `Month ${a.month_number}`,
-                })),
+                ...(auctions.length > 0 ? [{ value: 'all', label: '📊 All Months (Combined)' }] : []),
+                ...auctions
+                  .slice()
+                  .sort((a, b) => a.month_number - b.month_number)
+                  .map((a) => ({
+                    value: String(a.month_number),
+                    label: `Month ${a.month_number}`,
+                  })),
               ]}
               disabled={auctions.length === 0}
             />
@@ -254,7 +332,7 @@ export default function PaymentTrackingPage() {
           />
         )}
 
-        {selectedGroupId && selectedMonth && !isLoadingData && (
+        {selectedGroupId && selectedMonth !== null && !isLoadingData && (
           <>
             {/* Summary Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -284,7 +362,11 @@ export default function PaymentTrackingPage() {
             {totalExpected > 0 && (
               <Card>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-foreground-muted">Collection Progress</span>
+                  <span className="text-foreground-muted">
+                    {isAllMode
+                      ? `Overall Collection Progress (${auctions.length} months)`
+                      : `Month ${selectedMonth} Progress`}
+                  </span>
                   <span className="text-foreground font-medium">
                     {formatCurrency(totalCollected)} / {formatCurrency(totalExpected)}
                     <span className="text-foreground-muted ml-2">
@@ -301,14 +383,168 @@ export default function PaymentTrackingPage() {
               </Card>
             )}
 
-            {/* Member Payment Table */}
-            {memberRows.length === 0 ? (
-              <EmptyState
-                icon={<HiOutlineClipboardDocumentList className="w-8 h-8" />}
-                title="No tickets assigned"
-                description="Add members to this group first."
-              />
-            ) : (
+            {/* ── ALL MONTHS TABLE ── */}
+            {isAllMode && (
+              aggregatedRows.length === 0 ? (
+                <EmptyState
+                  icon={<HiOutlineClipboardDocumentList className="w-8 h-8" />}
+                  title="No tickets assigned"
+                  description="Add members to this group first."
+                />
+              ) : (
+                <Card padding={false}>
+                  <div className="p-6 pb-4 flex items-center gap-2">
+                    <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
+                    <h3 className="text-base font-semibold text-foreground">
+                      All {auctions.length} Month{auctions.length !== 1 ? 's' : ''} — Combined Balance
+                    </h3>
+                    <span className="ml-2 text-xs text-foreground-muted">(click a row to expand month breakdown)</span>
+                  </div>
+                  <div className="overflow-x-auto px-6 pb-6">
+                    <table className="glass-table w-full">
+                      <thead>
+                        <tr>
+                          <th>Ticket</th>
+                          <th>Member</th>
+                          <th>Mobile</th>
+                          <th>Total Due</th>
+                          <th>Total Paid</th>
+                          <th>Remaining</th>
+                          <th>Won Month(s)</th>
+                          <th>Status</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {aggregatedRows
+                          .slice()
+                          .sort((a, b) => a.ticketNumber - b.ticketNumber)
+                          .map((row) => (
+                            <>
+                              <tr
+                                key={row.chitMemberId}
+                                className="cursor-pointer hover:bg-surface/50"
+                                onClick={() => setExpandedRow(expandedRow === row.chitMemberId ? null : row.chitMemberId)}
+                              >
+                                <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
+                                <td className="font-medium text-foreground">{row.memberName}</td>
+                                <td className="text-foreground-muted">{row.mobile}</td>
+                                <td className="text-foreground">{formatCurrency(row.totalDue)}</td>
+                                <td>
+                                  {row.totalPaid > 0
+                                    ? <span className="text-emerald-400 font-semibold">{formatCurrency(row.totalPaid)}</span>
+                                    : <span className="text-foreground-muted">₹0</span>}
+                                </td>
+                                <td>
+                                  {row.remaining > 0
+                                    ? <span className="text-red-400 font-semibold">{formatCurrency(row.remaining)}</span>
+                                    : <span className="text-emerald-400">₹0</span>}
+                                </td>
+                                <td className="text-amber-400 text-sm">
+                                  {row.wonMonths.length > 0 ? row.wonMonths.map(m => `M${m}`).join(', ') : '—'}
+                                </td>
+                                <td><AggregatedStatusBadge status={row.status} /></td>
+                                <td onClick={(e) => e.stopPropagation()}>
+                                  {row.remaining > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const firstDue = row.monthBreakdown.find(mb => mb.remaining > 0 && !mb.isWinner);
+                                        if (firstDue) {
+                                          setPayingMemberBreakdown(row.monthBreakdown);
+                                          setPayingMember({
+                                            chitMemberId: row.chitMemberId,
+                                            ticketNumber: row.ticketNumber,
+                                            memberName: row.memberName,
+                                            mobile: row.mobile,
+                                            isWinner: false,
+                                            monthlyDue: firstDue.due,
+                                            totalPaid: firstDue.paid,
+                                            remaining: firstDue.remaining,
+                                            status: firstDue.paid > 0 ? 'PARTIAL' : 'PENDING',
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      Record Payment
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+
+                              {/* per-month breakdown sub-rows */}
+                              {expandedRow === row.chitMemberId && (
+                                <tr key={`${row.chitMemberId}-breakdown`}>
+                                  <td colSpan={9} className="bg-surface/40 px-4 py-3">
+                                    <div className="rounded-xl border border-border overflow-hidden">
+                                      <table className="w-full text-sm">
+                                        <thead>
+                                          <tr className="border-b border-border">
+                                            <th className="text-left px-4 py-2 text-foreground-muted font-medium">Month</th>
+                                            <th className="text-right px-4 py-2 text-foreground-muted font-medium">Due</th>
+                                            <th className="text-right px-4 py-2 text-foreground-muted font-medium">Paid</th>
+                                            <th className="text-right px-4 py-2 text-foreground-muted font-medium">Remaining</th>
+                                            <th className="text-center px-4 py-2 text-foreground-muted font-medium">Note</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {row.monthBreakdown.map((mb) => (
+                                            <tr key={mb.month} className="border-b border-border/50 last:border-0">
+                                              <td className="px-4 py-2 text-cyan-400 font-medium">Month {mb.month}</td>
+                                              <td className="px-4 py-2 text-right text-foreground">
+                                                {mb.isWinner ? <span className="text-foreground-muted">—</span> : formatCurrency(mb.due)}
+                                              </td>
+                                              <td className="px-4 py-2 text-right">
+                                                {mb.paid > 0
+                                                  ? <span className="text-emerald-400">{formatCurrency(mb.paid)}</span>
+                                                  : <span className="text-foreground-muted">₹0</span>}
+                                              </td>
+                                              <td className="px-4 py-2 text-right">
+                                                {mb.isWinner
+                                                  ? <span className="text-foreground-muted">—</span>
+                                                  : mb.remaining > 0
+                                                    ? <span className="text-red-400">{formatCurrency(mb.remaining)}</span>
+                                                    : <span className="text-emerald-400">₹0</span>}
+                                              </td>
+                                              <td className="px-4 py-2 text-center">
+                                                {mb.isWinner && (
+                                                  <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 Winner</span>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                          <tr className="bg-surface border-t-2 border-border font-semibold">
+                                            <td className="px-4 py-2 text-foreground-muted">Total</td>
+                                            <td className="px-4 py-2 text-right text-foreground">{formatCurrency(row.totalDue)}</td>
+                                            <td className="px-4 py-2 text-right text-emerald-400">{formatCurrency(row.totalPaid)}</td>
+                                            <td className="px-4 py-2 text-right text-red-400">{formatCurrency(row.remaining)}</td>
+                                            <td />
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )
+            )}
+
+            {/* ── SINGLE MONTH TABLE ── */}
+            {!isAllMode && (
+              memberRows.length === 0 ? (
+                <EmptyState
+                  icon={<HiOutlineClipboardDocumentList className="w-8 h-8" />}
+                  title="No tickets assigned"
+                  description="Add members to this group first."
+                />
+              ) : (
               <Card padding={false}>
                 <div className="p-6 pb-4 flex items-center gap-2">
                   <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
@@ -385,6 +621,7 @@ export default function PaymentTrackingPage() {
                   </table>
                 </div>
               </Card>
+              )
             )}
           </>
         )}
@@ -397,15 +634,32 @@ export default function PaymentTrackingPage() {
       </div>
 
       {/* Record Payment Modal */}
-      {payingMember && currentAuction && selectedGroupId && (
+      {payingMember && selectedGroupId && selectedMonth !== null && (
         <RecordPaymentModal
           isOpen={!!payingMember}
           row={payingMember}
           chit_group_id={selectedGroupId}
-          month_number={selectedMonth!}
-          onClose={() => setPayingMember(null)}
+          month_number={
+            isAllMode
+              ? (auctions
+                  .slice()
+                  .sort((a, b) => a.month_number - b.month_number)
+                  .find(
+                    (a) =>
+                      a.winner_chit_member_id !== payingMember.chitMemberId &&
+                      payments
+                        .filter((p) => p.chit_member_id === payingMember.chitMemberId && p.month_number === a.month_number)
+                        .reduce((s, p) => s + Number(p.amount_paid), 0) < (a.calculation_data?.amount_to_collect ?? 0)
+                  )?.month_number ?? 1)
+              : (selectedMonth as number)
+          }
+          auctions={isAllMode ? auctions.filter(a => a.winner_chit_member_id !== payingMember.chitMemberId) : []}
+          monthBreakdown={isAllMode ? payingMemberBreakdown : []}
+          allowMonthSelect={isAllMode}
+          onClose={() => { setPayingMember(null); setPayingMemberBreakdown([]); }}
           onSaved={() => {
             setPayingMember(null);
+            setPayingMemberBreakdown([]);
             loadMonthData();
           }}
         />
@@ -417,9 +671,24 @@ export default function PaymentTrackingPage() {
 // ─── Status Badge ─────────────────────────────────────────
 
 function MemberStatusBadge({ status }: { status: MemberRow['status'] }) {
-  const map = {
+  const map: Record<MemberRow['status'], { label: string; cls: string }> = {
     WINNER: { label: 'Winner', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
     COMPLETED: { label: 'Completed', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    PARTIAL: { label: 'Partial', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    PENDING: { label: 'Pending', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  };
+  const { label, cls } = map[status];
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function AggregatedStatusBadge({ status }: { status: AggregatedRow['status'] }) {
+  const map: Record<AggregatedRow['status'], { label: string; cls: string }> = {
+    CLEAR: { label: 'Clear', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    COMPLETED: { label: 'All Paid', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
     PARTIAL: { label: 'Partial', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
     PENDING: { label: 'Pending', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
   };
@@ -438,6 +707,9 @@ function RecordPaymentModal({
   row,
   chit_group_id,
   month_number,
+  auctions,
+  monthBreakdown,
+  allowMonthSelect,
   onClose,
   onSaved,
 }: {
@@ -445,21 +717,43 @@ function RecordPaymentModal({
   row: MemberRow;
   chit_group_id: string;
   month_number: number;
+  auctions: Auction[];
+  monthBreakdown: AggregatedRow['monthBreakdown'];
+  allowMonthSelect: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [upiId, setUpiId] = useState('');
+  const [selectedMonthForPayment, setSelectedMonthForPayment] = useState(month_number);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Look up the selected month's figures from the breakdown (all-months mode)
+  // or fall back to the row prop (single-month mode)
+  const activeLine = monthBreakdown.find((mb) => mb.month === selectedMonthForPayment);
+  const displayDue = activeLine ? activeLine.due : row.monthlyDue;
+  const displayPaid = activeLine ? activeLine.paid : row.totalPaid;
+  const displayRemaining = activeLine ? activeLine.remaining : row.remaining;
 
   useEffect(() => {
     if (isOpen) {
-      setAmountPaid(String(row.remaining));
       setPaymentMethod('CASH');
       setUpiId('');
+      setSelectedMonthForPayment(month_number);
+      // initial amount = remaining for the initial month
+      const initial = monthBreakdown.find((mb) => mb.month === month_number);
+      setAmountPaid(String(initial ? initial.remaining : row.remaining));
     }
-  }, [isOpen, row]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // When month selector changes, update the pre-filled amount to that month's remaining
+  useEffect(() => {
+    if (!isOpen) return;
+    const line = monthBreakdown.find((mb) => mb.month === selectedMonthForPayment);
+    if (line) setAmountPaid(String(line.remaining));
+  }, [selectedMonthForPayment, monthBreakdown, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -471,7 +765,7 @@ function RecordPaymentModal({
       body: JSON.stringify({
         chit_group_id,
         chit_member_id: row.chitMemberId,
-        month_number,
+        month_number: selectedMonthForPayment,
         amount_paid: Number(amountPaid),
         payment_method: paymentMethod,
         upi_id: paymentMethod === 'UPI' ? upiId : undefined,
@@ -494,21 +788,32 @@ function RecordPaymentModal({
       <div className="mb-4 p-3 bg-surface border border-border rounded-xl space-y-1">
         <div className="flex justify-between text-sm">
           <span className="text-foreground-muted">Monthly Due</span>
-          <span className="font-semibold text-foreground">{formatCurrency(row.monthlyDue)}</span>
+          <span className="font-semibold text-foreground">{formatCurrency(displayDue)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-foreground-muted">Already Paid</span>
-          <span className="font-semibold text-emerald-400">{formatCurrency(row.totalPaid)}</span>
+          <span className="font-semibold text-emerald-400">{formatCurrency(displayPaid)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-foreground-muted">Remaining</span>
-          <span className="font-semibold text-red-400">{formatCurrency(row.remaining)}</span>
+          <span className="font-semibold text-red-400">{formatCurrency(displayRemaining)}</span>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {allowMonthSelect && auctions.length > 0 && (
+          <Select
+            label="Month to Pay For"
+            value={String(selectedMonthForPayment)}
+            onChange={(e) => setSelectedMonthForPayment(Number(e.target.value))}
+            options={auctions
+              .slice()
+              .sort((a, b) => a.month_number - b.month_number)
+              .map((a) => ({ value: String(a.month_number), label: `Month ${a.month_number}` }))}
+          />
+        )}
         <Input
-          label={`Amount to Pay (max ${formatCurrency(row.remaining)})`}
+          label={`Amount to Pay (max ${formatCurrency(displayRemaining)})`}
           type="number"
           value={amountPaid}
           onChange={(e) => setAmountPaid(e.target.value)}
