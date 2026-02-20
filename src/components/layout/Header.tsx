@@ -11,6 +11,7 @@ import {
   HiOutlineArrowRightOnRectangle,
   HiOutlineChevronDown,
 } from 'react-icons/hi2';
+import { FaGithub } from 'react-icons/fa';
 import { useEffect, useRef, useState } from 'react';
 
 interface HeaderProps {
@@ -82,10 +83,16 @@ export function Header({ title, subtitle, children }: HeaderProps) {
           {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
         </button>
 
-        {/* Bell */}
-        <button className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground">
-          <HiOutlineBell className="w-5 h-5" />
-        </button>
+        {/* GitHub link (replaces bell) */}
+        <a
+          href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://github.com/Krishna-Vijay-G'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
+          title="Open GitHub"
+        >
+          <FaGithub className="w-5 h-5" />
+        </a>
 
         {/* User dropdown */}
         <div className="relative" ref={dropRef}>
@@ -97,7 +104,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
             <div className="w-7 h-7 rounded-lg bg-linear-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
               {initials}
             </div>
-            <span className="text-foreground-secondary font-medium hidden sm:block max-w-[110px] truncate">
+            <span className="text-foreground-secondary font-medium hidden sm:block max-w-27.5 truncate">
               {displayName}
             </span>
             <HiOutlineChevronDown
