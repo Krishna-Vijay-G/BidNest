@@ -1,7 +1,7 @@
 //src/app/payments/page.tsx
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, PageLoader, EmptyState, Select } from '@/components/ui';
@@ -479,9 +479,8 @@ export default function PaymentsPage() {
                       return memberSummaries.map((summary) => {
                         const isExpanded = expandedPaymentId === summary.memberId;
                         return (
-                          <>
+                          <Fragment key={summary.memberId}>
                             <tr
-                              key={summary.memberId}
                               className="cursor-pointer hover:bg-surface/50"
                               onClick={() => setExpandedPaymentId(isExpanded ? null : summary.memberId)}
                             >
@@ -553,7 +552,7 @@ export default function PaymentsPage() {
                                 </td>
                               </tr>
                             )}
-                          </>
+                          </Fragment>
                         );
                       });
                     })()}
