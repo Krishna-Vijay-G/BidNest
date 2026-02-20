@@ -10,8 +10,8 @@ import {
   HiOutlineMoon,
   HiOutlineArrowRightOnRectangle,
   HiOutlineChevronDown,
+  HiOutlineStar,
 } from 'react-icons/hi2';
-import { FaGithub } from 'react-icons/fa';
 import { useEffect, useRef, useState } from 'react';
 
 interface HeaderProps {
@@ -85,13 +85,13 @@ export function Header({ title, subtitle, children }: HeaderProps) {
 
         {/* GitHub link (replaces bell) */}
         <a
-          href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://github.com/Krishna-Vijay-G'}
+          href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
           target="_blank"
           rel="noopener noreferrer"
           className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
           title="Open GitHub"
         >
-          <FaGithub className="w-5 h-5" />
+          <HiOutlineStar className="w-5 h-5" />
         </a>
 
         {/* User dropdown */}
@@ -116,7 +116,13 @@ export function Header({ title, subtitle, children }: HeaderProps) {
 
           {/* Dropdown panel */}
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-52 glass-strong rounded-2xl border border-border shadow-xl shadow-black/40 overflow-hidden z-50">
+            <div
+              className="absolute right-0 top-full mt-2 w-52 glass-strong rounded-2xl border border-border shadow-xl shadow-black/40 overflow-hidden z-50"
+              style={isDark
+                ? { background: 'rgba(5,5,16,0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
+                : { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
+              }
+            >
               {/* User info */}
               <div className="px-4 py-3 border-b border-border">
                 <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
