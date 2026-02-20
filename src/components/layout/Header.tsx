@@ -83,7 +83,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
           {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
         </button>
 
-        {/* GitHub link (replaces bell) */}
+        {/* GitHub link as Star*/}
         <a
           href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
           target="_blank"
