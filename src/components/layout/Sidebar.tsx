@@ -3,15 +3,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/components/providers/AuthProvider';
 import {
   HiOutlineSquares2X2,
   HiOutlineUsers,
   HiOutlineUserGroup,
   HiOutlineTrophy,
   HiOutlineBanknotes,
-  HiOutlineArrowRightOnRectangle,
-  HiOutlineUserCircle,
   HiOutlineClipboardDocumentList,
 } from 'react-icons/hi2';
 
@@ -26,7 +23,6 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
 
   return (
     <>
@@ -70,43 +66,38 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* User section */}
-        <div className="px-3 py-4 border-t border-border space-y-1">
-          <Link
-            href="/profile"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground-secondary hover:bg-surface-hover hover:text-foreground transition-all"
-          >
-            <HiOutlineUserCircle className="w-5 h-5" />
-            {user?.name || user?.username}
-          </Link>
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground-secondary hover:bg-red-500/10 hover:text-red-400 transition-all"
-          >
-            <HiOutlineArrowRightOnRectangle className="w-5 h-5" />
-            Sign Out
-          </button>
-        </div>
       </aside>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border px-2 py-2 flex items-center justify-around"
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border flex items-center justify-around px-1 py-1.5"
         style={{ background: 'var(--sidebar-bg)', backdropFilter: 'blur(20px)' }}
       >
         {navItems.map((item) => {
           const isActive = item.exact
             ? pathname === item.href
             : pathname === item.href || pathname.startsWith(item.href + '/');
+          // Shorten labels for tight mobile bar
+          const shortLabel: Record<string, string> = {
+            Dashboard: 'Home',
+            Members: 'Members',
+            'Chit Groups': 'Groups',
+            Auctions: 'Auctions',
+            Payments: 'Payments',
+            'Payment Tracker': 'Tracker',
+          };
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${
+              className={`flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl transition-all ${
                 isActive ? 'text-cyan-400' : 'text-foreground-muted'
               }`}
             >
               <item.icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="text-[10px] font-medium leading-tight text-center">
+                {shortLabel[item.label] ?? item.label}
+              </span>
             </Link>
           );
         })}
