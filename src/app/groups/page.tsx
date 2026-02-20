@@ -144,6 +144,9 @@ export default function GroupsPage() {
                   <StatusBadge status={group.status} />
                 </div>
 
+                {/* Progress */}
+                <GroupProgress groupId={group.id} duration={group.duration_months} />
+
                 {/* Details */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-surface rounded-xl p-3">
@@ -242,7 +245,7 @@ function GroupFormModal({
   onSaved: () => void;
 }) {
   const isEditing = !!group;
-  const [name, setName] = useState('');
+  const [name, setName] = useState(group ? group.name : '');
   const [totalAmount, setTotalAmount] = useState(group ? String(group.total_amount) : '');
   const [totalMembers, setTotalMembers] = useState(group ? String(group.total_members) : '');
   const [durationMonths, setDurationMonths] = useState(group ? String(group.duration_months) : '');
@@ -254,6 +257,7 @@ function GroupFormModal({
 
   useEffect(() => {
     if (group) {
+      setName(String(group.name));
       setTotalAmount(String(group.total_amount));
       setTotalMembers(String(group.total_members));
       setDurationMonths(String(group.duration_months));
@@ -263,17 +267,6 @@ function GroupFormModal({
       setStatus(group.status);
     }
   }, [group]);
-
-  // Auto-fill group name when total amount / members change (create mode only)
-  useEffect(() => {
-    if (!isEditing && totalAmount && totalMembers) {
-      const amt = Number(totalAmount);
-      const mem = Number(totalMembers);
-      if (!isNaN(amt) && !isNaN(mem) && amt > 0 && mem > 0) {
-        setName(`₹${amt.toLocaleString('en-IN')} / ${mem}M Chit`);
-      }
-    }
-  }, [isEditing, totalAmount, totalMembers]);
 
   const monthlyAmount =
     totalAmount && totalMembers
@@ -436,5 +429,49 @@ function GroupFormModal({
         </div>
       </form>
     </Modal>
+  );
+}
+
+function GroupProgress({ groupId, duration }: { groupId: string; duration: number }) {
+  const [completed, setCompleted] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch(`/api/auctions?chit_group_id=${groupId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!mounted) return;
+        const list = Array.isArray(data) ? data : [];
+        setCompleted(list.length);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCompleted(0);
+      });
+    return () => { mounted = false; };
+  }, [groupId]);
+
+  if (completed === null) {
+    return (
+      <div className="mt-2">
+        <div className="neon-progress">
+          <div className="neon-progress-bar animate-pulse" style={{ width: '30%' }} />
+        </div>
+      </div>
+    );
+  }
+
+  const pct = duration > 0 ? Math.min(100, Math.round((completed / duration) * 100)) : 0;
+
+  return (
+    <div className="w-full mt-3">
+      <div className="flex items-center justify-between text-xs text-foreground-muted mb-1">
+        <span>{completed} / {duration} months</span>
+        <span className="font-medium">{pct}%</span>
+      </div>
+      <div className="neon-progress">
+        <div className="neon-progress-bar" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
   );
 }
