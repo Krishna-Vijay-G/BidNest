@@ -72,15 +72,16 @@ export default function DashboardPage() {
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async () => {
+    if (!user) return;
     if (hasFetched.current) return;
     hasFetched.current = true;
 
     try {
       const [groupsRes, membersRes, auctionsRes, paymentsRes] = await Promise.all([
-        fetch('/api/chit-groups'),
-        fetch('/api/members'),
-        fetch('/api/auctions'),
-        fetch('/api/payments'),
+        fetch(`/api/chit-groups?user_id=${user.id}`),
+        fetch(`/api/members?user_id=${user.id}`),
+        fetch(`/api/auctions?user_id=${user.id}`),
+        fetch(`/api/payments?user_id=${user.id}`),
       ]);
 
       const groups = await groupsRes.json();
@@ -108,7 +109,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!authLoading) loadData();

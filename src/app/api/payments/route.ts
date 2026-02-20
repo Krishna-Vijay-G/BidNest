@@ -159,12 +159,14 @@ export async function GET(req: NextRequest) {
     const chit_group_id = searchParams.get("chit_group_id");
     const chit_member_id = searchParams.get("chit_member_id");
     const month_number = searchParams.get("month_number");
+    const user_id = searchParams.get("user_id");
 
     const payments = await prisma.payment.findMany({
       where: {
         ...(chit_group_id ? { chit_group_id } : {}),
         ...(chit_member_id ? { chit_member_id } : {}),
         ...(month_number ? { month_number: parseInt(month_number) } : {}),
+        ...(user_id ? { chit_group: { user_id } } : {}),
       },
       include: {
         chit_member: {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/Badge';
@@ -37,6 +38,7 @@ function formatCurrency(amount: number) {
 }
 
 export default function GroupsPage() {
+  const { user } = useAuth();
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -45,26 +47,28 @@ export default function GroupsPage() {
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
+    if (!user) return;
     if (!force && hasFetched.current) return;
     hasFetched.current = true;
     try {
-      const res = await fetch('/api/chit-groups');
+      const res = await fetch(`/api/chit-groups?user_id=${user.id}`);
       const data = await res.json();
       setGroups(Array.isArray(data) ? data : []);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const refreshData = useCallback(async () => {
-    const res = await fetch('/api/chit-groups');
+    if (!user) return;
+    const res = await fetch(`/api/chit-groups?user_id=${user.id}`);
     const data = await res.json();
     setGroups(Array.isArray(data) ? data : []);
-  }, []);
+  }, [user]);
 
   const handleDelete = async (group: ChitGroup) => {
     if (!confirm(`Cancel chit group "${group.name}"?`)) return;

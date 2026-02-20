@@ -142,10 +142,12 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const chit_group_id = searchParams.get("chit_group_id");
+    const user_id = searchParams.get("user_id");
 
     const auctions = await prisma.auction.findMany({
       where: {
         ...(chit_group_id ? { chit_group_id } : {}),
+        ...(user_id ? { chit_group: { user_id } } : {}),
       },
       include: {
         winner_chit_member: {

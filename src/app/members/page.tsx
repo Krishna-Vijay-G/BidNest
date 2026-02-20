@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState } from '@/components/ui';
 import { Badge } from '@/components/ui/Badge';
@@ -33,6 +34,7 @@ function formatCurrency(amount: number) {
 }
 
 export default function MembersPage() {
+  const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -41,26 +43,28 @@ export default function MembersPage() {
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
+    if (!user) return;
     if (!force && hasFetched.current) return;
     hasFetched.current = true;
     try {
-      const res = await fetch('/api/members');
+      const res = await fetch(`/api/members?user_id=${user.id}`);
       const data = await res.json();
       setMembers(Array.isArray(data) ? data : []);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const refreshData = useCallback(async () => {
-    const res = await fetch('/api/members');
+    if (!user) return;
+    const res = await fetch(`/api/members?user_id=${user.id}`);
     const data = await res.json();
     setMembers(Array.isArray(data) ? data : []);
-  }, []);
+  }, [user]);
 
   const filteredMembers = members.filter(
     (m) =>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/Badge';
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast';
 
 interface ChitGroup {
   id: string;
+  name: string;
   total_amount: string;
   total_members: number;
   monthly_amount: string;
@@ -54,18 +56,20 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterGroup, setFilterGroup] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
+    if (!user) return;
     if (!force && hasFetched.current) return;
     hasFetched.current = true;
     try {
       const [paymentsRes, groupsRes] = await Promise.all([
-        fetch('/api/payments'),
-        fetch('/api/chit-groups'),
+        fetch(`/api/payments?user_id=${user.id}`),
+        fetch(`/api/chit-groups?user_id=${user.id}`),
       ]);
       const p = await paymentsRes.json();
       const g = await groupsRes.json();
@@ -74,22 +78,23 @@ export default function PaymentsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const refreshData = useCallback(async () => {
+    if (!user) return;
     const [paymentsRes, groupsRes] = await Promise.all([
-      fetch('/api/payments'),
-      fetch('/api/chit-groups'),
+      fetch(`/api/payments?user_id=${user.id}`),
+      fetch(`/api/chit-groups?user_id=${user.id}`),
     ]);
     const p = await paymentsRes.json();
     const g = await groupsRes.json();
     setPayments(Array.isArray(p) ? p : []);
     setGroups(Array.isArray(g) ? g : []);
-  }, []);
+  }, [user]);
 
   const filteredPayments = payments.filter((p) => {
     if (filterGroup !== 'all' && p.chit_group_id !== filterGroup) return false;
@@ -327,7 +332,7 @@ function PaymentFormModal({
             { value: '', label: 'Select a group...' },
             ...groups.map((g) => ({
               value: g.id,
-              label: `${formatCurrency(Number(g.total_amount))} · ${g.total_members} members`,
+              label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
             })),
           ]}
         />

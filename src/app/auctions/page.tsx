@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
 import { HiOutlineTrophy, HiOutlinePlus } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
+import { calculateAuction } from '@/utils/dividend';
 
 interface ChitGroup {
   id: string;
+  name: string;
   total_amount: string;
   total_members: number;
   monthly_amount: string;
@@ -57,6 +60,7 @@ function formatCurrency(amount: number) {
 }
 
 export default function AuctionsPage() {
+  const { user } = useAuth();
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,12 +69,13 @@ export default function AuctionsPage() {
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
+    if (!user) return;
     if (!force && hasFetched.current) return;
     hasFetched.current = true;
     try {
       const [auctionsRes, groupsRes] = await Promise.all([
-        fetch('/api/auctions'),
-        fetch('/api/chit-groups'),
+        fetch(`/api/auctions?user_id=${user.id}`),
+        fetch(`/api/chit-groups?user_id=${user.id}`),
       ]);
       const auctionsData = await auctionsRes.json();
       const groupsData = await groupsRes.json();
@@ -79,22 +84,23 @@ export default function AuctionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const refreshData = useCallback(async () => {
+    if (!user) return;
     const [auctionsRes, groupsRes] = await Promise.all([
-      fetch('/api/auctions'),
-      fetch('/api/chit-groups'),
+      fetch(`/api/auctions?user_id=${user.id}`),
+      fetch(`/api/chit-groups?user_id=${user.id}`),
     ]);
     const a = await auctionsRes.json();
     const g = await groupsRes.json();
     setAuctions(Array.isArray(a) ? a : []);
     setGroups(Array.isArray(g) ? g : []);
-  }, []);
+  }, [user]);
 
   const filteredAuctions = auctions.filter((a) =>
     filterGroup === 'all' ? true : a.chit_group_id === filterGroup
@@ -122,7 +128,7 @@ export default function AuctionsPage() {
 
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Filter */}
-        <div className="mb-6 w-48">
+        <div className="mb-6 w-64">
           <Select
             value={filterGroup}
             onChange={(e) => setFilterGroup(e.target.value)}
@@ -130,7 +136,7 @@ export default function AuctionsPage() {
               { value: 'all', label: 'All Groups' },
               ...groups.map((g) => ({
                 value: g.id,
-                label: `${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
+                label: `${g.name} — ${formatCurrency(Number(g.total_amount))}`,
               })),
             ]}
           />
@@ -242,13 +248,27 @@ function AuctionFormModal({
   const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [preview, setPreview] = useState<any>(null);
+  const [carryPrevious, setCarryPrevious] = useState(0);
 
-  // load chit members when group selected
+  // load chit members and last carry_previous when group selected
   useEffect(() => {
     if (!selectedGroupId) return;
-    fetch(`/api/chit-members?chit_group_id=${selectedGroupId}`)
-      .then((r) => r.json())
-      .then(setChitMembers);
+    Promise.all([
+      fetch(`/api/chit-members?chit_group_id=${selectedGroupId}`).then((r) => r.json()),
+      fetch(`/api/auctions?chit_group_id=${selectedGroupId}`).then((r) => r.json()),
+    ]).then(([members, auctions]) => {
+      setChitMembers(Array.isArray(members) ? members : []);
+      if (Array.isArray(auctions) && auctions.length > 0) {
+        const lastAuction = auctions.reduce((a: any, b: any) =>
+          a.month_number > b.month_number ? a : b
+        );
+        setCarryPrevious(Number(lastAuction.carry_next));
+        setMonthNumber(String(lastAuction.month_number + 1));
+      } else {
+        setCarryPrevious(0);
+        setMonthNumber('1');
+      }
+    });
   }, [selectedGroupId]);
 
   // calculate preview
@@ -260,19 +280,20 @@ function AuctionFormModal({
     const group = groups.find((g) => g.id === selectedGroupId);
     if (!group) return;
 
-    const bid = Number(originalBid);
-    const total = Number(group.total_amount);
-    const commission =
-      group.commission_type === 'PERCENT'
-        ? ((total - bid) * Number(group.commission_value)) / 100
-        : Number(group.commission_value);
-
-    setPreview({
-      winning_amount: total - bid,
-      commission,
-      monthly_contribution: Number(group.monthly_amount),
+    const calc = calculateAuction({
+      total_amount: Number(group.total_amount),
+      original_bid: Number(originalBid),
+      commission_type: group.commission_type,
+      commission_value: Number(group.commission_value),
+      round_off_value: group.round_off_value,
+      carry_previous: carryPrevious,
     });
-  }, [selectedGroupId, originalBid, monthNumber, groups]);
+
+    const dividend_per_member = calc.roundoff_dividend / group.total_members;
+    const monthly_due = Number(group.monthly_amount) - dividend_per_member;
+
+    setPreview({ ...calc, dividend_per_member, monthly_due, total_members: group.total_members });
+  }, [selectedGroupId, originalBid, monthNumber, groups, carryPrevious]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -317,7 +338,7 @@ function AuctionFormModal({
               .filter((g) => g.status === 'ACTIVE' || g.status === 'PENDING')
               .map((g) => ({
                 value: g.id,
-                label: `${formatCurrency(Number(g.total_amount))} · ${g.total_members} members`,
+                label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
               })),
           ]}
           required
@@ -362,7 +383,7 @@ function AuctionFormModal({
             <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-3">
               Calculation Preview
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <p className="text-xs text-foreground-muted">Winning Amount</p>
                 <p className="text-sm font-semibold text-emerald-400">
@@ -376,9 +397,39 @@ function AuctionFormModal({
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Monthly Due</p>
+                <p className="text-xs text-foreground-muted">Net Win (Payout)</p>
                 <p className="text-sm font-semibold text-cyan-400">
-                  {formatCurrency(preview.monthly_contribution)}
+                  {formatCurrency(preview.winning_amount - preview.commission)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">Raw Dividend</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {formatCurrency(preview.raw_dividend)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">Roundoff Dividend</p>
+                <p className="text-sm font-semibold text-amber-400">
+                  {formatCurrency(preview.roundoff_dividend)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">Carry Next</p>
+                <p className="text-sm font-semibold text-orange-400">
+                  {formatCurrency(preview.carry_next)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">Per Member Div.</p>
+                <p className="text-sm font-semibold text-purple-400">
+                  {formatCurrency(preview.dividend_per_member)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">Each Member Pays</p>
+                <p className="text-sm font-semibold text-cyan-400">
+                  {formatCurrency(preview.monthly_due)}
                 </p>
               </div>
             </div>

@@ -11,14 +11,16 @@ import {
   HiOutlineBanknotes,
   HiOutlineArrowRightOnRectangle,
   HiOutlineUserCircle,
+  HiOutlineClipboardDocumentList,
 } from 'react-icons/hi2';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: HiOutlineSquares2X2 },
-  { href: '/members', label: 'Members', icon: HiOutlineUsers },
-  { href: '/groups', label: 'Chit Groups', icon: HiOutlineUserGroup },
-  { href: '/auctions', label: 'Auctions', icon: HiOutlineTrophy },
-  { href: '/payments', label: 'Payments', icon: HiOutlineBanknotes },
+  { href: '/dashboard', label: 'Dashboard', icon: HiOutlineSquares2X2, exact: false },
+  { href: '/members', label: 'Members', icon: HiOutlineUsers, exact: false },
+  { href: '/groups', label: 'Chit Groups', icon: HiOutlineUserGroup, exact: false },
+  { href: '/auctions', label: 'Auctions', icon: HiOutlineTrophy, exact: false },
+  { href: '/payments', label: 'Payments', icon: HiOutlineBanknotes, exact: true },
+  { href: '/payments/tracking', label: 'Payment Tracker', icon: HiOutlineClipboardDocumentList, exact: false },
 ];
 
 export function Sidebar() {
@@ -44,7 +46,9 @@ export function Sidebar() {
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const isActive = item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(item.href + '/');
             return (
               <Link
                 key={item.href}
@@ -89,7 +93,9 @@ export function Sidebar() {
         style={{ background: 'var(--sidebar-bg)', backdropFilter: 'blur(20px)' }}
       >
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          const isActive = item.exact
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link
               key={item.href}
