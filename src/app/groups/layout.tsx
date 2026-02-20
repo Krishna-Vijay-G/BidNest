@@ -1,3 +1,4 @@
+//src/app/groups/layout.tsx
 import { Sidebar } from '@/components/layout/Sidebar';
 import type { ReactNode } from 'react';
 

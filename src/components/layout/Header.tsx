@@ -1,3 +1,4 @@
+//src/components/layout/Header.tsx
 'use client';
 
 import { useAuth } from '@/components/providers/AuthProvider';

@@ -1,3 +1,4 @@
+//src/app/groups/[id]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';

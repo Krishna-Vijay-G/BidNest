@@ -1,3 +1,4 @@
+//src/components/providers/index.tsx
 'use client';
 
 import { AuthProvider } from './AuthProvider';

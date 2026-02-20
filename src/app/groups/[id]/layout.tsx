@@ -1,3 +1,4 @@
+//src/app/groups/[id]/layout.tsx
 import type { ReactNode } from 'react';
 
 // Parent groups/layout.tsx already provides the Sidebar shell.

@@ -1,3 +1,4 @@
+//src/app/api/auth/change-password/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";

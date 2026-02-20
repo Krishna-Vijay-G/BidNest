@@ -1,3 +1,4 @@
+//src/components/ui/Badge.tsx
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';

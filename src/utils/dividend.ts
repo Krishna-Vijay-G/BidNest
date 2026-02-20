@@ -1,3 +1,4 @@
+//src/utils/dividend.ts
 export interface AuctionCalculation {
   winning_amount: number;
   commission: number;

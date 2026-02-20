@@ -1,3 +1,4 @@
+//src/components/ui/StatCard.tsx
 interface StatCardProps {
   title: string;
   value: string | number;

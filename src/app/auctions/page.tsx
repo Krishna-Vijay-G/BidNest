@@ -1,3 +1,4 @@
+//src/app/auctions/page.tsx
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
