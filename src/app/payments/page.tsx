@@ -6,6 +6,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, PageLoader, EmptyState, Select } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/Badge';
+import Link from 'next/link';
 import {
   HiOutlineBanknotes,
   HiOutlineArrowTrendingUp,
@@ -133,7 +134,8 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
   const isPositive = net >= 0;
 
   return (
-    <div className="glass glass-hover rounded-2xl border border-border p-5 space-y-4 transition-all duration-200">
+    <Link href={`/groups/${group.id}`} className="block">
+      <div className="glass glass-hover rounded-2xl border border-border p-5 space-y-4 transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
@@ -185,7 +187,8 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
           />
         </div>
       </div>
-    </div>
+      </div>
+    </Link>
   );
 }
 
