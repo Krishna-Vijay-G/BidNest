@@ -249,6 +249,8 @@ function AuctionFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [preview, setPreview] = useState<any>(null);
   const [carryPrevious, setCarryPrevious] = useState(0);
+  const [groupAuctions, setGroupAuctions] = useState<any[]>([]);
+  const [availableMembers, setAvailableMembers] = useState<ChitMember[]>([]);
 
   // load chit members and last carry_previous when group selected
   useEffect(() => {
@@ -257,9 +259,12 @@ function AuctionFormModal({
       fetch(`/api/chit-members?chit_group_id=${selectedGroupId}`).then((r) => r.json()),
       fetch(`/api/auctions?chit_group_id=${selectedGroupId}`).then((r) => r.json()),
     ]).then(([members, auctions]) => {
-      setChitMembers(Array.isArray(members) ? members : []);
-      if (Array.isArray(auctions) && auctions.length > 0) {
-        const lastAuction = auctions.reduce((a: any, b: any) =>
+      const membersList = Array.isArray(members) ? members : [];
+      const auctionsList = Array.isArray(auctions) ? auctions : [];
+      setChitMembers(membersList);
+      setGroupAuctions(auctionsList);
+      if (auctionsList.length > 0) {
+        const lastAuction = auctionsList.reduce((a: any, b: any) =>
           a.month_number > b.month_number ? a : b
         );
         setCarryPrevious(Number(lastAuction.carry_next));
@@ -270,6 +275,20 @@ function AuctionFormModal({
       }
     });
   }, [selectedGroupId]);
+
+  // compute available members (exclude tickets that already won)
+  useEffect(() => {
+    const winners = new Set<string>();
+    for (const a of groupAuctions) {
+      const wid = a && (a.winner_chit_member_id || (a.winner_chit_member && a.winner_chit_member.id));
+      if (wid) winners.add(String(wid));
+    }
+    const available = (chitMembers || []).filter((cm) => !winners.has(cm.id));
+    setAvailableMembers(available);
+    if (winnerChitMemberId && !available.find((m) => m.id === winnerChitMemberId)) {
+      setWinnerChitMemberId('');
+    }
+  }, [chitMembers, groupAuctions]);
 
   // calculate preview
   useEffect(() => {
@@ -367,15 +386,23 @@ function AuctionFormModal({
           label="Winner (Ticket Holder)"
           value={winnerChitMemberId}
           onChange={(e) => setWinnerChitMemberId(e.target.value)}
-          options={[
-            { value: '', label: 'Select winner...' },
-            ...chitMembers.map((cm) => ({
-              value: cm.id,
-              label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
-            })),
-          ]}
-          required
+          options={
+            availableMembers.length === 0
+              ? [{ value: '', label: 'No eligible tickets (all have won)' }]
+              : [
+                  { value: '', label: 'Select winner...' },
+                  ...availableMembers.map((cm) => ({
+                    value: cm.id,
+                    label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
+                  })),
+                ]
+          }
+          required={availableMembers.length > 0}
         />
+
+        {carryPrevious > 0 && (
+          <p className="text-xs text-amber-400">Carry from previous month: {formatCurrency(carryPrevious)}</p>
+        )}
 
         {/* Preview */}
         {preview && (

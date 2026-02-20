@@ -528,6 +528,8 @@ function ConductAuctionModal({
   const [winnerChitMemberId, setWinnerChitMemberId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [preview, setPreview] = useState<any>(null);
+  const [groupAuctions, setGroupAuctions] = useState<any[]>([]);
+  const [availableMembers, setAvailableMembers] = useState<ChitMember[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -535,8 +537,31 @@ function ConductAuctionModal({
       setOriginalBid('');
       setWinnerChitMemberId('');
       setPreview(null);
+      // fetch auctions for this group to determine tickets that already won
+      fetch(`/api/auctions?chit_group_id=${group.id}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const list = Array.isArray(data) ? data : [];
+          setGroupAuctions(list);
+        })
+        .catch(() => setGroupAuctions([]));
     }
   }, [isOpen, nextMonth]);
+
+  // recompute availableMembers whenever chitMembers or groupAuctions change
+  useEffect(() => {
+    const winners = new Set<string>();
+    for (const a of groupAuctions) {
+      const wid = (a && (a.winner_chit_member_id || (a.winner_chit_member && a.winner_chit_member.id)));
+      if (wid) winners.add(String(wid));
+    }
+    const available = (chitMembers || []).filter((cm) => !winners.has(cm.id));
+    setAvailableMembers(available);
+    // clear selection if previously selected member is no longer available
+    if (winnerChitMemberId && !available.find((m) => m.id === winnerChitMemberId)) {
+      setWinnerChitMemberId('');
+    }
+  }, [chitMembers, groupAuctions]);
 
   // live preview
   useEffect(() => {
@@ -560,6 +585,18 @@ function ConductAuctionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    if ((availableMembers || []).length === 0) {
+      toast.error('No eligible tickets available — all tickets have already won');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!winnerChitMemberId) {
+      toast.error('Please select a winner (ticket)');
+      setIsSubmitting(false);
+      return;
+    }
 
     const res = await fetch('/api/auctions', {
       method: 'POST',
@@ -611,15 +648,23 @@ function ConductAuctionModal({
           label="Winner (Ticket Holder)"
           value={winnerChitMemberId}
           onChange={(e) => setWinnerChitMemberId(e.target.value)}
-          options={[
-            { value: '', label: 'Select winner...' },
-            ...chitMembers.map((cm) => ({
-              value: cm.id,
-              label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
-            })),
-          ]}
-          required
+          options={
+            availableMembers.length === 0
+              ? [{ value: '', label: 'No eligible tickets (all have won)' }]
+              : [
+                  { value: '', label: 'Select winner...' },
+                  ...availableMembers.map((cm) => ({
+                    value: cm.id,
+                    label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
+                  })),
+                ]
+          }
+          required={availableMembers.length > 0}
         />
+
+        {availableMembers.length === 0 && (
+          <p className="text-sm text-red-400">No eligible tickets left in this group — every ticket has won previously.</p>
+        )}
 
         {lastCarryNext > 0 && (
           <p className="text-xs text-amber-400">Carry from previous month: {formatCurrency(lastCarryNext)}</p>
