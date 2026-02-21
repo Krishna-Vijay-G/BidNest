@@ -71,37 +71,26 @@ export default function HomePage() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Ambient background orbs */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-150 h-150 rounded-full bg-cyan-500/[0.07] blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-125 h-125 rounded-full bg-purple-500/[0.07] blur-[120px]" />
-        <div className="absolute top-[40%] right-[20%] w-75 h-75 rounded-full bg-pink-500/5 blur-[100px]" />
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {/* reduce orb sizes on small screens so they don’t force horizontal scrolling */}
+        <div className="absolute top-[-20%] left-[-10%] w-64 h-64 sm:w-150 sm:h-150 rounded-full bg-cyan-500/[0.07] blur-[100px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-64 h-64 sm:w-125 sm:h-125 rounded-full bg-purple-500/[0.07] blur-[100px]" />
+        <div className="absolute top-[40%] right-[20%] w-40 h-40 sm:w-75 sm:h-75 rounded-full bg-pink-500/5 blur-[80px]" />
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-6 sm:px-12 py-5">
+      <nav className="relative z-10 flex flex-wrap items-center justify-between px-4 sm:px-12 py-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-linear-to-br from-cyan-400 to-purple-500 shadow-lg shadow-cyan-500/20">
             <span className="text-white font-black text-lg">B</span>
           </div>
-          <span className="text-foreground font-bold text-xl tracking-tight">
+          <span className="text-foreground font-bold text-lg sm:text-xl tracking-tight">
             Bid<span className="neon-text">Nest</span>
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <ThemeToggle />
           <GitHubStar />
-          <Link
-            href="/login"
-            className="text-foreground-secondary hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/register"
-            className="btn-neon px-5 py-2 rounded-xl text-sm font-semibold"
-          >
-            Get Started
-          </Link>
         </div>
       </nav>
 
