@@ -271,7 +271,7 @@ export default function DashboardPage() {
                       <td>
                         <StatusBadge
                           status={payment.status}
-                          label={t((`status${payment.status[0] + payment.status.slice(1).toLowerCase()}`) as any)}
+                          label={t((payment.status).toLowerCase() as any)}
                         />
                       </td>
                     </tr>

@@ -24,6 +24,8 @@ export const translations = {
     nickname: 'Nickname',
     mobile: 'Mobile Number',
     upiId: 'UPI ID',
+    upiIds: 'UPI IDs',
+    memberId: 'Member ID',
     status: 'Status',
     active: 'Active',
     inactive: 'Inactive',
@@ -72,6 +74,7 @@ export const translations = {
     amountPaid: 'Amount Paid',
     paymentMethod: 'Payment Method',
     paymentDate: 'Payment Date',
+    date: 'Date',
     notes: 'Notes',
     cash: 'Cash',
     upi: 'UPI',
@@ -89,6 +92,8 @@ export const translations = {
     selectMember: 'Select member...',
     selectWinner: 'Select winner...',
     selectMonth: 'Select month...',
+    months: 'Months',
+    ticketShort: 'Ticket #',
 
     // Statuses
     statusActive: 'Active',
@@ -103,6 +108,7 @@ export const translations = {
     confirmPassword: 'Confirm Password',
     accountDetails: 'Account Details',
     memberSince: 'Member Since',
+    registeredMembers: 'registered members',
 
     // Member Detail
     totalTickets: 'Total Tickets',
@@ -162,6 +168,9 @@ export const translations = {
     totalPaid: 'Total Paid',
     totalDue: 'Total Due',
     remaining: 'Remaining',
+    payingMonths: 'paying months',
+    payment: 'Payment',
+    more: 'more',
 
     // Profile Extended
     activeAccount: 'Active Account',
@@ -208,11 +217,13 @@ export const translations = {
     nickname: 'செல்லப் பெயர்',
     mobile: 'மொபைல் எண்',
     upiId: 'UPI ஐடி',
+    upiIds: 'UPI ஐடி',
+    memberId: 'உறுப்பினர் ID',
     status: 'நிலை',
     active: 'செயலில்',
     inactive: 'செயலற்றது',
     actions: 'செயல்கள்',
-    search: 'பெயர், செல்லப் பெயர் அல்லது மொபைல் மூலம் தேடு...',
+    search: 'பெயர் அல்லது மொபைல் மூலம் தேடு...',
     noMembers: 'உறுப்பினர்கள் இல்லை',
     allStatus: 'அனைத்து நிலைகள்',
     addFirstMember: 'தொடங்க முதல் உறுப்பினரை சேர்க்கவும்.',
@@ -256,6 +267,7 @@ export const translations = {
     amountPaid: 'செலுத்திய தொகை',
     paymentMethod: 'கட்டண முறை',
     paymentDate: 'கட்டண தேதி',
+    date: 'தேதி',
     notes: 'குறிப்புகள்',
     cash: 'ரொக்கம்',
     upi: 'UPI',
@@ -273,6 +285,8 @@ export const translations = {
     selectMember: 'உறுப்பினரை தேர்ந்தெடு...',
     selectWinner: 'வெற்றியாளரை தேர்ந்தெடு...',
     selectMonth: 'மாதம் தேர்ந்தெடு...',
+    months: 'மாதங்கள்',
+    ticketShort: 'டிக்கெட் #',
 
     // Statuses
     statusActive: 'செயலில்',
@@ -287,6 +301,7 @@ export const translations = {
     confirmPassword: 'கடவுச்சொல் உறுதிப்படுத்து',
     accountDetails: 'கணக்கு விவரங்கள்',
     memberSince: 'உறுப்பினர் ஆனது',
+    registeredMembers: 'பதிவு செய்யப்பட்ட உறுப்பினர்கள்',
 
     // Member Detail
     totalTickets: 'மொத்த டிக்கெட்டுகள்',
@@ -295,10 +310,10 @@ export const translations = {
     totalOwed: 'மொத்த செலுத்த வேண்டியது',
     balanceDue: 'நிலுவை தொகை',
     wonAuction: 'ஏலம் வென்றது',
-    wonMonths: 'வென்ற மாதங்கள்',
+    wonMonths: 'வென்ற மாதம்',
     monthByMonth: 'மாதாந்திர விவரம்',
-    amountDue: 'செலுத்த வேண்டிய தொகை',
-    balance: 'இருப்பு',
+    amountDue: 'வேண்டிய தொகை',
+    balance: 'நிலுவை',
     settled: 'தீர்வு',
     fullySettled: 'முழுமையாக தீர்க்கப்பட்டது',
     notInAnyGroup: 'இன்னும் எந்த சீட்டு குழுவிலும் சேர்க்கப்படவில்லை.',
@@ -346,6 +361,9 @@ export const translations = {
     totalPaid: 'மொத்த செலுத்தியது',
     totalDue: 'மொத்த செலுத்த வேண்டியது',
     remaining: 'மீதம்',
+    payingMonths: 'செலுத்தும் மாதங்கள்',
+    payment: 'கட்டணம்',
+    more: 'மேலும்',
 
     // Profile Extended
     activeAccount: 'செயலில் கணக்கு',

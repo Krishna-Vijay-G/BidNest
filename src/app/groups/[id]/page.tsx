@@ -553,6 +553,7 @@ function ConductAuctionModal({
   const [preview, setPreview] = useState<any>(null);
   const [groupAuctions, setGroupAuctions] = useState<any[]>([]);
   const [availableMembers, setAvailableMembers] = useState<ChitMember[]>([]);
+  const [auctionDate, setAuctionDate] = useState('');
   const { t } = useLang();
 
   useEffect(() => {
@@ -560,6 +561,7 @@ function ConductAuctionModal({
       setMonthNumber(String(nextMonth));
       setOriginalBid('');
       setWinnerChitMemberId('');
+      setAuctionDate(new Date().toISOString().slice(0, 10));
       setPreview(null);
       // fetch auctions for this group to determine tickets that already won
       fetch(`/api/auctions?chit_group_id=${group.id}`)
@@ -634,6 +636,7 @@ function ConductAuctionModal({
         month_number: Number(monthNumber),
         winner_chit_member_id: winnerChitMemberId,
         original_bid: Number(originalBid),
+        date: auctionDate,
       }),
     });
 
@@ -688,6 +691,13 @@ function ConductAuctionModal({
                 ]
           }
           required={availableMembers.length > 0}
+        />
+
+        <Input
+          label={t('date')}
+          type="date"
+          value={auctionDate}
+          onChange={(e) => setAuctionDate(e.target.value)}
         />
 
         {availableMembers.length === 0 && (

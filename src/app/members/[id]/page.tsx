@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
-import { Card, PageLoader, StatusBadge } from '@/components/ui';
+import { Card, PageLoader, StatusBadge, Modal, Input, Button, Select } from '@/components/ui';
 import Link from 'next/link';
 import {
   HiOutlineArrowLeft,
@@ -17,8 +17,10 @@ import {
   HiOutlineBanknotes,
   HiOutlineUser,
   HiOutlineCalendarDays,
+  HiOutlinePencil,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import toast from 'react-hot-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -191,54 +193,60 @@ function buildGroupSummary(
 export default function MemberDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   const [member, setMember] = useState<Member | null>(null);
   const [summaries, setSummaries] = useState<GroupSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        // 1. Member + chit tickets
-        const [memberRes, ticketsRes] = await Promise.all([
-          fetch(`/api/members/${id}`),
-          fetch(`/api/chit-members?member_id=${id}`),
-        ]);
+  async function fetchAll() {
+    setIsLoading(true);
+    try {
+      // 1. Member + chit tickets
+      const [memberRes, ticketsRes] = await Promise.all([
+        fetch(`/api/members/${id}`),
+        fetch(`/api/chit-members?member_id=${id}`),
+      ]);
 
-        const memberData = await memberRes.json();
-        const ticketsData: ChitMemberTicket[] = await ticketsRes.json();
+      const memberData = await memberRes.json();
+      const ticketsData: ChitMemberTicket[] = await ticketsRes.json();
 
-        if (!memberData?.id) { setIsLoading(false); return; }
-        setMember(memberData);
+      if (!memberData?.id) { setMember(null); setSummaries([]); return; }
+      setMember(memberData);
 
-        const tickets = Array.isArray(ticketsData) ? ticketsData : [];
+      const tickets = Array.isArray(ticketsData) ? ticketsData : [];
 
-        // 2. For each ticket: fetch group auctions + member payments in parallel
-        const summaryResults = await Promise.all(
-          tickets.map(async (ticket) => {
-            const [auctionsRes, paymentsRes] = await Promise.all([
-              fetch(`/api/auctions?chit_group_id=${ticket.chit_group.id}`),
-              fetch(`/api/payments?chit_member_id=${ticket.id}`),
-            ]);
-            const auctions: Auction[] = await auctionsRes.json();
-            const payments: Payment[] = await paymentsRes.json();
-            return buildGroupSummary(
-              ticket,
-              Array.isArray(auctions) ? auctions : [],
-              Array.isArray(payments) ? payments : []
-            );
-          })
-        );
+      // 2. For each ticket: fetch group auctions + member payments in parallel
+      const summaryResults = await Promise.all(
+        tickets.map(async (ticket) => {
+          const [auctionsRes, paymentsRes] = await Promise.all([
+            fetch(`/api/auctions?chit_group_id=${ticket.chit_group.id}`),
+            fetch(`/api/payments?chit_member_id=${ticket.id}`),
+          ]);
+          const auctions: Auction[] = await auctionsRes.json();
+          const payments: Payment[] = await paymentsRes.json();
+          return buildGroupSummary(
+            ticket,
+            Array.isArray(auctions) ? auctions : [],
+            Array.isArray(payments) ? payments : []
+          );
+        })
+      );
 
-        setSummaries(summaryResults);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [id]);
+      setSummaries(summaryResults);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => { fetchAll(); }, [id]);
 
   if (isLoading) return <><Header title={t('members')} /><PageLoader /></>;
   if (!member) return (
@@ -294,7 +302,7 @@ export default function MemberDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-3 mb-1">
                 <h2 className="text-2xl font-bold text-foreground">{member.name.value}</h2>
-                <StatusBadge status={member.is_active ? 'ACTIVE' : 'CANCELLED'} />
+                <StatusBadge status={member.is_active ? 'ACTIVE' : 'CANCELLED'} label={formatStatusLabel(member.is_active ? 'ACTIVE' : 'CANCELLED', t)} />
               </div>
               <p className="text-foreground-muted text-sm mb-4">"{member.nickname.value}"</p>
 
@@ -311,7 +319,7 @@ export default function MemberDetailPage() {
                 ))}
                 <span className="flex items-center gap-1.5 text-foreground-muted">
                   <HiOutlineCalendarDays className="w-4 h-4" />
-                  Since {new Date(member.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                  {t('memberSince')}: {new Date(member.created_at).toLocaleDateString(lang === 'ta' ? 'ta-IN' : 'en-IN', { month: 'long', year: 'numeric' })}
                 </span>
               </div>
             </div>
@@ -347,20 +355,12 @@ export default function MemberDetailPage() {
         {/* ── Tabs ── */}
         {summaries.length > 0 && (
           <>
-            <div className="flex gap-1 overflow-x-auto border-b border-border pb-0 scrollbar-hide">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all border-b-2 -mb-px shrink-0 ${
-                    activeTab === tab.id
-                      ? 'border-cyan-400 text-cyan-400'
-                      : 'border-transparent text-foreground-muted hover:text-foreground'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="mb-4 w-full md:w-64">
+              <Select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                options={tabs.map(tab => ({ value: tab.id, label: tab.label }))}
+              />
             </div>
 
             {/* ── Overview Tab ── */}
@@ -400,9 +400,25 @@ export default function MemberDetailPage() {
 
         {/* ── Contact Details ── */}
         <div className="glass rounded-2xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">
-            {t('memberInfo')}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">
+              {t('memberInfo')}
+            </h3>
+            <button
+              onClick={() => {
+                setEditingMember(member);
+                setName(member?.name.value ?? '');
+                setNickname(member?.nickname.value ?? '');
+                setMobile(member?.mobile.value ?? '');
+                setUpiId(member?.upi_ids?.find(u => u.is_active)?.value ?? '');
+              }}
+              className="p-1.5 text-foreground-muted hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
+              title={t('editMember')}
+              aria-label={t('editMember')}
+            >
+              <HiOutlinePencil className="w-4 h-4" />
+            </button>
+          </div>
           <div className="grid sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-border">
             <div className="space-y-0 sm:pr-6">
               {[
@@ -419,7 +435,7 @@ export default function MemberDetailPage() {
               ))}
             </div>
             <div className="sm:pl-6 pt-3 sm:pt-0">
-              <p className="text-xs text-foreground-muted mb-3">UPI IDs</p>
+              <p className="text-xs text-foreground-muted mb-3">{t('upiIds')}</p>
               {member.upi_ids?.filter(u => u.is_active).length === 0 ? (
                 <p className="text-sm text-foreground-muted">—</p>
               ) : (
@@ -432,13 +448,59 @@ export default function MemberDetailPage() {
                   ))}
                 </div>
               )}
-              <p className="text-xs text-foreground-muted mt-4 mb-1">Member ID</p>
+              <p className="text-xs text-foreground-muted mt-4 mb-1">{t('memberId')}</p>
               <p className="text-xs font-mono text-foreground-muted break-all">{member.id}</p>
             </div>
           </div>
         </div>
 
       </div>
+      {/* Edit Modal (inline) */}
+      <Modal
+        isOpen={!!editingMember}
+        onClose={() => setEditingMember(null)}
+        title={editingMember ? t('editMember') : t('addMember')}
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!editingMember) return;
+            setIsSubmitting(true);
+            const now = new Date().toISOString();
+
+            const res = await fetch(`/api/members/${editingMember.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: { value: name.trim(), updated_at: now },
+                nickname: { value: nickname.trim(), updated_at: now },
+                mobile: { value: mobile.trim(), updated_at: now },
+                upi_ids: upiId.trim() ? [{ value: upiId.trim(), added_at: now, is_active: true }] : [],
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+              toast.error(data.error || 'Something went wrong');
+            } else {
+              toast.success(t('memberUpdated'));
+              setEditingMember(null);
+              await fetchAll();
+            }
+            setIsSubmitting(false);
+          }}
+          className="space-y-4"
+        >
+          <Input label={t('memberName')} value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input label={t('nickname')} value={nickname} onChange={(e) => setNickname(e.target.value)} required />
+          <Input label={t('mobile')} value={mobile} onChange={(e) => setMobile(e.target.value)} required />
+          <Input label={`${t('upiId')} (${t('optional')})`} value={upiId} onChange={(e) => setUpiId(e.target.value)} />
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => setEditingMember(null)} type="button">{t('cancel')}</Button>
+            <Button type="submit" isLoading={isSubmitting}>{t('saveChanges')}</Button>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }
@@ -470,16 +532,16 @@ function OverviewGroupCard({
               <Link href={`/groups/${group.id}`} className="font-bold text-foreground hover:text-cyan-400 transition-colors">
                 {group.name}
               </Link>
-              <StatusBadge status={group.status} />
+              <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
               {wonMonth && (
                 <span className="flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
                   <HiOutlineTrophy className="w-3 h-3" />
-                  Won Month {wonMonth}
+                  {t('wonMonths')} {wonMonth}
                 </span>
               )}
             </div>
             <p className="text-xs text-foreground-muted mt-0.5">
-              {fmt(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months · Ticket #{ticket.ticket_number}
+              {fmt(Number(group.total_amount))} · {group.total_members} {t('members')} · {group.duration_months} {t('months')} · {t('ticketShort')} {ticket.ticket_number}
             </p>
           </div>
         </div>
@@ -495,7 +557,7 @@ function OverviewGroupCard({
       <div className="px-5 pt-4">
         <div className="flex justify-between text-xs mb-1.5">
           <span className="text-foreground-muted">{t('auctionsCompleted')}</span>
-          <span className="text-foreground font-medium">{completedMonths}/{group.duration_months} months</span>
+          <span className="text-foreground font-medium">{completedMonths}/{group.duration_months} {t('months')}</span>
         </div>
         <div className="neon-progress mb-4">
           <div className="neon-progress-bar" style={{ width: `${Math.round((completedMonths / group.duration_months) * 100)}%` }} />
@@ -536,7 +598,7 @@ function OverviewGroupCard({
           <div className="flex justify-between text-xs mb-1.5">
             <span className="text-foreground-muted">{t('paymentProgress')}</span>
             <span className={`font-semibold ${paidPct === 100 ? 'text-emerald-400' : pendingMonths > 0 ? 'text-amber-400' : 'text-foreground-muted'}`}>
-              {paidPct}% settled{pendingMonths > 0 ? ` · ${pendingMonths} month${pendingMonths > 1 ? 's' : ''} pending` : ''}
+              {paidPct}% {t('settled')}{pendingMonths > 0 ? ` · ${pendingMonths} ${pendingMonths > 1 ? t('months') : t('month')} ${t('pending')}` : ''}
             </span>
           </div>
           <div className="h-2 bg-surface border border-border rounded-full overflow-hidden">
@@ -572,17 +634,17 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
               <Link href={`/groups/${group.id}`} className="text-lg font-bold text-foreground hover:text-cyan-400 transition-colors">
                 {group.name}
               </Link>
-              <StatusBadge status={group.status} />
+              <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
             </div>
             <p className="text-sm text-foreground-muted mt-0.5">
-              Ticket #{ticket.ticket_number} · {fmt(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months
+              {fmt(Number(group.total_amount))} · {group.total_members} {t('members')} · {group.duration_months} {t('months')} · {t('ticketShort')} {ticket.ticket_number}
             </p>
           </div>
           {wonMonth && (
             <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
               <HiOutlineTrophy className="w-5 h-5 text-amber-400" />
               <div>
-                <p className="text-xs text-amber-400/70">Won in Month {wonMonth}</p>
+                <p className="text-xs text-amber-400/70">{t('wonMonths')} {wonMonth}</p>
                 <p className="text-base font-bold text-amber-400">{fmt(wonAmount)}</p>
               </div>
             </div>
@@ -611,7 +673,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
       {/* Month-by-month table */}
       {months.length === 0 ? (
         <div className="glass rounded-2xl border border-border p-10 text-center text-foreground-muted text-sm">
-          No auctions conducted yet in this group.
+          {t('noAuctions')}
         </div>
       ) : (
         <div className="glass rounded-2xl border border-border overflow-hidden">
@@ -631,7 +693,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
                   <th>{t('amountPaid')}</th>
                   <th>{t('balance')}</th>
                   <th>{t('paymentMethod')}</th>
-                  <th>Date</th>
+                  <th>{t('date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -644,7 +706,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
               <tfoot>
                 <tr className="border-t-2 border-border">
                   <td colSpan={2} className="px-4 py-3 text-sm font-semibold text-foreground-muted">
-                    Total ({months.filter(m => !m.wonThisMonth).length} paying months)
+                    {t('total')} ({months.filter(m => !m.wonThisMonth).length} {t('payingMonths')})
                   </td>
                   <td className="px-4 py-3 text-sm font-bold text-foreground">{fmt(totalOwed)}</td>
                   <td className="px-4 py-3 text-sm font-bold text-emerald-400">{fmt(totalPaid)}</td>
@@ -683,7 +745,7 @@ function MonthTableRow({ row }: { row: MonthRow }) {
         className={`cursor-pointer ${row.wonThisMonth ? 'bg-amber-500/5' : ''}`}
         onClick={() => row.payments.length > 0 && setExpanded(e => !e)}
       >
-        <td className="font-semibold text-foreground">Month {row.month}</td>
+        <td className="font-semibold text-foreground">{t('month')} {row.month}</td>
         <td>
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border ${statusConfig.bg} ${statusConfig.color}`}>
             {row.paymentStatus === 'WON' && <HiOutlineTrophy className="w-3 h-3" />}
@@ -707,7 +769,7 @@ function MonthTableRow({ row }: { row: MonthRow }) {
           {row.wonThisMonth ? (
             <span className="text-foreground-muted text-xs">—</span>
           ) : row.balance <= 0 ? (
-            <span className="text-emerald-400 text-xs font-medium">✓ Clear</span>
+            <span className="text-emerald-400 text-xs font-medium">✓ {t('settled')}</span>
           ) : (
             <span className="text-red-400 font-semibold">{fmt(row.balance)}</span>
           )}
@@ -721,7 +783,7 @@ function MonthTableRow({ row }: { row: MonthRow }) {
             : '—'
           }
           {row.payments.length > 1 && (
-            <span className="ml-1 text-xs text-cyan-400">+{row.payments.length - 1} more {expanded ? '▲' : '▼'}</span>
+            <span className="ml-1 text-xs text-cyan-400">+{row.payments.length - 1} {t('more')} {expanded ? '▲' : '▼'}</span>
           )}
         </td>
       </tr>
@@ -730,7 +792,7 @@ function MonthTableRow({ row }: { row: MonthRow }) {
       {expanded && row.payments.length > 1 && row.payments.map((p, i) => (
         <tr key={p.id} className="bg-surface/50">
           <td colSpan={2} className="pl-10 py-2 text-xs text-foreground-muted">
-            Payment {i + 1}
+            {t('payment')} {i + 1}
           </td>
           <td />
           <td className="py-2 text-xs text-emerald-400 font-medium">{fmt(Number(p.amount_paid))}</td>
@@ -767,4 +829,13 @@ function StatBox({
       <p className={`text-sm font-bold ${color}`}>{value}</p>
     </div>
   );
+}
+
+function formatStatusLabel(status: string, t: (k: any) => string) {
+  if (!status) return '';
+  const lower = status.toLowerCase();
+  const lowerLabel = t(lower as any);
+  if (lowerLabel !== lower) return lowerLabel;
+  const capitalized = status[0] + status.slice(1).toLowerCase();
+  return t((`status${capitalized}`) as any);
 }

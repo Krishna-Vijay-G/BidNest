@@ -100,7 +100,7 @@ export default function MembersPage() {
 
   return (
     <>
-      <Header title={t('members')} subtitle={`${members.length} registered members`}>
+      <Header title={t('members')} subtitle={`${members.length} ${t('registeredMembers')}`}>
         <Button
           icon={<HiOutlineUserPlus className="w-4 h-4" />}
           onClick={() => setShowCreateModal(true)}

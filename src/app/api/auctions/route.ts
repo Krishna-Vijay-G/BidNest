@@ -12,6 +12,7 @@ const CreateAuctionSchema = z.object({
   month_number: z.number().int().positive(),
   winner_chit_member_id: z.string().uuid(),
   original_bid: z.number().positive(),
+  date: z.string().optional(),
 });
 
 // ─── POST /api/auctions ────────────────────────────────────
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
     const schedule: { month_number: number; auction_date: string | null; auction_id: string | null }[] =
       Array.isArray(currentGroup?.auction_schedule) ? (currentGroup!.auction_schedule as any[]) : [];
     const existingIdx = schedule.findIndex((s) => s.month_number === parsed.data.month_number);
-    const entry = { month_number: parsed.data.month_number, auction_date: new Date().toISOString(), auction_id: auction.id };
+    const entry = { month_number: parsed.data.month_number, auction_date: parsed.data.date || new Date().toISOString(), auction_id: auction.id };
     if (existingIdx >= 0) schedule[existingIdx] = entry;
     else schedule.push(entry);
     schedule.sort((a, b) => a.month_number - b.month_number);
