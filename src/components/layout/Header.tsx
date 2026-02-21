@@ -14,7 +14,6 @@ import {
 } from 'react-icons/hi2';
 import { useEffect, useRef, useState } from 'react';
 import { useLang } from '@/lib/i18n/LanguageContext';
-import { LanguageToggle } from '@/components/ui/LanguageToggle';
 
 interface HeaderProps {
   title: string;
@@ -58,7 +57,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
     document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
-  const { t } = useLang();
+  const { t, lang, setLang } = useLang();
   const displayName = user?.name || user?.username || '';
   const initials = displayName.charAt(0).toUpperCase();
 
@@ -133,7 +132,14 @@ export function Header({ title, subtitle, children }: HeaderProps) {
                 </a>
 
                 <div className="px-1">
-                  <LanguageToggle />
+                  <button
+                    onClick={() => setLang(lang === 'en' ? 'ta' : 'en')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold border border-border bg-surface hover:border-cyan-500/40 hover:text-cyan-400 transition-all"
+                    title="Switch language"
+                  >
+                    <span className="text-base leading-none">{lang === 'en' ? '🇮🇳' : '🇬🇧'}</span>
+                    <span className="text-foreground-secondary">{lang === 'en' ? 'தமிழ்' : 'English'}</span>
+                  </button>
                 </div>
               </div>
 
