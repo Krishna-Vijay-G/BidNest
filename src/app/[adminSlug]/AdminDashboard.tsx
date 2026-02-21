@@ -287,9 +287,12 @@ function PaymentDetail({ row }: { row: Record<string, unknown> }) {
 }
 
 function AuditLogDetail({ row }: { row: Record<string, unknown> }) {
+  const logUser = row.user as Record<string, unknown> | null;
   return (
     <DGrid>
       <DItem icon={<HiOutlineIdentification className="w-3 h-3" />} label="Full ID" value={row.id as string} mono wide />
+      <DItem icon={<HiOutlineCheckCircle className="w-3 h-3" />} label="Action" value={<StatusBadge status={row.action_type as string} />} />
+      <DItem icon={<HiOutlineUsers className="w-3 h-3" />} label="Performed By" value={(logUser?.username as string) || "Admin / System"} />
       <DItem icon={<HiOutlineIdentification className="w-3 h-3" />} label="Record ID" value={(row.record_id as string) || "—"} mono wide />
       <DItem icon={<HiOutlineInformationCircle className="w-3 h-3" />} label="Action Detail" value={(row.action_detail as string) || "—"} wide />
       <DItem icon={<HiOutlineMapPin className="w-3 h-3" />} label="User Agent" value={(row.user_agent as string) || "—"} wide />
@@ -614,7 +617,7 @@ function GroupsTab({ data, onDelete }: { data: Record<string, unknown>[]; onDele
   return (
     <TabSection
       data={data}
-      searchKeys={(g) => { const o = g.user as Record<string, unknown> | undefined; return [getJsonVal(g.name), o?.username as string, o?.email as string]; }}
+      searchKeys={(g) => { const o = g.user as Record<string, unknown> | undefined; return [getJsonVal(g.name), (g.id as string) || "", o?.username as string, o?.email as string]; }}
       statusKey={(g) => g.status as string}
       statusOptions={["ACTIVE", "PENDING", "COMPLETED", "CANCELLED"]}
       headers={["Name", "Owner", "Total Amount", "Monthly", "Members", "Duration", "Commission", "Status"]}
@@ -756,7 +759,7 @@ function AuditLogsTab({ data, onDelete }: { data: Record<string, unknown>[]; onD
       data={data}
       searchKeys={(l) => [(l.user as Record<string, unknown>)?.username as string, l.action_type as string, l.table_name as string, l.action_detail as string, l.ip_address as string]}
       statusKey={(l) => l.action_type as string}
-      statusOptions={["CREATE", "UPDATE", "DELETE", "VIEW", "LOGIN", "LOGOUT"]}
+      statusOptions={["CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT"]}
       headers={["User", "Action", "Table", "Record ID", "IP", "Timestamp"]}
       renderRow={(l) => [
         <span key="u" className="font-medium text-foreground">{(l.user as Record<string, unknown>)?.username as string ?? "—"}</span>,

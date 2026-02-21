@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminToken } from "@/lib/adminAuth";
 import { z } from "zod";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 function guard(req: NextRequest) {
   return verifyAdminToken(req.cookies.get("bidnest-admin-session")?.value);
@@ -46,10 +47,20 @@ export async function DELETE(
   if (!guard(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   try {
+    const group = await prisma.chitGroup.findUnique({ where: { id }, select: { name: true } });
     await prisma.payment.deleteMany({ where: { chit_group_id: id } });
     await prisma.auction.deleteMany({ where: { chit_group_id: id } });
     await prisma.chitMember.deleteMany({ where: { chit_group_id: id } });
     await prisma.chitGroup.delete({ where: { id } });
+    await logAudit({
+      user_id: null,
+      action_type: "DELETE",
+      action_detail: `Admin deleted chit group: ${group?.name ?? id}`,
+      table_name: "chit_groups",
+      record_id: id,
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

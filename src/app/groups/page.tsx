@@ -192,19 +192,21 @@ export default function GroupsPage() {
                     </p>
                   </div>
                   <div className="bg-surface rounded-xl p-3">
-                    <p className="text-xs text-foreground-muted">
-                      {(() => {
-                        const schedule = group.auction_schedule;
-                        if (schedule && schedule.length > 0) {
-                          // find most recent done auction
-                          const done = [...schedule]
-                            .filter((s) => s.auction_date)
-                            .sort((a, b) => b.month_number - a.month_number);
-                          if (done.length > 0) return 'Last Auction';
-                        }
-                        return group.auction_start_date ? 'Next Auction' : t('created');
-                      })()}
-                    </p>
+                      <p className="text-xs text-foreground-muted">
+                        {(() => {
+                          const schedule = group.auction_schedule;
+                          if (schedule && schedule.length > 0) {
+                            // find most recent done auction
+                            const done = [...schedule]
+                              .filter((s) => s.auction_date)
+                              .sort((a, b) => b.month_number - a.month_number);
+                            if (done.length > 0) return 'Last Auction';
+                          }
+                          // Prefer showing the auction start date (entered in the modal) instead
+                          // of the created date when available.
+                          return group.auction_start_date ? 'Start Date' : t('created');
+                        })()}
+                      </p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
                       {(() => {
                         const schedule = group.auction_schedule;
