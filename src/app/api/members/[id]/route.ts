@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -81,6 +82,18 @@ export async function PUT(
       data: parsed.data,
     });
 
+    await logAudit({
+      user_id: member.user_id,
+      action_type: "UPDATE",
+      action_detail: `Member updated: ${id}`,
+      table_name: "members",
+      record_id: id,
+      old_data: { id: member.id, is_active: member.is_active },
+      new_data: { id: updated.id, is_active: updated.is_active },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
+    });
+
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     return NextResponse.json(
@@ -109,6 +122,18 @@ export async function DELETE(
     const updated = await prisma.member.update({
       where: { id },
       data: { is_active: false },
+    });
+
+    await logAudit({
+      user_id: member.user_id,
+      action_type: "DELETE",
+      action_detail: `Member deactivated: ${id}`,
+      table_name: "members",
+      record_id: id,
+      old_data: { id: member.id, is_active: true },
+      new_data: { id: updated.id, is_active: false },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(updated, { status: 200 });

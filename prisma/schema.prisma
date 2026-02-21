@@ -84,11 +84,13 @@ model ChitGroup {
   total_members    Int
   monthly_amount   Decimal         @db.Decimal(12, 2)
   duration_months  Int
-  commission_type  CommissionType
-  commission_value Decimal         @db.Decimal(12, 2)
-  round_off_value  Int             // 10, 50, or 100
-  status           ChitGroupStatus @default(PENDING)
-  created_at       DateTime        @default(now())
+  commission_type      CommissionType
+  commission_value     Decimal         @db.Decimal(12, 2)
+  round_off_value      Int             // 10, 50, or 100
+  status               ChitGroupStatus @default(PENDING)
+  auction_start_date   DateTime?       // the scheduled date for the first auction
+  auction_schedule     Json?           // [{month_number, auction_date, auction_id}]
+  created_at           DateTime        @default(now())
 
   user         User         @relation(fields: [user_id], references: [id])
   chit_members ChitMember[]

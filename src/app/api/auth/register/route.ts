@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { signToken, createAuthCookie } from "@/lib/auth";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 const RegisterSchema = z.object({
   name: z.string().min(1),
@@ -62,6 +63,17 @@ export async function POST(req: NextRequest) {
       id: user.id,
       username: user.username,
       is_active: user.is_active,
+    });
+
+    await logAudit({
+      user_id: user.id,
+      action_type: "CREATE",
+      action_detail: `User registered: ${user.username}`,
+      table_name: "users",
+      record_id: user.id,
+      new_data: { id: user.id, username: user.username, email: user.email },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(

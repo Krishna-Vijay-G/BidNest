@@ -29,6 +29,8 @@ interface ChitGroup {
   round_off_value: number;
   status: string;
   created_at: string;
+  auction_start_date: string | null;
+  auction_schedule: { month_number: number; auction_date: string | null; auction_id: string | null }[] | null;
 }
 
 function formatCurrency(amount: number) {
@@ -190,9 +192,35 @@ export default function GroupsPage() {
                     </p>
                   </div>
                   <div className="bg-surface rounded-xl p-3">
-                    <p className="text-xs text-foreground-muted">{t('created')}</p>
+                    <p className="text-xs text-foreground-muted">
+                      {(() => {
+                        const schedule = group.auction_schedule;
+                        if (schedule && schedule.length > 0) {
+                          // find most recent done auction
+                          const done = [...schedule]
+                            .filter((s) => s.auction_date)
+                            .sort((a, b) => b.month_number - a.month_number);
+                          if (done.length > 0) return 'Last Auction';
+                        }
+                        return group.auction_start_date ? 'Next Auction' : t('created');
+                      })()}
+                    </p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
-                      {new Date(group.created_at).toLocaleDateString('en-IN')}
+                      {(() => {
+                        const schedule = group.auction_schedule;
+                        if (schedule && schedule.length > 0) {
+                          const done = [...schedule]
+                            .filter((s) => s.auction_date)
+                            .sort((a, b) => b.month_number - a.month_number);
+                          if (done.length > 0) {
+                            return `${new Date(done[0].auction_date!).toLocaleDateString('en-IN')} (M${done[0].month_number})`;
+                          }
+                        }
+                        if (group.auction_start_date) {
+                          return new Date(group.auction_start_date).toLocaleDateString('en-IN');
+                        }
+                        return new Date(group.created_at).toLocaleDateString('en-IN');
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -274,6 +302,9 @@ function GroupFormModal({
   const [commissionValue, setCommissionValue] = useState(group ? String(group.commission_value) : '');
   const [roundOffValue, setRoundOffValue] = useState(group ? String(group.round_off_value) : '50');
   const [status, setStatus] = useState(group?.status ?? 'PENDING');
+  const [auctionStartDate, setAuctionStartDate] = useState(
+    group?.auction_start_date ? new Date(group.auction_start_date).toISOString().split('T')[0] : ''
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -286,6 +317,7 @@ function GroupFormModal({
       setCommissionValue(String(group.commission_value));
       setRoundOffValue(String(group.round_off_value));
       setStatus(group.status);
+      setAuctionStartDate(group.auction_start_date ? new Date(group.auction_start_date).toISOString().split('T')[0] : '');
     }
   }, [group]);
 
@@ -329,6 +361,7 @@ function GroupFormModal({
           commission_type: commissionType,
           commission_value: Number(commissionValue),
           round_off_value: Number(roundOffValue),
+          ...(auctionStartDate ? { auction_start_date: new Date(auctionStartDate).toISOString() } : {}),
         }),
       });
       const data = await res.json();
@@ -391,6 +424,13 @@ function GroupFormModal({
                 helperText={t('autoCalculated')}
               />
             </div>
+            <Input
+              label="Auction Start Date"
+              type="date"
+              value={auctionStartDate}
+              onChange={(e) => setAuctionStartDate(e.target.value)}
+              helperText="The date when the first auction will be held"
+            />
           </>
         )}
 

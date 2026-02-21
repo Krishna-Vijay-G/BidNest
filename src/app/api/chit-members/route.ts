@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -70,6 +71,17 @@ export async function POST(req: NextRequest) {
 
     const chitMember = await prisma.chitMember.create({
       data: parsed.data,
+    });
+
+    await logAudit({
+      user_id: chitGroup.user_id,
+      action_type: "CREATE",
+      action_detail: `Chit member added: ticket #${parsed.data.ticket_number} in group ${parsed.data.chit_group_id}`,
+      table_name: "chit_members",
+      record_id: chitMember.id,
+      new_data: { id: chitMember.id, member_id: chitMember.member_id, chit_group_id: chitMember.chit_group_id, ticket_number: chitMember.ticket_number },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(chitMember, { status: 201 });

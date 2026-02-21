@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -10,6 +11,7 @@ const UpdateChitGroupSchema = z.object({
   commission_type: z.enum(["PERCENT", "FIXED"]).optional(),
   commission_value: z.number().positive().optional(),
   round_off_value: z.union([z.literal(10), z.literal(50), z.literal(100)]).optional(),
+  auction_start_date: z.string().datetime().optional(),
 });
 
 // ─── GET /api/chit-groups/[id] ─────────────────────────────
@@ -71,7 +73,24 @@ export async function PUT(
 
     const updated = await prisma.chitGroup.update({
       where: { id },
-      data: parsed.data,
+      data: {
+        ...parsed.data,
+        ...(parsed.data.auction_start_date
+          ? { auction_start_date: new Date(parsed.data.auction_start_date) }
+          : {}),
+      },
+    });
+
+    await logAudit({
+      user_id: chitGroup.user_id,
+      action_type: "UPDATE",
+      action_detail: `Chit group updated: ${chitGroup.name}`,
+      table_name: "chit_groups",
+      record_id: id,
+      old_data: { id: chitGroup.id, status: chitGroup.status },
+      new_data: { id: updated.id, status: updated.status },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(updated, { status: 200 });
@@ -102,6 +121,18 @@ export async function DELETE(
     const updated = await prisma.chitGroup.update({
       where: { id },
       data: { status: "CANCELLED" },
+    });
+
+    await logAudit({
+      user_id: chitGroup.user_id,
+      action_type: "DELETE",
+      action_detail: `Chit group cancelled: ${chitGroup.name}`,
+      table_name: "chit_groups",
+      record_id: id,
+      old_data: { id: chitGroup.id, status: chitGroup.status },
+      new_data: { id: updated.id, status: "CANCELLED" },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(updated, { status: 200 });

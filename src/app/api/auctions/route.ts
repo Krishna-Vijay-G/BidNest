@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { calculateAuction } from "@/utils/dividend";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -127,6 +128,31 @@ export async function POST(req: NextRequest) {
         carry_next: calc.carry_next,
         calculation_data,
       },
+    });
+
+    // Update the chit group's auction_schedule JSON
+    const currentGroup = await prisma.chitGroup.findUnique({ where: { id: parsed.data.chit_group_id } });
+    const schedule: { month_number: number; auction_date: string | null; auction_id: string | null }[] =
+      Array.isArray(currentGroup?.auction_schedule) ? (currentGroup!.auction_schedule as any[]) : [];
+    const existingIdx = schedule.findIndex((s) => s.month_number === parsed.data.month_number);
+    const entry = { month_number: parsed.data.month_number, auction_date: new Date().toISOString(), auction_id: auction.id };
+    if (existingIdx >= 0) schedule[existingIdx] = entry;
+    else schedule.push(entry);
+    schedule.sort((a, b) => a.month_number - b.month_number);
+    await prisma.chitGroup.update({
+      where: { id: parsed.data.chit_group_id },
+      data: { auction_schedule: schedule },
+    });
+
+    await logAudit({
+      user_id: chitGroup.user_id,
+      action_type: "CREATE",
+      action_detail: `Auction conducted: group ${parsed.data.chit_group_id} month ${parsed.data.month_number} winner ticket #${winnerChitMember.ticket_number}`,
+      table_name: "auctions",
+      record_id: auction.id,
+      new_data: { id: auction.id, chit_group_id: auction.chit_group_id, month_number: auction.month_number, winner_chit_member_id: auction.winner_chit_member_id },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(auction, { status: 201 });
