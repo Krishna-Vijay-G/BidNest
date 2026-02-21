@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import { Modal, Input, Select } from '@/components/ui';
 import { calculateAuction } from '@/utils/dividend';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 interface ChitGroup {
   id: string;
@@ -82,6 +83,7 @@ export default function GroupDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLang();
   const [group, setGroup] = useState<ChitGroup | null>(null);
   const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
@@ -121,7 +123,7 @@ export default function GroupDetailPage() {
   if (isLoading) {
     return (
       <>
-        <Header title="Group Details" />
+        <Header title={t('groups')} />
         <PageLoader />
       </>
     );
@@ -130,8 +132,8 @@ export default function GroupDetailPage() {
   if (!group) {
     return (
       <>
-        <Header title="Group Not Found" />
-        <div className="p-8 text-center text-foreground-muted">Group not found or you do not have access.</div>
+        <Header title={t('notFound')} />
+        <div className="p-8 text-center text-foreground-muted">{t('groupNotFoundDescription')}</div>
       </>
     );
   }
@@ -140,9 +142,25 @@ export default function GroupDetailPage() {
   const completedMonths = auctions.length;
   const progressPercent = Math.round((completedMonths / group.duration_months) * 100);
 
+  function translateStatusLabel(status?: string) {
+    if (!status) return '';
+    const s = String(status).toUpperCase();
+    const map: Record<string, string> = {
+      ACTIVE: 'statusActive',
+      CANCELLED: 'statusCancelled',
+      COMPLETED: 'statusCompleted',
+      PENDING: 'statusPending',
+      PAID: 'statusPaid',
+      UNPAID: 'statusUnpaid',
+      RECONCILED: 'statusReconciled',
+    };
+    const key = map[s] || s.toLowerCase();
+    return t(key as any) || status;
+  }
+
   return (
     <>
-      <Header title={group.name || 'Group Details'} subtitle={`${formatCurrency(Number(group.total_amount))} · ${group.total_members} members`} />
+      <Header title={group.name || t('groupDetails')} subtitle={`${formatCurrency(Number(group.total_amount))} · ${group.total_members} ${t('members')}`} />
 
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl space-y-6">
         {/* Back */}
@@ -151,7 +169,7 @@ export default function GroupDetailPage() {
           className="flex items-center gap-2 text-sm text-foreground-muted hover:text-cyan-400 transition-colors"
         >
           <HiOutlineArrowLeft className="w-4 h-4" />
-          Back to Groups
+          {t('back')}
         </button>
 
         {/* Group Summary */}
@@ -164,23 +182,23 @@ export default function GroupDetailPage() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">
-                    {group.name}
+                    {group.name || t('groupDetails')}
                   </h2>
                   <p className="text-foreground-muted text-sm">
-                    {formatCurrency(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months
+                    {formatCurrency(Number(group.total_amount))} · {group.total_members} {t('members')} · {group.duration_months} {t('month')}
                   </p>
                 </div>
               </div>
             </div>
-            <StatusBadge status={group.status} />
+            <StatusBadge status={group.status} label={translateStatusLabel(group.status)} />
           </div>
 
           {/* Progress */}
           <div className="mt-6">
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-foreground-muted">Progress</span>
+              <span className="text-foreground-muted">{t('progress')}</span>
               <span className="text-foreground font-medium">
-                Month {completedMonths}/{group.duration_months}
+                {t('month')} {completedMonths}/{group.duration_months}
               </span>
             </div>
             <div className="neon-progress">
@@ -191,13 +209,13 @@ export default function GroupDetailPage() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
             <div className="bg-surface border border-border rounded-xl p-3">
-              <p className="text-xs text-foreground-muted">Monthly</p>
+              <p className="text-xs text-foreground-muted">{t('monthly')}</p>
               <p className="text-base font-bold text-foreground">
                 {formatCurrency(Number(group.monthly_amount))}
               </p>
             </div>
             <div className="bg-surface border border-border rounded-xl p-3">
-              <p className="text-xs text-foreground-muted">Commission</p>
+              <p className="text-xs text-foreground-muted">{t('commission')}</p>
               <p className="text-base font-bold text-foreground">
                 {group.commission_type === 'PERCENT'
                   ? `${group.commission_value}%`
@@ -205,11 +223,11 @@ export default function GroupDetailPage() {
               </p>
             </div>
             <div className="bg-surface border border-border rounded-xl p-3">
-              <p className="text-xs text-foreground-muted">Round Off</p>
+              <p className="text-xs text-foreground-muted">{t('roundOff')}</p>
               <p className="text-base font-bold text-foreground">₹{group.round_off_value}</p>
             </div>
             <div className="bg-surface border border-border rounded-xl p-3">
-              <p className="text-xs text-foreground-muted">Total Collected</p>
+              <p className="text-xs text-foreground-muted">{t('totalCollected')}</p>
               <p className="text-base font-bold text-cyan-400">
                 {formatCurrency(totalCollected)}
               </p>
@@ -222,7 +240,7 @@ export default function GroupDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
               <HiOutlineTicket className="w-5 h-5 text-cyan-400" />
-              Tickets ({chitMembers.length}/{group.total_members})
+              {t('tickets')} ({chitMembers.length}/{group.total_members})
             </h3>
             {chitMembers.length < group.total_members && (
               <Button
@@ -230,13 +248,13 @@ export default function GroupDetailPage() {
                 icon={<HiOutlinePlus className="w-4 h-4" />}
                 onClick={() => setShowAddTicketModal(true)}
               >
-                Add Ticket
+                {t('addTicket')}
               </Button>
             )}
           </div>
           {chitMembers.length === 0 ? (
             <p className="text-sm text-foreground-muted text-center py-4">
-              No tickets assigned yet.
+              {t('noTicketsAssigned')}
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -250,13 +268,16 @@ export default function GroupDetailPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground text-sm truncate">
-                      {cm.member?.name?.value || 'Unknown'}
+                      {cm.member?.name?.value || t('unknown')}
                     </p>
                     <p className="text-xs text-foreground-muted">
                       {cm.member?.mobile?.value || '—'}
                     </p>
                   </div>
-                  <StatusBadge status={cm.is_active ? 'ACTIVE' : 'CANCELLED'} />
+                  <StatusBadge
+                    status={cm.is_active ? 'ACTIVE' : 'CANCELLED'}
+                    label={translateStatusLabel(cm.is_active ? 'ACTIVE' : 'CANCELLED')}
+                  />
                 </div>
               ))}
             </div>
@@ -268,7 +289,7 @@ export default function GroupDetailPage() {
           <div className="p-6 pb-4 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <HiOutlineTrophy className="w-5 h-5 text-amber-400" />
-              <h3 className="text-base font-semibold text-foreground">Auctions ({auctions.length}/{group.duration_months})</h3>
+              <h3 className="text-base font-semibold text-foreground">{t('auctions')} ({auctions.length}/{group.duration_months})</h3>
             </div>
             {auctions.length < group.duration_months && (
               <Button
@@ -276,31 +297,31 @@ export default function GroupDetailPage() {
                 icon={<HiOutlinePlus className="w-4 h-4" />}
                 onClick={() => setShowConductAuction(true)}
               >
-                Conduct Auction
+                {t('conductAuction')}
               </Button>
             )}
           </div>
           {auctions.length === 0 ? (
-            <p className="text-sm text-foreground-muted text-center py-8">No auctions conducted yet.</p>
+            <p className="text-sm text-foreground-muted text-center py-8">{t('noAuctions')}</p>
           ) : (
             <div className="overflow-x-auto px-6 pb-6">
               <table className="glass-table w-full">
                 <thead>
                   <tr>
-                    <th>Month</th>
-                    <th>Winner</th>
-                    <th>Ticket</th>
-                    <th>Bid</th>
-                    <th>Payout</th>
-                    <th>Per Member</th>
-                    <th>To Collect</th>
-                    <th>Carry Next</th>
+                    <th>{t('month')}</th>
+                    <th>{t('winner')}</th>
+                    <th>{t('ticketNumber')}</th>
+                    <th>{t('originalBid')}</th>
+                    <th>{t('winnerPayout')}</th>
+                    <th>{t('perMember')}</th>
+                    <th>{t('toCollect')}</th>
+                    <th>{t('carryNext')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {auctions.map((a) => (
                     <tr key={a.id}>
-                      <td className="font-semibold text-cyan-400">Month {a.month_number}</td>
+                      <td className="font-semibold text-cyan-400">{t('month')} {a.month_number}</td>
                       <td className="font-medium text-foreground">
                         {a.winner_chit_member?.member?.name?.value || 'N/A'}
                       </td>
@@ -330,20 +351,20 @@ export default function GroupDetailPage() {
         <Card padding={false}>
           <div className="p-6 pb-4 flex items-center gap-2">
             <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
-            <h3 className="text-base font-semibold text-foreground">Payments</h3>
+            <h3 className="text-base font-semibold text-foreground">{t('payments')}</h3>
           </div>
           {payments.length === 0 ? (
-            <p className="text-sm text-foreground-muted text-center py-8">No payments recorded yet.</p>
+            <p className="text-sm text-foreground-muted text-center py-8">{t('noPayments')}</p>
           ) : (
             <div className="overflow-x-auto px-6 pb-6">
               <table className="glass-table w-full">
                 <thead>
                   <tr>
-                    <th>Member</th>
-                    <th>Ticket</th>
-                    <th>Month</th>
-                    <th>Amount</th>
-                    <th>Status</th>
+                    <th>{t('member')}</th>
+                    <th>{t('ticketNumber')}</th>
+                    <th>{t('month')}</th>
+                    <th>{t('amountPaid')}</th>
+                    <th>{t('status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -353,12 +374,12 @@ export default function GroupDetailPage() {
                         {p.chit_member?.member?.name?.value || 'N/A'}
                       </td>
                       <td>#{p.chit_member?.ticket_number}</td>
-                      <td>Month {p.month_number}</td>
+                      <td>{t('month')} {p.month_number}</td>
                       <td className="text-cyan-400 font-semibold">
                         {formatCurrency(Number(p.amount_paid))}
                       </td>
                       <td>
-                        <StatusBadge status={p.status} />
+                        <StatusBadge status={p.status} label={translateStatusLabel(p.status)} />
                       </td>
                     </tr>
                   ))}
@@ -431,6 +452,7 @@ function AddTicketModal({
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [ticketNumber, setTicketNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { t } = useLang();
 
   useEffect(() => {
     if (isOpen) {
@@ -475,14 +497,14 @@ function AddTicketModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Ticket">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('addTicket')}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Member"
+          label={t('member')}
           value={selectedMemberId}
           onChange={(e) => setSelectedMemberId(e.target.value)}
           options={[
-            { value: '', label: 'Select member...' },
+            { value: '', label: t('selectMember') },
             ...members.map((m) => ({
               value: m.id,
               label: m.name.value,
@@ -490,15 +512,15 @@ function AddTicketModal({
           ]}
         />
         <Input
-          label="Ticket Number"
+          label={t('ticketNumber')}
           type="number"
           value={ticketNumber}
           onChange={(e) => setTicketNumber(e.target.value)}
           required
         />
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={onClose} type="button">Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Add Ticket</Button>
+          <Button variant="outline" onClick={onClose} type="button">{t('cancel')}</Button>
+          <Button type="submit" isLoading={isSubmitting}>{t('addTicket')}</Button>
         </div>
       </form>
     </Modal>
@@ -531,6 +553,7 @@ function ConductAuctionModal({
   const [preview, setPreview] = useState<any>(null);
   const [groupAuctions, setGroupAuctions] = useState<any[]>([]);
   const [availableMembers, setAvailableMembers] = useState<ChitMember[]>([]);
+  const { t } = useLang();
 
   useEffect(() => {
     if (isOpen) {
@@ -629,18 +652,18 @@ function ConductAuctionModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Conduct Auction — ${group.name}`} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={`${t('conductAuction')} — ${group.name}`} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="Month Number"
+            label={t('monthNumber')}
             type="number"
             value={monthNumber}
             onChange={(e) => setMonthNumber(e.target.value)}
             required
           />
           <Input
-            label="Original Bid (₹)"
+            label={`${t('originalBid')} (₹)`}
             type="number"
             value={originalBid}
             onChange={(e) => setOriginalBid(e.target.value)}
@@ -650,7 +673,7 @@ function ConductAuctionModal({
         </div>
 
         <Select
-          label="Winner (Ticket Holder)"
+          label={t('winner')}
           value={winnerChitMemberId}
           onChange={(e) => setWinnerChitMemberId(e.target.value)}
           options={
@@ -668,34 +691,34 @@ function ConductAuctionModal({
         />
 
         {availableMembers.length === 0 && (
-          <p className="text-sm text-red-400">No eligible tickets left in this group — every ticket has won previously.</p>
+          <p className="text-sm text-red-400">{t('noEligibleTickets')}</p>
         )}
 
         {lastCarryNext > 0 && (
-          <p className="text-xs text-amber-400">Carry from previous month: {formatCurrency(lastCarryNext)}</p>
+          <p className="text-xs text-amber-400">{t('carryFromPrev')}: {formatCurrency(lastCarryNext)}</p>
         )}
 
         {/* Full Preview */}
         {preview && (
           <div className="bg-surface border border-border rounded-xl p-4">
             <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-3">
-              Calculation Preview
+              {t('calculationPreview')}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <p className="text-xs text-foreground-muted">Winning Amount</p>
+                <p className="text-xs text-foreground-muted">{t('winnerPayout')}</p>
                 <p className="text-sm font-semibold text-emerald-400">{formatCurrency(preview.winning_amount)}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Bid</p>
+                <p className="text-xs text-foreground-muted">{t('originalBid')}</p>
                 <p className="text-sm font-semibold text-foreground">{formatCurrency(Number(originalBid))}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Commission</p>
+                <p className="text-xs text-foreground-muted">{t('commission')}</p>
                 <p className="text-sm font-semibold text-red-400">{formatCurrency(preview.commission)}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Raw Dividend</p>
+                <p className="text-xs text-foreground-muted">{t('rawDividend')}</p>
                 <p className="text-sm font-semibold text-foreground">
                   {formatCurrency(preview.raw_dividend)}
                   {preview.carry_previous > 0 && (
@@ -704,15 +727,15 @@ function ConductAuctionModal({
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Raw Per‑Member Div.</p>
+                <p className="text-xs text-foreground-muted">{t('rawPerMemberDiv')}</p>
                 <p className="text-sm font-semibold text-foreground">{formatCurrency(preview.raw_dividend / group.total_members)}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Per Member Div.</p>
+                <p className="text-xs text-foreground-muted">{t('perMemberDiv')}</p>
                 <p className="text-sm font-semibold text-purple-400">{formatCurrency(preview.per_member_dividend)}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Roundoff Carry</p>
+                <p className="text-xs text-foreground-muted">{t('roundoffCarry')}</p>
                 <p className="text-sm font-semibold text-orange-400">
                   {formatCurrency(preview.carry_next)}
                   {preview.carry_next > 0 && (
@@ -721,7 +744,7 @@ function ConductAuctionModal({
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Each Member Pays</p>
+                <p className="text-xs text-foreground-muted">{t('eachMemberPays')}</p>
                 <p className="text-sm font-bold text-cyan-400">{formatCurrency(preview.monthly_due)}</p>
               </div>
             </div>
@@ -729,9 +752,9 @@ function ConductAuctionModal({
         )}
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="outline" onClick={onClose} type="button">{t('cancel')}</Button>
           <Button type="submit" isLoading={isSubmitting}>
-            Conduct Auction
+            {t('conductAuction')}
           </Button>
         </div>
       </form>

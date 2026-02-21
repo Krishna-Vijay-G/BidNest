@@ -13,6 +13,7 @@ import {
   HiOutlineBanknotes,
   HiOutlineTrophy,
 } from 'react-icons/hi2';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 interface DashboardStats {
   totalGroups: number;
@@ -65,6 +66,7 @@ function formatCurrency(amount: number) {
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useLang();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAuctions, setRecentAuctions] = useState<RecentAuction[]>([]);
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
@@ -119,7 +121,7 @@ export default function DashboardPage() {
   if (authLoading || isLoading) {
     return (
       <>
-        <Header title="Dashboard" />
+        <Header title={t('dashboard')} />
         <PageLoader />
       </>
     );
@@ -128,33 +130,33 @@ export default function DashboardPage() {
   return (
     <>
       <Header
-        title={`Welcome, ${user?.name || user?.username}`}
-        subtitle="BidNest Dashboard"
+        title={`${user?.name || user?.username}`}
+        subtitle={t('dashboardSubtitle')}
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
           <StatCard
-            title="Active Groups"
+            title={t('activeGroups')}
+            
             value={stats?.activeGroups || 0}
-            icon={<HiOutlineUserGroup className="w-6 h-6" />}
-            change={`${stats?.totalGroups || 0} total`}
+            icon={<HiOutlineUserGroup className="w-6 h-6" />}  
             changeType="neutral"
           />
           <StatCard
-            title="Total Members"
+            title={t('totalMembers')}
             value={stats?.totalMembers || 0}
             icon={<HiOutlineUsers className="w-6 h-6" />}
           />
           <StatCard
-            title="Total Collected"
+            title={t('totalCollected')}
             value={formatCurrency(stats?.totalCollected || 0)}
             icon={<HiOutlineCurrencyRupee className="w-6 h-6" />}
             changeType="positive"
           />
           <StatCard
-            title="Total Payouts"
+            title={t('totalPayouts')}
             value={formatCurrency(stats?.totalPayouts || 0)}
             icon={<HiOutlineBanknotes className="w-6 h-6" />}
           />
@@ -165,10 +167,10 @@ export default function DashboardPage() {
           {/* Recent Chit Groups */}
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Recent Chit Groups</h3>
+              <h3 className="text-base font-semibold text-foreground">{t('groups')}</h3>
             </div>
             {recentGroups.length === 0 ? (
-              <p className="text-sm text-foreground-muted py-4 text-center">No chit groups yet</p>
+              <p className="text-sm text-foreground-muted py-4 text-center">{t('noGroups')}</p>
             ) : (
               <div className="space-y-2">
                 {recentGroups.map((group) => (
@@ -181,10 +183,13 @@ export default function DashboardPage() {
                         {group.name || formatCurrency(Number(group.total_amount))}
                       </p>
                       <p className="text-xs text-foreground-muted">
-                        {formatCurrency(Number(group.total_amount))} · {group.total_members} members
+                        {formatCurrency(Number(group.total_amount))} · {group.total_members} {t('members')}
                       </p>
                     </div>
-                    <StatusBadge status={group.status} />
+                    <StatusBadge
+                      status={group.status}
+                      label={t((`status${group.status[0] + group.status.slice(1).toLowerCase()}`) as any)}
+                    />
                   </div>
                 ))}
               </div>
@@ -194,10 +199,10 @@ export default function DashboardPage() {
           {/* Recent Auctions */}
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Recent Auctions</h3>
+              <h3 className="text-base font-semibold text-foreground">{t('auctions')}</h3>
             </div>
             {recentAuctions.length === 0 ? (
-              <p className="text-sm text-foreground-muted py-4 text-center">No auctions yet</p>
+              <p className="text-sm text-foreground-muted py-4 text-center">{t('noAuctions')}</p>
             ) : (
               <div className="space-y-2">
                 {recentAuctions.map((auction) => (
@@ -211,10 +216,10 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <p className="font-medium text-foreground text-sm">
-                          Month {auction.month_number}
+                          {t('month')} {auction.month_number}
                         </p>
                         <p className="text-xs text-foreground-muted">
-                          Winner: {auction.winner_chit_member?.member?.name?.value || 'N/A'}
+                          {t('winner')}: {auction.winner_chit_member?.member?.name?.value || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -223,7 +228,7 @@ export default function DashboardPage() {
                         {formatCurrency(Number(auction.winning_amount))}
                       </p>
                       <p className="text-xs text-foreground-muted">
-                        Bid: {formatCurrency(Number(auction.original_bid))}
+                        {t('originalBid')}: {formatCurrency(Number(auction.original_bid))}
                       </p>
                     </div>
                   </div>
@@ -236,20 +241,20 @@ export default function DashboardPage() {
         {/* Recent Payments */}
         <Card padding={false}>
           <div className="flex items-center justify-between p-6 pb-4">
-            <h3 className="text-base font-semibold text-foreground">Recent Payments</h3>
+            <h3 className="text-base font-semibold text-foreground">{t('payments')}</h3>
           </div>
           {recentPayments.length === 0 ? (
-            <p className="text-sm text-foreground-muted py-8 text-center">No payments yet</p>
+            <p className="text-sm text-foreground-muted py-8 text-center">{t('noPayments')}</p>
           ) : (
             <div className="overflow-x-auto px-6 pb-6">
               <table className="glass-table w-full">
                 <thead>
                   <tr>
-                    <th>Member</th>
-                    <th>Ticket</th>
-                    <th>Month</th>
-                    <th>Amount</th>
-                    <th>Status</th>
+                    <th>{t('memberName')}</th>
+                    <th>{t('ticketNumber')}</th>
+                    <th>{t('month')}</th>
+                    <th>{t('amountPaid')}</th>
+                    <th>{t('status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -264,7 +269,10 @@ export default function DashboardPage() {
                         {formatCurrency(Number(payment.amount_paid))}
                       </td>
                       <td>
-                        <StatusBadge status={payment.status} />
+                        <StatusBadge
+                          status={payment.status}
+                          label={t((`status${payment.status[0] + payment.status.slice(1).toLowerCase()}`) as any)}
+                        />
                       </td>
                     </tr>
                   ))}

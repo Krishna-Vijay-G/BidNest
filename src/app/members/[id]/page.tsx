@@ -18,6 +18,7 @@ import {
   HiOutlineUser,
   HiOutlineCalendarDays,
 } from 'react-icons/hi2';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -190,6 +191,7 @@ function buildGroupSummary(
 export default function MemberDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { t } = useLang();
 
   const [member, setMember] = useState<Member | null>(null);
   const [summaries, setSummaries] = useState<GroupSummary[]>([]);
@@ -238,10 +240,10 @@ export default function MemberDetailPage() {
     load();
   }, [id]);
 
-  if (isLoading) return <><Header title="Member" /><PageLoader /></>;
+  if (isLoading) return <><Header title={t('members')} /><PageLoader /></>;
   if (!member) return (
     <>
-      <Header title="Not Found" />
+      <Header title={t('notFound')} />
       <div className="p-8 text-center text-foreground-muted">Member not found.</div>
     </>
   );
@@ -255,7 +257,7 @@ export default function MemberDetailPage() {
   const groupsWon      = summaries.filter(g => g.wonMonth !== null).length;
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
+    { id: 'overview', label: t('overview') },
     ...summaries.map(s => ({
       id: s.ticket.id,
       label: `${s.group.name} #${s.ticket.ticket_number}`,
@@ -277,7 +279,7 @@ export default function MemberDetailPage() {
           className="flex items-center gap-2 text-sm text-foreground-muted hover:text-cyan-400 transition-colors"
         >
           <HiOutlineArrowLeft className="w-4 h-4" />
-          Back to Members
+          {t('back')}
         </button>
 
         {/* ── Profile Card ── */}
@@ -319,13 +321,13 @@ export default function MemberDetailPage() {
         {/* ── Grand Summary Stats ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { label: 'Total Tickets', value: String(totalTickets), icon: <HiOutlineTicket className="w-5 h-5" />, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-            { label: 'Groups Won', value: `${groupsWon}/${totalTickets}`, icon: <HiOutlineTrophy className="w-5 h-5" />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-            { label: 'Total Won', value: fmt(grandWon), icon: <HiOutlineBanknotes className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-            { label: 'Total Owed', value: fmt(grandTotalOwed), icon: <HiOutlineChartBar className="w-5 h-5" />, color: 'text-foreground', bg: 'bg-surface' },
-            { label: 'Total Paid', value: fmt(grandTotalPaid), icon: <HiOutlineCheckCircle className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: t('totalTickets'), value: String(totalTickets), icon: <HiOutlineTicket className="w-5 h-5" />, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+            { label: t('groupsWon'), value: `${groupsWon}/${totalTickets}`, icon: <HiOutlineTrophy className="w-5 h-5" />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+            { label: t('totalWon'), value: fmt(grandWon), icon: <HiOutlineBanknotes className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: t('totalOwed'), value: fmt(grandTotalOwed), icon: <HiOutlineChartBar className="w-5 h-5" />, color: 'text-foreground', bg: 'bg-surface' },
+            { label: t('totalPaid'), value: fmt(grandTotalPaid), icon: <HiOutlineCheckCircle className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
             {
-              label: 'Balance Due',
+              label: grandBalance > 0 ? t('balanceDue') : t('fullySettled'),
               value: fmt(Math.max(0, grandBalance)),
               icon: <HiOutlineExclamationCircle className="w-5 h-5" />,
               color: grandBalance > 0 ? 'text-red-400' : 'text-emerald-400',
@@ -366,7 +368,7 @@ export default function MemberDetailPage() {
               <div className="space-y-4">
                 {summaries.length === 0 ? (
                   <div className="text-center py-12 text-foreground-muted">
-                    Not assigned to any chit group yet.
+                    {t('notInAnyGroup')}
                   </div>
                 ) : (
                   summaries.map(summary => (
@@ -392,21 +394,21 @@ export default function MemberDetailPage() {
         {summaries.length === 0 && !isLoading && (
           <div className="glass rounded-2xl border border-border p-12 text-center">
             <HiOutlineTicket className="w-12 h-12 text-foreground-muted mx-auto mb-3" />
-            <p className="text-foreground-muted">Not assigned to any chit group yet.</p>
+          <p className="text-foreground-muted">{t('notInAnyGroup')}</p>
           </div>
         )}
 
         {/* ── Contact Details ── */}
         <div className="glass rounded-2xl border border-border p-6">
           <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">
-            Member Info
+            {t('memberInfo')}
           </h3>
           <div className="grid sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-border">
             <div className="space-y-0 sm:pr-6">
               {[
-                { label: 'Full Name', value: member.name.value, icon: <HiOutlineUser className="w-4 h-4" /> },
-                { label: 'Nickname', value: member.nickname.value, icon: <HiOutlineUser className="w-4 h-4" /> },
-                { label: 'Mobile', value: member.mobile.value, icon: <HiOutlinePhone className="w-4 h-4" /> },
+                { label: t('memberName'), value: member.name.value, icon: <HiOutlineUser className="w-4 h-4" /> },
+                { label: t('nickname'), value: member.nickname.value, icon: <HiOutlineUser className="w-4 h-4" /> },
+                { label: t('mobile'), value: member.mobile.value, icon: <HiOutlinePhone className="w-4 h-4" /> },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between py-3 border-b border-border last:border-0">
                   <span className="flex items-center gap-2 text-sm text-foreground-muted">
@@ -450,6 +452,7 @@ function OverviewGroupCard({
   summary: GroupSummary;
   onViewDetails: () => void;
 }) {
+  const { t } = useLang();
   const { group, ticket, months, totalOwed, totalPaid, totalBalance, wonMonth, wonAmount, completedMonths } = summary;
   const paidPct = totalOwed > 0 ? Math.min(100, Math.round((totalPaid / totalOwed) * 100)) : 100;
   const pendingMonths = months.filter(m => m.paymentStatus === 'PARTIAL' || m.paymentStatus === 'PENDING').length;
@@ -484,14 +487,14 @@ function OverviewGroupCard({
           onClick={onViewDetails}
           className="text-xs text-cyan-400 hover:underline shrink-0 ml-2"
         >
-          Month-by-month →
+          {t('monthByMonth')} →
         </button>
       </div>
 
       {/* Progress */}
       <div className="px-5 pt-4">
         <div className="flex justify-between text-xs mb-1.5">
-          <span className="text-foreground-muted">Auctions completed</span>
+          <span className="text-foreground-muted">{t('auctionsCompleted')}</span>
           <span className="text-foreground font-medium">{completedMonths}/{group.duration_months} months</span>
         </div>
         <div className="neon-progress mb-4">
@@ -502,25 +505,25 @@ function OverviewGroupCard({
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-5 pb-5">
         <StatBox
-          label="Amount Won"
+          label={t('wonAuction')}
           value={wonAmount > 0 ? fmt(wonAmount) : '—'}
           color={wonAmount > 0 ? 'text-amber-400' : 'text-foreground-muted'}
           icon={<HiOutlineTrophy className="w-4 h-4" />}
         />
         <StatBox
-          label="Total Owed"
+          label={t('totalOwed')}
           value={fmt(totalOwed)}
           color="text-foreground"
           icon={<HiOutlineChartBar className="w-4 h-4" />}
         />
         <StatBox
-          label="Total Paid"
+          label={t('totalPaid')}
           value={fmt(totalPaid)}
           color="text-emerald-400"
           icon={<HiOutlineCheckCircle className="w-4 h-4" />}
         />
         <StatBox
-          label={totalBalance > 0 ? 'Balance Due' : 'Overpaid'}
+          label={totalBalance > 0 ? t('balanceDue') : t('fullySettled')}
           value={fmt(Math.abs(totalBalance))}
           color={totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}
           icon={<HiOutlineExclamationCircle className="w-4 h-4" />}
@@ -531,7 +534,7 @@ function OverviewGroupCard({
       {totalOwed > 0 && (
         <div className="px-5 pb-5">
           <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-foreground-muted">Payment progress</span>
+            <span className="text-foreground-muted">{t('paymentProgress')}</span>
             <span className={`font-semibold ${paidPct === 100 ? 'text-emerald-400' : pendingMonths > 0 ? 'text-amber-400' : 'text-foreground-muted'}`}>
               {paidPct}% settled{pendingMonths > 0 ? ` · ${pendingMonths} month${pendingMonths > 1 ? 's' : ''} pending` : ''}
             </span>
@@ -556,6 +559,7 @@ function OverviewGroupCard({
 // ─── Group Detail View (Month-by-Month) ──────────────────────────────────────
 
 function GroupDetailView({ summary }: { summary: GroupSummary }) {
+  const { t } = useLang();
   const { group, ticket, months, totalOwed, totalPaid, totalBalance, wonMonth, wonAmount } = summary;
 
   return (
@@ -588,15 +592,15 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
         {/* Summary row */}
         <div className="grid grid-cols-3 gap-3 mt-5">
           <div className="bg-surface border border-border rounded-xl p-3 text-center">
-            <p className="text-xs text-foreground-muted mb-1">Total Owed</p>
+            <p className="text-xs text-foreground-muted mb-1">{t('totalOwed')}</p>
             <p className="text-base font-bold text-foreground">{fmt(totalOwed)}</p>
           </div>
           <div className="bg-surface border border-border rounded-xl p-3 text-center">
-            <p className="text-xs text-foreground-muted mb-1">Total Paid</p>
+            <p className="text-xs text-foreground-muted mb-1">{t('totalPaid')}</p>
             <p className="text-base font-bold text-emerald-400">{fmt(totalPaid)}</p>
           </div>
           <div className="bg-surface border border-border rounded-xl p-3 text-center">
-            <p className="text-xs text-foreground-muted mb-1">{totalBalance > 0 ? 'Balance Due' : 'Fully Settled'}</p>
+            <p className="text-xs text-foreground-muted mb-1">{totalBalance > 0 ? t('balanceDue') : t('fullySettled')}</p>
             <p className={`text-base font-bold ${totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               {totalBalance > 0 ? fmt(totalBalance) : '✓ Cleared'}
             </p>
@@ -613,7 +617,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
         <div className="glass rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
             <HiOutlineCalendarDays className="w-5 h-5 text-cyan-400" />
-            <h3 className="text-sm font-semibold text-foreground">Month-by-Month Breakdown</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('monthByMonth')}</h3>
           </div>
 
           {/* Desktop table */}
@@ -621,12 +625,12 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
             <table className="glass-table w-full">
               <thead>
                 <tr>
-                  <th>Month</th>
-                  <th>Status</th>
-                  <th>Amount Due</th>
-                  <th>Amount Paid</th>
-                  <th>Balance</th>
-                  <th>Payment Method</th>
+                  <th>{t('month')}</th>
+                  <th>{t('status')}</th>
+                  <th>{t('amountDue')}</th>
+                  <th>{t('amountPaid')}</th>
+                  <th>{t('balance')}</th>
+                  <th>{t('paymentMethod')}</th>
                   <th>Date</th>
                 </tr>
               </thead>
@@ -645,7 +649,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
                   <td className="px-4 py-3 text-sm font-bold text-foreground">{fmt(totalOwed)}</td>
                   <td className="px-4 py-3 text-sm font-bold text-emerald-400">{fmt(totalPaid)}</td>
                   <td className={`px-4 py-3 text-sm font-bold ${totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {totalBalance > 0 ? `-${fmt(totalBalance)}` : '✓ Settled'}
+                    {totalBalance > 0 ? `-${fmt(totalBalance)}` : `✓ ${t('settled')}`}
                   </td>
                   <td colSpan={2} />
                 </tr>
@@ -661,13 +665,14 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
 // ─── Month Table Row ──────────────────────────────────────────────────────────
 
 function MonthTableRow({ row }: { row: MonthRow }) {
+  const { t } = useLang();
   const [expanded, setExpanded] = useState(false);
 
   const statusConfig = {
-    WON: { label: 'Won Auction', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
-    COMPLETED: { label: 'Paid', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-    PARTIAL: { label: 'Partial', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
-    PENDING: { label: 'Pending', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+    WON: { label: t('wonAuction'), color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+    COMPLETED: { label: t('completed'), color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+    PARTIAL: { label: t('partial'), color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
+    PENDING: { label: t('pending'), color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
   }[row.paymentStatus];
 
   const lastPayment = row.payments[row.payments.length - 1];

@@ -99,7 +99,7 @@ export default function HomePage() {
         <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 mb-8">
           <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse-soft" />
           <span className="text-foreground-secondary text-sm">
-            Trusted by chit fund managers across India
+            Designed for G.K Finance
           </span>
         </div>
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-foreground leading-[1.1] mb-6 tracking-tight">

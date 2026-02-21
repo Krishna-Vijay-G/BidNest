@@ -15,6 +15,7 @@ import {
   HiOutlineTrash,
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 interface Member {
   id: string;
@@ -36,6 +37,7 @@ function formatCurrency(amount: number) {
 
 export default function MembersPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -90,7 +92,7 @@ export default function MembersPage() {
   if (isLoading) {
     return (
       <>
-        <Header title="Members" />
+        <Header title={t('members')} />
         <PageLoader />
       </>
     );
@@ -98,12 +100,12 @@ export default function MembersPage() {
 
   return (
     <>
-      <Header title="Members" subtitle={`${members.length} registered members`}>
+      <Header title={t('members')} subtitle={`${members.length} registered members`}>
         <Button
           icon={<HiOutlineUserPlus className="w-4 h-4" />}
           onClick={() => setShowCreateModal(true)}
         >
-          Add Member
+          {t('addMember')}
         </Button>
       </Header>
 
@@ -114,7 +116,7 @@ export default function MembersPage() {
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-muted" />
             <input
               type="text"
-              placeholder="Search by name, nickname or mobile..."
+              placeholder={t('search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 glass-input rounded-xl text-sm"
@@ -125,11 +127,11 @@ export default function MembersPage() {
         {filteredMembers.length === 0 ? (
           <EmptyState
             icon={<HiOutlineUsers className="w-8 h-8" />}
-            title="No members found"
+            title={t('noMembers')}
             description={
               searchQuery
                 ? 'Try adjusting your search.'
-                : 'Add your first member to get started.'
+                : t('addFirstMember')
             }
           />
         ) : (
@@ -138,12 +140,12 @@ export default function MembersPage() {
               <table className="glass-table w-full">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Nickname</th>
-                    <th>Mobile</th>
-                    <th>UPI IDs</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th>{t('memberName')}</th>
+                    <th>{t('nickname')}</th>
+                    <th>{t('mobile')}</th>
+                    <th>{t('upiId')}</th>
+                    <th>{t('status')}</th>
+                    <th>{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -168,7 +170,7 @@ export default function MembersPage() {
                       </td>
                       <td>
                         <Badge variant={member.is_active ? 'success' : 'danger'}>
-                          {member.is_active ? 'Active' : 'Inactive'}
+                          {member.is_active ? t('active') : t('inactive')}
                         </Badge>
                       </td>
                       <td>
@@ -236,6 +238,7 @@ function MemberFormModal({
   onSaved: () => void;
 }) {
   const isEditing = !!member;
+  const { t } = useLang();
   const [name, setName] = useState(member?.name.value ?? '');
   const [nickname, setNickname] = useState(member?.nickname.value ?? '');
   const [mobile, setMobile] = useState(member?.mobile.value ?? '');
@@ -306,25 +309,25 @@ function MemberFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? 'Edit Member' : 'Add New Member'}
+      title={isEditing ? t('editMember') : t('addMember')}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label="Full Name"
+          label={t('memberName')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Rajesh Kumar"
           required
         />
         <Input
-          label="Nickname"
+          label={t('nickname')}
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           placeholder="e.g. Raju"
           required
         />
         <Input
-          label="Mobile Number"
+          label={t('mobile')}
           type="tel"
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
@@ -332,17 +335,17 @@ function MemberFormModal({
           required
         />
         <Input
-          label="UPI ID (optional)"
+          label={`${t('upiId')} (${t('optional')})`}
           value={upiId}
           onChange={(e) => setUpiId(e.target.value)}
           placeholder="e.g. rajesh@upi"
         />
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose} type="button">
-            Cancel
+            {t('cancel')}
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            {isEditing ? 'Save Changes' : 'Add Member'}
+            {isEditing ? t('saveChanges') : t('addMember')}
           </Button>
         </div>
       </form>

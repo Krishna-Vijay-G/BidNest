@@ -16,6 +16,7 @@ import {
   HiOutlineUserGroup,
   HiOutlineChevronDown,
 } from 'react-icons/hi2';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -136,6 +137,7 @@ function SummaryCard({
 // ─── Group Finance Card ───────────────────────────────────────────────────────
 
 function GroupFinanceCard({ stats }: { stats: GroupStats }) {
+  const { t } = useLang();
   const { group, inflow, payouts, commission, net, auctionsCount } = stats;
   const isPositive = net >= 0;
 
@@ -161,19 +163,19 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-          <p className="text-xs text-foreground-muted mb-0.5">Inflow</p>
+          <p className="text-xs text-foreground-muted mb-0.5">{t('totalInflow')}</p>
           <p className="text-base font-bold text-emerald-400">{fmt(inflow)}</p>
         </div>
         <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-3">
-          <p className="text-xs text-foreground-muted mb-0.5">Payouts</p>
+          <p className="text-xs text-foreground-muted mb-0.5">{t('totalPayouts')}</p>
           <p className="text-base font-bold text-purple-400">{fmt(payouts)}</p>
         </div>
         <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-          <p className="text-xs text-foreground-muted mb-0.5">Commission</p>
+          <p className="text-xs text-foreground-muted mb-0.5">{t('commission')}</p>
           <p className="text-base font-bold text-amber-400">{fmt(commission)}</p>
         </div>
         <div className={`rounded-xl p-3 border ${isPositive ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
-          <p className="text-xs text-foreground-muted mb-0.5">Net</p>
+          <p className="text-xs text-foreground-muted mb-0.5">{t('netBalance')}</p>
           <p className={`text-base font-bold ${isPositive ? 'text-cyan-400' : 'text-red-400'}`}>
             {fmt(net)}
           </p>
@@ -183,7 +185,7 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
       {/* Progress */}
       <div>
         <div className="flex justify-between text-xs text-foreground-muted mb-1.5">
-          <span>Auctions conducted</span>
+          <span>{t('auctionsCompleted')}</span>
           <span>{auctionsCount} / {group.duration_months}</span>
         </div>
         <div className="neon-progress">
@@ -202,6 +204,7 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
 
 export default function PaymentsPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
@@ -300,7 +303,7 @@ export default function PaymentsPage() {
   if (isLoading) {
     return (
       <>
-        <Header title="Payments" />
+        <Header title={t('payments')} />
         <PageLoader />
       </>
     );
@@ -309,7 +312,7 @@ export default function PaymentsPage() {
   return (
     <>
       <Header
-        title="Payments"
+        title={t('payments')}
         subtitle={filterGroup === 'all' ? 'All groups combined' : selectedStats?.group.name}
       />
 
@@ -319,22 +322,22 @@ export default function PaymentsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-40">
             <Select
-              label="Status"
+              label={t('status')}
               value={groupStatusFilter}
               onChange={(e) => setAndPersistStatusFilter(e.target.value)}
               options={[
                 { value: 'ALL', label: 'All statuses' },
-                { value: 'ACTIVE', label: 'Active' },
-                { value: 'PENDING', label: 'Pending' },
-                { value: 'COMPLETED', label: 'Completed' },
-                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'ACTIVE', label: t('statusActive') },
+                { value: 'PENDING', label: t('statusPending') },
+                { value: 'COMPLETED', label: t('statusCompleted') },
+                { value: 'CANCELLED', label: t('statusCancelled') },
               ]}
             />
           </div>
 
           <div className="w-72">
             <Select
-              label="Chit Group"
+              label={t('groups')}
               value={filterGroup}
               onChange={(e) => setAndPersistFilterGroup(e.target.value)}
               options={[
@@ -362,28 +365,28 @@ export default function PaymentsPage() {
         {/* ── Summary Cards ─────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <SummaryCard
-            label="Total Inflow"
+            label={t('totalInflow')}
             value={fmt(displayInflow)}
             sub="Money collected from members"
             icon={<HiOutlineArrowTrendingUp className="w-5 h-5" />}
             color="bg-emerald-500/10 text-emerald-400"
           />
           <SummaryCard
-            label="Total Payouts"
+            label={t('totalPayouts')}
             value={fmt(displayPayouts)}
             sub="Winning amounts disbursed"
             icon={<HiOutlineArrowTrendingDown className="w-5 h-5" />}
             color="bg-purple-500/10 text-purple-400"
           />
           <SummaryCard
-            label="Commission Earned"
+            label={t('commissionEarned')}
             value={fmt(displayCommission)}
             sub={`${pct(displayCommission, displayInflow)} of inflow`}
             icon={<HiOutlineScissors className="w-5 h-5" />}
             color="bg-amber-500/10 text-amber-400"
           />
           <SummaryCard
-            label="Net Balance"
+            label={t('netBalance')}
             value={fmt(displayNet)}
             sub={displayNet >= 0 ? 'Surplus' : 'Deficit'}
             icon={<HiOutlineCurrencyRupee className="w-5 h-5" />}
@@ -394,13 +397,13 @@ export default function PaymentsPage() {
         {/* ── Group-wise Cards ───────────────────────────────────────────── */}
         <section>
           <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
-            Group Breakdown
+            {t('groupBreakdown')}
           </h2>
           {filterGroup === 'all' ? (
             visibleGroupStats.length === 0 ? (
               <EmptyState
                 icon={<HiOutlineUserGroup className="w-8 h-8" />}
-                title="No chit groups yet"
+                title={t('noGroups')}
                 description="Create a chit group to start tracking payments."
               />
             ) : (
@@ -419,7 +422,7 @@ export default function PaymentsPage() {
             ) : (
               <EmptyState
                 icon={<HiOutlineUserGroup className="w-8 h-8" />}
-                title="No group selected"
+                title={t('noGroupSelected')}
                 description="Choose a chit group to view its breakdown."
               />
             )
@@ -429,13 +432,13 @@ export default function PaymentsPage() {
         {/* ── Recent Payments ─────────────────────────────────────────────── */}
         <section>
           <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
-            {filterGroup === 'all' ? 'Recent Payments (All Groups)' : 'Recent Payments'}
+            {filterGroup === 'all' ? `${t('recentPayments')} (All Groups)` : t('recentPayments')}
           </h2>
           {recentPayments.length === 0 ? (
             <EmptyState
               icon={<HiOutlineBanknotes className="w-8 h-8" />}
-              title="No payments recorded yet"
-              description="Use the Payment Tracker to record member payments."
+              title={t('noPayments')}
+              description={t('noPaymentsDescription')}
             />
           ) : (
             <Card padding={false}>
@@ -444,12 +447,12 @@ export default function PaymentsPage() {
                   <thead>
                     <tr>
                       <th></th>
-                      <th>Member</th>
-                      <th>Ticket</th>
-                      <th>Total Paid</th>
-                      <th>Total Due</th>
-                      <th>Remaining</th>
-                      <th>Status</th>
+                      <th>{t('member')}</th>
+                      <th>{t('ticketNumber')}</th>
+                      <th>{t('totalPaid')}</th>
+                      <th>{t('totalDue')}</th>
+                      <th>{t('remaining')}</th>
+                      <th>{t('status')}</th>
                     </tr>
                   </thead>
                   <tbody>

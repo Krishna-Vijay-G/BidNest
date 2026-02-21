@@ -11,18 +11,20 @@ import {
   HiOutlineBanknotes,
   HiOutlineClipboardDocumentList,
 } from 'react-icons/hi2';
-
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: HiOutlineSquares2X2, exact: false },
-  { href: '/members', label: 'Members', icon: HiOutlineUsers, exact: false },
-  { href: '/groups', label: 'Chit Groups', icon: HiOutlineUserGroup, exact: false },
-  { href: '/auctions', label: 'Auctions', icon: HiOutlineTrophy, exact: false },
-  { href: '/payments', label: 'Payments', icon: HiOutlineBanknotes, exact: true },
-  { href: '/payments/tracking', label: 'Payment Tracker', icon: HiOutlineClipboardDocumentList, exact: false },
-];
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { t } = useLang();
+
+  const navItems = [
+    { href: '/dashboard', labelKey: 'dashboard' as const, icon: HiOutlineSquares2X2, exact: false },
+    { href: '/members', labelKey: 'members' as const, icon: HiOutlineUsers, exact: false },
+    { href: '/groups', labelKey: 'groups' as const, icon: HiOutlineUserGroup, exact: false },
+    { href: '/auctions', labelKey: 'auctions' as const, icon: HiOutlineTrophy, exact: false },
+    { href: '/payments', labelKey: 'payments' as const, icon: HiOutlineBanknotes, exact: true },
+    { href: '/payments/tracking', labelKey: 'tracking' as const, icon: HiOutlineClipboardDocumentList, extra: true, exact: false },
+  ];
 
   return (
     <>
@@ -57,7 +59,7 @@ export function Sidebar() {
                 }`}
               >
                 <item.icon className={`w-5 h-5 ${isActive ? 'text-cyan-400' : ''}`} />
-                {item.label}
+                {t(item.labelKey)}
                 {isActive && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400" />
                 )}
@@ -77,15 +79,6 @@ export function Sidebar() {
           const isActive = item.exact
             ? pathname === item.href
             : pathname === item.href || pathname.startsWith(item.href + '/');
-          // Shorten labels for tight mobile bar
-          const shortLabel: Record<string, string> = {
-            Dashboard: 'Home',
-            Members: 'Members',
-            'Chit Groups': 'Groups',
-            Auctions: 'Auctions',
-            Payments: 'Payments',
-            'Payment Tracker': 'Tracker',
-          };
           return (
             <Link
               key={item.href}
@@ -96,7 +89,7 @@ export function Sidebar() {
             >
               <item.icon className="w-5 h-5" />
               <span className="text-[10px] font-medium leading-tight text-center">
-                {shortLabel[item.label] ?? item.label}
+                {t(item.labelKey)}
               </span>
             </Link>
           );
