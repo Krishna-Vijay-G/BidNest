@@ -13,6 +13,8 @@ import {
   HiOutlineStar,
 } from 'react-icons/hi2';
 import { useEffect, useRef, useState } from 'react';
+import { useLang } from '@/lib/i18n/LanguageContext';
+import { LanguageToggle } from '@/components/ui/LanguageToggle';
 
 interface HeaderProps {
   title: string;
@@ -56,6 +58,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
     document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
+  const { t } = useLang();
   const displayName = user?.name || user?.username || '';
   const initials = displayName.charAt(0).toUpperCase();
 
@@ -73,26 +76,6 @@ export function Header({ title, subtitle, children }: HeaderProps) {
       {/* Right side */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {children}
-
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
-          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
-        </button>
-
-        {/* GitHub link as Star*/}
-        <a
-          href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
-          title="Open GitHub"
-        >
-          <HiOutlineStar className="w-5 h-5" />
-        </a>
 
         {/* User dropdown */}
         <div className="relative" ref={dropRef}>
@@ -129,6 +112,31 @@ export function Header({ title, subtitle, children }: HeaderProps) {
                 <p className="text-xs text-foreground-muted truncate mt-0.5">{user?.email}</p>
               </div>
 
+              {/* Controls: Theme, Language, GitHub */}
+              <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
+                  title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
+                </button>            
+
+                <a
+                  href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
+                  title="Open GitHub"
+                >
+                  <HiOutlineStar className="w-5 h-5" />
+                </a>
+
+                <div className="px-1">
+                  <LanguageToggle />
+                </div>
+              </div>
+
               {/* Profile */}
               <Link
                 href="/profile"
@@ -136,7 +144,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground-secondary hover:bg-surface-hover hover:text-foreground transition-colors"
               >
                 <HiOutlineUserCircle className="w-4 h-4 shrink-0" />
-                My Profile
+                {t('profile')}
               </Link>
 
               {/* Sign out */}
@@ -145,7 +153,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground-secondary hover:bg-red-500/10 hover:text-red-400 transition-colors"
               >
                 <HiOutlineArrowRightOnRectangle className="w-4 h-4 shrink-0" />
-                Sign Out
+                {t('logout')}
               </button>
             </div>
           )}
