@@ -424,13 +424,7 @@ function GroupFormModal({
                 helperText={t('autoCalculated')}
               />
             </div>
-            <Input
-              label="Auction Start Date"
-              type="date"
-              value={auctionStartDate}
-              onChange={(e) => setAuctionStartDate(e.target.value)}
-              helperText="The date when the first auction will be held"
-            />
+            
           </>
         )}
 
@@ -465,6 +459,13 @@ function GroupFormModal({
               { value: '100', label: '₹100' },
             ]}
           />
+          <Input
+              label="Auction Start Date"
+              type="date"
+              value={auctionStartDate}
+              onChange={(e) => setAuctionStartDate(e.target.value)}
+              helperText="The First Auctiion Date."
+            />
           {isEditing && (
             <Select
               label={t('status')}

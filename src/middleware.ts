@@ -7,6 +7,15 @@ const PUBLIC_PATHS = ["/", "/login", "/register", "/api/auth/login", "/api/auth/
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Allow admin portal page (secret slug) and all admin API routes to bypass regular auth
+  const adminSlug = process.env.ADMIN_PAGE_SLUG;
+  if (adminSlug && pathname === `/${adminSlug}`) {
+    return NextResponse.next();
+  }
+  if (pathname.startsWith("/api/admin/")) {
+    return NextResponse.next();
+  }
+
   // allow public paths
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p))) {
     return NextResponse.next();
