@@ -341,6 +341,7 @@ function GroupFormModal({
           commission_type: commissionType,
           commission_value: Number(commissionValue),
           round_off_value: Number(roundOffValue),
+          ...(auctionStartDate ? { auction_start_date: new Date(auctionStartDate).toISOString() } : {}),
         }),
       });
       const data = await res.json();
@@ -462,11 +463,11 @@ function GroupFormModal({
             ]}
           />
           <Input
-              label="Auction Start Date"
+              label={t('startDate')}
               type="date"
               value={auctionStartDate}
               onChange={(e) => setAuctionStartDate(e.target.value)}
-              helperText="The First Auctiion Date."
+              helperText="The First Auction Date."
             />
           {isEditing && (
             <Select
