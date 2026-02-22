@@ -42,25 +42,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Chit group not found" }, { status: 404 });
     }
 
-    // check ticket_number not already taken in this chit group
-    const ticketTaken = await prisma.chitMember.findUnique({
+    // check ticket_number not already taken by active member in this chit group
+    const ticketTaken = await prisma.chitMember.findFirst({
       where: {
-        chit_group_id_ticket_number: {
-          chit_group_id: parsed.data.chit_group_id,
-          ticket_number: parsed.data.ticket_number,
-        },
+        chit_group_id: parsed.data.chit_group_id,
+        ticket_number: parsed.data.ticket_number,
       },
     });
-    if (ticketTaken) {
+    if (ticketTaken && ticketTaken.is_active) {
       return NextResponse.json(
         { error: `Ticket #${parsed.data.ticket_number} is already taken` },
         { status: 409 }
       );
     }
 
-    // check total tickets not exceeding total_members
+    // check total active tickets not exceeding total_members
     const ticketCount = await prisma.chitMember.count({
-      where: { chit_group_id: parsed.data.chit_group_id },
+      where: { chit_group_id: parsed.data.chit_group_id, is_active: true },
     });
     if (ticketCount >= chitGroup.total_members) {
       return NextResponse.json(
@@ -69,17 +67,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const chitMember = await prisma.chitMember.create({
-      data: parsed.data,
-    });
+    let chitMember;
+    if (ticketTaken && !ticketTaken.is_active) {
+      // reuse the inactive ticket
+      chitMember = await prisma.chitMember.update({
+        where: { id: ticketTaken.id },
+        data: { ...parsed.data, is_active: true },
+      });
+    } else {
+      // create new
+      chitMember = await prisma.chitMember.create({
+        data: parsed.data,
+      });
+    }
 
     await logAudit({
       user_id: chitGroup.user_id,
-      action_type: "CREATE",
-      action_detail: `Chit member added: ticket #${parsed.data.ticket_number} in group ${parsed.data.chit_group_id}`,
+      action_type: ticketTaken ? "UPDATE" : "CREATE",
+      action_detail: ticketTaken ? `Chit member reactivated: ticket #${parsed.data.ticket_number} in group ${parsed.data.chit_group_id}` : `Chit member added: ticket #${parsed.data.ticket_number} in group ${parsed.data.chit_group_id}`,
       table_name: "chit_members",
       record_id: chitMember.id,
-      new_data: { id: chitMember.id, member_id: chitMember.member_id, chit_group_id: chitMember.chit_group_id, ticket_number: chitMember.ticket_number },
+      old_data: ticketTaken ? { id: ticketTaken.id, is_active: false } : null,
+      new_data: { id: chitMember.id, member_id: chitMember.member_id, chit_group_id: chitMember.chit_group_id, ticket_number: chitMember.ticket_number, is_active: true },
       ip_address: getIp(req),
       user_agent: req.headers.get("user-agent"),
     });

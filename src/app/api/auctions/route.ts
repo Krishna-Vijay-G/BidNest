@@ -133,6 +133,7 @@ export async function POST(req: NextRequest) {
       commission_value: Number(chitGroup.commission_value),
       round_off_value: chitGroup.round_off_value,
       original_bid: parsed.data.original_bid,
+      winner_payout: calc.winning_amount - (Number(chitGroup.monthly_amount) - dividend_per_member),
       ...calc,
       roundoff_dividend: stored_roundoff_dividend,
       carry_next: stored_carry_next,

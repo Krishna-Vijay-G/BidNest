@@ -8,6 +8,7 @@ import { logAudit, getIp } from "@/lib/auditLog";
 
 const UpdateChitMemberSchema = z.object({
   is_active: z.boolean().optional(),
+  member_id: z.string().uuid().optional(),
 });
 
 // ─── GET /api/chit-members/[id] ────────────────────────────
@@ -76,8 +77,8 @@ export async function PUT(
       action_detail: `Chit member updated: ${id}`,
       table_name: "chit_members",
       record_id: id,
-      old_data: { id: chitMember.id, is_active: chitMember.is_active },
-      new_data: { id: updated.id, is_active: updated.is_active },
+      old_data: { id: chitMember.id, is_active: chitMember.is_active, member_id: chitMember.member_id },
+      new_data: { id: updated.id, is_active: updated.is_active, member_id: updated.member_id },
       ip_address: getIp(req),
       user_agent: req.headers.get("user-agent"),
     });

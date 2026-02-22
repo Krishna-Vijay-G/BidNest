@@ -13,6 +13,8 @@ import {
   HiOutlineBanknotes,
   HiOutlineTicket,
   HiOutlinePlus,
+  HiOutlinePencil,
+  HiOutlineTrash,
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { Modal, Input, Select } from '@/components/ui';
@@ -91,6 +93,8 @@ export default function GroupDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddTicketModal, setShowAddTicketModal] = useState(false);
   const [showConductAuction, setShowConductAuction] = useState(false);
+  const [expandedAuction, setExpandedAuction] = useState<string | null>(null);
+  const [editingTicket, setEditingTicket] = useState<ChitMember | null>(null);
 
   const load = async () => {
     try {
@@ -108,7 +112,7 @@ export default function GroupDetailPage() {
 
       // Only set group if it looks valid (has an id)
       setGroup(groupData?.id ? groupData : null);
-      setChitMembers(Array.isArray(chitMembersData) ? chitMembersData : []);
+      setChitMembers(Array.isArray(chitMembersData) ? chitMembersData.filter(cm => cm.is_active) : []);
       setAuctions(Array.isArray(auctionsData) ? auctionsData : []);
       setPayments(Array.isArray(paymentsData) ? paymentsData : []);
     } finally {
@@ -157,6 +161,21 @@ export default function GroupDetailPage() {
     const key = map[s] || s.toLowerCase();
     return t(key as any) || status;
   }
+
+  const handleDeleteTicket = async (cm: ChitMember) => {
+    if (!confirm(`Remove ${cm.member?.name?.value} from ticket #${cm.ticket_number}?`)) return;
+    try {
+      const res = await fetch(`/api/chit-members/${cm.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Ticket removed');
+        load();
+      } else {
+        toast.error('Failed to remove ticket');
+      }
+    } catch (error) {
+      toast.error('Error removing ticket');
+    }
+  };
 
   return (
     <>
@@ -242,7 +261,7 @@ export default function GroupDetailPage() {
               <HiOutlineTicket className="w-5 h-5 text-cyan-400" />
               {t('tickets')} ({chitMembers.length}/{group.total_members})
             </h3>
-            {chitMembers.length < group.total_members && (
+            {chitMembers.length < group.total_members && auctions.length === 0 && (
               <Button
                 size="sm"
                 icon={<HiOutlinePlus className="w-4 h-4" />}
@@ -278,6 +297,22 @@ export default function GroupDetailPage() {
                     status={cm.is_active ? 'ACTIVE' : 'CANCELLED'}
                     label={translateStatusLabel(cm.is_active ? 'ACTIVE' : 'CANCELLED')}
                   />
+                  {auctions.length === 0 && (
+                    <>
+                      <button
+                        onClick={() => setEditingTicket(cm)}
+                        className="p-1.5 text-foreground-muted hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
+                      >
+                        <HiOutlinePencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTicket(cm)}
+                        className="p-1.5 text-foreground-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                      >
+                        <HiOutlineTrash className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -310,36 +345,44 @@ export default function GroupDetailPage() {
                   <tr>
                     <th>{t('month')}</th>
                     <th>{t('winner')}</th>
-                    <th>{t('ticketNumber')}</th>
                     <th>{t('originalBid')}</th>
-                    <th>{t('winnerPayout')}</th>
-                    <th>{t('perMember')}</th>
-                    <th>{t('toCollect')}</th>
-                    <th>{t('carryNext')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {auctions.map((a) => (
-                    <tr key={a.id}>
-                      <td className="font-semibold text-cyan-400">{t('month')} {a.month_number}</td>
-                      <td className="font-medium text-foreground">
-                        {a.winner_chit_member?.member?.name?.value || 'N/A'}
-                      </td>
-                      <td>#{a.winner_chit_member?.ticket_number}</td>
-                      <td>{formatCurrency(Number(a.original_bid))}</td>
-                      <td className="text-emerald-400 font-semibold">
-                        {formatCurrency(Number(a.winning_amount))}
-                      </td>
-                      <td className="text-purple-400">
-                        {formatCurrency(a.calculation_data?.dividend_per_member || 0)}
-                      </td>
-                      <td className="text-foreground font-semibold">
-                        {formatCurrency(a.calculation_data?.amount_to_collect || 0)}
-                      </td>
-                      <td className="text-amber-400">
-                        {formatCurrency(Number(a.carry_next))}
-                      </td>
-                    </tr>
+                    <>
+                      <tr key={a.id} onClick={() => setExpandedAuction(expandedAuction === a.id ? null : a.id)} className="cursor-pointer hover:bg-surface/50">
+                        <td className="font-semibold text-cyan-400">{t('month')} {a.month_number}</td>
+                        <td className="font-medium text-foreground">
+                          {a.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{a.winner_chit_member?.ticket_number}</span>
+                        </td>
+                        <td>{formatCurrency(Number(a.original_bid))}</td>
+                      </tr>
+                      {expandedAuction === a.id && (
+                        <tr>
+                          <td colSpan={3} className="bg-surface/30 p-4">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <span className="text-foreground-muted">{t('winnerPayout')}:</span>
+                                <span className="text-emerald-400 font-semibold ml-2">{formatCurrency(Number(a.winning_amount))}</span>
+                              </div>
+                              <div>
+                                <span className="text-foreground-muted">{t('perMember')}:</span>
+                                <span className="text-purple-400 font-semibold ml-2">{formatCurrency(a.calculation_data?.dividend_per_member || 0)}</span>
+                              </div>
+                              <div>
+                                <span className="text-foreground-muted">{t('toCollect')}:</span>
+                                <span className="text-foreground font-semibold ml-2">{formatCurrency(a.calculation_data?.amount_to_collect || 0)}</span>
+                              </div>
+                              <div>
+                                <span className="text-foreground-muted">{t('carryNext')}:</span>
+                                <span className="text-amber-400 font-semibold ml-2">{formatCurrency(Number(a.carry_next))}</span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
@@ -361,7 +404,6 @@ export default function GroupDetailPage() {
                 <thead>
                   <tr>
                     <th>{t('member')}</th>
-                    <th>{t('ticketNumber')}</th>
                     <th>{t('month')}</th>
                     <th>{t('amountPaid')}</th>
                     <th>{t('status')}</th>
@@ -371,9 +413,8 @@ export default function GroupDetailPage() {
                   {payments.map((p) => (
                     <tr key={p.id}>
                       <td className="font-medium text-foreground">
-                        {p.chit_member?.member?.name?.value || 'N/A'}
+                        {p.chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{p.chit_member?.ticket_number}</span>
                       </td>
-                      <td>#{p.chit_member?.ticket_number}</td>
                       <td>{t('month')} {p.month_number}</td>
                       <td className="text-cyan-400 font-semibold">
                         {formatCurrency(Number(p.amount_paid))}
@@ -403,6 +444,20 @@ export default function GroupDetailPage() {
           load();
         }}
       />
+
+      {/* Edit Ticket Modal */}
+      {editingTicket && (
+        <EditTicketModal
+          isOpen={!!editingTicket}
+          ticket={editingTicket}
+          userId={user?.id || ''}
+          onClose={() => setEditingTicket(null)}
+          onSaved={() => {
+            setEditingTicket(null);
+            load();
+          }}
+        />
+      )}
 
       {/* Conduct Auction Modal */}
       <ConductAuctionModal
@@ -458,7 +513,10 @@ function AddTicketModal({
     if (isOpen) {
       fetch(userId ? `/api/members?user_id=${userId}` : '/api/members')
         .then((r) => r.json())
-        .then((data) => setMembers(Array.isArray(data) ? data : []));
+        .then((data) => {
+          const activeMembers = Array.isArray(data) ? data.filter((m: any) => m.is_active) : [];
+          setMembers(activeMembers);
+        });
 
       // auto-suggest next ticket number
       const used = new Set(existingTickets);
@@ -527,7 +585,90 @@ function AddTicketModal({
   );
 }
 
-// ─── Conduct Auction Modal ────────────────────────────────────────────────────
+// ─── Edit Ticket Modal ─────────────────────────────────────────────────────
+
+function EditTicketModal({
+  isOpen,
+  ticket,
+  userId,
+  onClose,
+  onSaved,
+}: {
+  isOpen: boolean;
+  ticket: ChitMember;
+  userId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [members, setMembers] = useState<{ id: string; name: { value: string } }[]>([]);
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { t } = useLang();
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch(userId ? `/api/members?user_id=${userId}` : '/api/members')
+        .then((r) => r.json())
+        .then((data) => {
+          const activeMembers = Array.isArray(data) ? data.filter((m: any) => m.is_active) : [];
+          setMembers(activeMembers);
+          setSelectedMemberId(ticket.member?.id || '');
+        });
+    }
+  }, [isOpen, ticket, userId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const res = await fetch(`/api/chit-members/${ticket.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        member_id: selectedMemberId,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || 'Failed to update ticket');
+    } else {
+      toast.success('Ticket updated!');
+      onSaved();
+    }
+
+    setIsSubmitting(false);
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={t('editTicket')}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label={t('ticketNumber')}
+          type="number"
+          value={ticket.ticket_number}
+          disabled
+        />
+        <Select
+          label={t('member')}
+          value={selectedMemberId}
+          onChange={(e) => setSelectedMemberId(e.target.value)}
+          options={[
+            { value: '', label: t('selectMember') },
+            ...members.map((m) => ({
+              value: m.id,
+              label: m.name.value,
+            })),
+          ]}
+        />
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <Button variant="outline" onClick={onClose} type="button">{t('cancel')}</Button>
+          <Button type="submit" isLoading={isSubmitting}>{t('saveChanges')}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 function ConductAuctionModal({
   isOpen,
@@ -560,10 +701,22 @@ function ConductAuctionModal({
   useEffect(() => {
     if (isOpen) {
       setMonthNumber(String(nextMonth));
-      setOriginalBid('');
       setWinnerChitMemberId('');
       setAuctionDate(new Date().toISOString().slice(0, 10));
       setPreview(null);
+      // Set bid based on whether it's last month
+      const isLast = Number(nextMonth) === Number(group.duration_months);
+      if (isLast) {
+        const cap =
+          group.commission_type === 'FIXED'
+            ? Number(group.commission_value)
+            : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+        setOriginalBid(String(cap));
+        setIsLastMonthFixed(true);
+      } else {
+        setOriginalBid('');
+        setIsLastMonthFixed(false);
+      }
       // fetch auctions for this group to determine tickets that already won
       fetch(`/api/auctions?chit_group_id=${group.id}`)
         .then((r) => r.json())
@@ -573,24 +726,7 @@ function ConductAuctionModal({
         })
         .catch(() => setGroupAuctions([]));
     }
-  }, [isOpen, nextMonth]);
-
-  // When monthNumber or group changes, lock the original bid for the final month
-  useEffect(() => {
-    const isLast = Number(monthNumber) === Number(group.duration_months);
-    if (!isLast) {
-      setIsLastMonthFixed(false);
-      return;
-    }
-
-    const cap =
-      group.commission_type === 'FIXED'
-        ? Number(group.commission_value)
-        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
-
-    setOriginalBid(String(cap));
-    setIsLastMonthFixed(true);
-  }, [monthNumber, group]);
+  }, [isOpen, nextMonth, group]);
 
   // recompute availableMembers whenever chitMembers or groupAuctions change
   useEffect(() => {
@@ -609,6 +745,7 @@ function ConductAuctionModal({
 
   // live preview
   useEffect(() => {
+    if (!isOpen) return;
     if (!originalBid) { setPreview(null); return; }
     const bid = Number(originalBid);
     if (isNaN(bid) || bid <= 0) return;
@@ -631,9 +768,10 @@ function ConductAuctionModal({
       // ensure final month shows no carry to next (there is no next month)
       carry_next: isLastMonthFixed ? 0 : calc.carry_next,
       roundoff_dividend: isLastMonthFixed ? calc.raw_dividend : calc.roundoff_dividend,
+      winner_payout: calc.winning_amount - (Number(group.monthly_amount) - calc.per_member_dividend),
     };
     setPreview(previewObj);
-  }, [originalBid, group, lastCarryNext]);
+  }, [originalBid, group, lastCarryNext, isLastMonthFixed, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -696,7 +834,7 @@ function ConductAuctionModal({
             disabled={isLastMonthFixed}
             placeholder="e.g. 643"
             required
-            helperText={isLastMonthFixed ? 'Last month — bid fixed to commission cap.' : undefined}
+            helperText={isLastMonthFixed ? t('lastMonthBidFixed') : undefined}
           />
         </div>
 
@@ -706,9 +844,9 @@ function ConductAuctionModal({
           onChange={(e) => setWinnerChitMemberId(e.target.value)}
           options={
             availableMembers.length === 0
-              ? [{ value: '', label: 'No eligible tickets (all have won)' }]
+              ? [{ value: '', label: t('noEligibleTickets') }]
               : [
-                  { value: '', label: 'Select winner...' },
+                  { value: '', label: t('selectWinner') },
                   ...availableMembers.map((cm) => ({
                     value: cm.id,
                     label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
@@ -742,7 +880,10 @@ function ConductAuctionModal({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <p className="text-xs text-foreground-muted">{t('winnerPayout')}</p>
-                <p className="text-sm font-semibold text-emerald-400">{formatCurrency(preview.winning_amount)}</p>
+                <p className="text-sm font-semibold text-emerald-400">
+                  {formatCurrency(preview.winning_amount)}
+                  <span className="text-xs text-foreground-muted ml-2">(- {formatCurrency(preview.monthly_due)})</span>
+                </p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">{t('originalBid')}</p>

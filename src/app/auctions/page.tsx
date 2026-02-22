@@ -387,6 +387,7 @@ function AuctionFormModal({
       total_members: group.total_members,
       carry_next: isFinalMonth ? 0 : calc.carry_next,
       roundoff_dividend: isFinalMonth ? calc.raw_dividend : calc.roundoff_dividend,
+      winner_payout: calc.winning_amount - monthly_due,
     });
   }, [selectedGroupId, originalBid, monthNumber, groups, carryPrevious]);
 
@@ -462,7 +463,7 @@ function AuctionFormModal({
             disabled={isLastMonthFixed}
             placeholder="e.g. 643"
             required
-            helperText={isLastMonthFixed ? 'Last month — bid fixed to commission cap.' : undefined}
+            helperText={isLastMonthFixed ? t('lastMonthBidFixed') : undefined}
           />
         </div>
 
@@ -510,7 +511,8 @@ function AuctionFormModal({
               <div>
                 <p className="text-xs text-foreground-muted">{t('winnerPayout')}</p>
                 <p className="text-sm font-semibold text-cyan-400">
-                  {formatCurrency(preview.winning_amount - preview.commission)}
+                  {formatCurrency(preview.winner_payout)}
+                  <span className="text-xs text-foreground-muted ml-2">({formatCurrency(preview.winning_amount)} - {formatCurrency(preview.monthly_due)})</span>
                 </p>
               </div>
               <div>

@@ -141,9 +141,7 @@ export default function MembersPage() {
                 <thead>
                   <tr>
                     <th>{t('memberName')}</th>
-                    <th>{t('nickname')}</th>
                     <th>{t('mobile')}</th>
-                    <th>{t('upiId')}</th>
                     <th>{t('status')}</th>
                     <th>{t('actions')}</th>
                   </tr>
@@ -156,18 +154,17 @@ export default function MembersPage() {
                           <div className="w-8 h-8 bg-cyan-500/10 rounded-full flex items-center justify-center text-cyan-400 font-semibold text-sm">
                             {member.name.value.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-foreground group-hover:text-cyan-400 transition-colors">
-                            {member.name.value}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground group-hover:text-cyan-400 transition-colors whitespace-nowrap">
+                              {member.name.value}
+                            </span>
+                            <span className="text-sm text-foreground-muted whitespace-nowrap">
+                              {member.nickname.value}
+                            </span>
+                          </div>
                         </Link>
                       </td>
-                      <td>
-                        <Badge variant="default">{member.nickname.value}</Badge>
-                      </td>
                       <td className="text-foreground-secondary">{member.mobile.value}</td>
-                      <td className="text-foreground-muted">
-                        {member.upi_ids?.filter((u) => u.is_active).map((u) => u.value).join(', ') || '—'}
-                      </td>
                       <td>
                         <Badge variant={member.is_active ? 'success' : 'danger'}>
                           {member.is_active ? t('active') : t('inactive')}

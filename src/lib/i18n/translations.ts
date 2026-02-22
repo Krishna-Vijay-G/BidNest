@@ -69,6 +69,8 @@ export const translations = {
     carryNext: 'Carry Next',
     noAuctions: 'No auctions conducted yet.',
     lastAuction: 'Last Auction',
+    lastMonthBidFixed: 'Last month — bid fixed to commission cap.',
+    editTicket: 'Edit Ticket',
 
     // Payments
     recordPayment: 'Record Payment',
@@ -264,6 +266,8 @@ export const translations = {
     carryNext: 'அடுத்த மாதம் இருப்பு',
     noAuctions: 'இன்னும் ஏலம் நடக்கவில்லை.',
     lastAuction: 'கடைசி ஏலம்',
+    lastMonthBidFixed: 'கடைசி மாதம் — ஏலம் கமிஷன் தொகைக்கு நிர்ணயிக்கப்பட்டது.',
+    editTicket: 'டிக்கெட்டை திருத்து',
 
     // Payments
     recordPayment: 'கட்டணம் பதிவு செய்',
