@@ -68,6 +68,7 @@ export const translations = {
     toCollect: 'To Collect',
     carryNext: 'Carry Next',
     noAuctions: 'No auctions conducted yet.',
+    lastAuction: 'Last Auction',
 
     // Payments
     recordPayment: 'Record Payment',
@@ -116,7 +117,7 @@ export const translations = {
     totalWon: 'Total Won',
     totalOwed: 'Total Owed',
     balanceDue: 'Balance Due',
-    wonAuction: 'Won Auction',
+    wonAuction: 'Winner',
     wonMonths: 'Won Month(s)',
     monthByMonth: 'Month-by-Month Breakdown',
     amountDue: 'Amount Due',
@@ -260,8 +261,9 @@ export const translations = {
     winnerPayout: 'வெற்றியாளர் தொகை',
     perMember: 'ஒவ்வொரு உறுப்பினருக்கும்',
     toCollect: 'வசூலிக்க',
-    carryNext: 'அடுத்த மாதம் கொண்டு செல்',
+    carryNext: 'அடுத்த மாதம் இருப்பு',
     noAuctions: 'இன்னும் ஏலம் நடக்கவில்லை.',
+    lastAuction: 'கடைசி ஏலம்',
 
     // Payments
     recordPayment: 'கட்டணம் பதிவு செய்',

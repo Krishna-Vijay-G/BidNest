@@ -548,6 +548,7 @@ function ConductAuctionModal({
 }) {
   const [monthNumber, setMonthNumber] = useState('');
   const [originalBid, setOriginalBid] = useState('');
+  const [isLastMonthFixed, setIsLastMonthFixed] = useState(false);
   const [winnerChitMemberId, setWinnerChitMemberId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [preview, setPreview] = useState<any>(null);
@@ -573,6 +574,23 @@ function ConductAuctionModal({
         .catch(() => setGroupAuctions([]));
     }
   }, [isOpen, nextMonth]);
+
+  // When monthNumber or group changes, lock the original bid for the final month
+  useEffect(() => {
+    const isLast = Number(monthNumber) === Number(group.duration_months);
+    if (!isLast) {
+      setIsLastMonthFixed(false);
+      return;
+    }
+
+    const cap =
+      group.commission_type === 'FIXED'
+        ? Number(group.commission_value)
+        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+
+    setOriginalBid(String(cap));
+    setIsLastMonthFixed(true);
+  }, [monthNumber, group]);
 
   // recompute availableMembers whenever chitMembers or groupAuctions change
   useEffect(() => {
@@ -603,13 +621,18 @@ function ConductAuctionModal({
       commission_value: Number(group.commission_value),
       round_off_value: group.round_off_value,
       carry_previous: lastCarryNext,
+      no_round_off: isLastMonthFixed,
     });
 
     // per_member_dividend is now returned directly by calculateAuction
-    setPreview({
+    const previewObj = {
       ...calc,
       monthly_due: Number(group.monthly_amount) - calc.per_member_dividend,
-    });
+      // ensure final month shows no carry to next (there is no next month)
+      carry_next: isLastMonthFixed ? 0 : calc.carry_next,
+      roundoff_dividend: isLastMonthFixed ? calc.raw_dividend : calc.roundoff_dividend,
+    };
+    setPreview(previewObj);
   }, [originalBid, group, lastCarryNext]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -670,8 +693,10 @@ function ConductAuctionModal({
             type="number"
             value={originalBid}
             onChange={(e) => setOriginalBid(e.target.value)}
+            disabled={isLastMonthFixed}
             placeholder="e.g. 643"
             required
+            helperText={isLastMonthFixed ? 'Last month — bid fixed to commission cap.' : undefined}
           />
         </div>
 

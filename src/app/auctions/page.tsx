@@ -20,6 +20,7 @@ interface ChitGroup {
   commission_value: string;
   round_off_value: number;
   status: string;
+  duration_months: number;
 }
 
 interface ChitMember {
@@ -251,6 +252,7 @@ export default function AuctionsPage() {
       <AuctionFormModal
         isOpen={showCreateModal}
         groups={groups}
+        auctions={auctions}
         onClose={() => setShowCreateModal(false)}
         onSaved={() => {
           setShowCreateModal(false);
@@ -266,11 +268,13 @@ export default function AuctionsPage() {
 function AuctionFormModal({
   isOpen,
   groups,
+  auctions,
   onClose,
   onSaved,
 }: {
   isOpen: boolean;
   groups: ChitGroup[];
+  auctions: Auction[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -278,6 +282,7 @@ function AuctionFormModal({
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [monthNumber, setMonthNumber] = useState('');
   const [originalBid, setOriginalBid] = useState('');
+  const [isLastMonthFixed, setIsLastMonthFixed] = useState(false);
   const [winnerChitMemberId, setWinnerChitMemberId] = useState('');
   const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -310,6 +315,31 @@ function AuctionFormModal({
     });
   }, [selectedGroupId]);
 
+  // When group or monthNumber changes, determine if this is the last month
+  // and if so, auto-fill & lock the original bid to the commission cap.
+  useEffect(() => {
+    const group = groups.find((g) => g.id === selectedGroupId);
+    if (!group || !monthNumber) {
+      setIsLastMonthFixed(false);
+      return;
+    }
+
+    const isLast = Number(monthNumber) === Number(group.duration_months);
+    if (!isLast) {
+      setIsLastMonthFixed(false);
+      return;
+    }
+
+    // compute cap: fixed commission value, or percent of total_amount
+    const cap =
+      group.commission_type === 'FIXED'
+        ? Number(group.commission_value)
+        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+
+    setOriginalBid(String(cap));
+    setIsLastMonthFixed(true);
+  }, [selectedGroupId, monthNumber, groups]);
+
   // compute available members (exclude tickets that already won)
   useEffect(() => {
     const winners = new Set<string>();
@@ -333,6 +363,7 @@ function AuctionFormModal({
     const group = groups.find((g) => g.id === selectedGroupId);
     if (!group) return;
 
+    const isFinalMonth = Number(monthNumber) === Number(group.duration_months);
     const calc = calculateAuction({
       total_amount: Number(group.total_amount),
       total_members: group.total_members,
@@ -341,13 +372,22 @@ function AuctionFormModal({
       commission_value: Number(group.commission_value),
       round_off_value: group.round_off_value,
       carry_previous: carryPrevious,
+      no_round_off: isFinalMonth,
     });
 
     // per_member_dividend now returned directly by calculateAuction
     const dividend_per_member = calc.per_member_dividend;
     const monthly_due = Number(group.monthly_amount) - dividend_per_member;
 
-    setPreview({ ...calc, dividend_per_member, monthly_due, total_members: group.total_members });
+    // Force final-month preview to show zero carry (no next month)
+    setPreview({
+      ...calc,
+      dividend_per_member,
+      monthly_due,
+      total_members: group.total_members,
+      carry_next: isFinalMonth ? 0 : calc.carry_next,
+      roundoff_dividend: isFinalMonth ? calc.raw_dividend : calc.roundoff_dividend,
+    });
   }, [selectedGroupId, originalBid, monthNumber, groups, carryPrevious]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -389,13 +429,18 @@ function AuctionFormModal({
           }}
           options={[
             { value: '', label: 'Select a group...' },
-            // only active groups should be available for conducting auctions
-            ...groups
-              .filter((g) => g.status === 'ACTIVE')
-              .map((g) => ({
-                value: g.id,
-                label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
-              })),
+              // only active groups with remaining auctions should be available
+              ...groups
+                .filter((g) => {
+                  if (g.status !== 'ACTIVE') return false;
+                  const conducted = auctions.filter((a) => a.chit_group_id === g.id).length;
+                  // keep if conducted auctions are less than the group's duration
+                  return conducted < (g.duration_months ?? Infinity);
+                })
+                .map((g) => ({
+                  value: g.id,
+                  label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
+                })),
           ]}
           required
         />
@@ -414,8 +459,10 @@ function AuctionFormModal({
             type="number"
             value={originalBid}
             onChange={(e) => setOriginalBid(e.target.value)}
+            disabled={isLastMonthFixed}
             placeholder="e.g. 643"
             required
+            helperText={isLastMonthFixed ? 'Last month — bid fixed to commission cap.' : undefined}
           />
         </div>
 

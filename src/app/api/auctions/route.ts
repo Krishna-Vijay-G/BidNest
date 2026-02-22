@@ -88,7 +88,23 @@ export async function POST(req: NextRequest) {
       ? Number(previousAuction.carry_next)
       : 0;
 
+    // If this is the final month for the group, enforce the auction bid equals
+    // the commission cap: fixed commission_value, or percent of total_amount.
+    if (parsed.data.month_number === Number(chitGroup.duration_months)) {
+      const cap =
+        chitGroup.commission_type === 'FIXED'
+          ? Number(chitGroup.commission_value)
+          : Math.floor((Number(chitGroup.total_amount) * Number(chitGroup.commission_value)) / 100);
+      if (parsed.data.original_bid !== cap) {
+        return NextResponse.json(
+          { error: `For the final month, original_bid must be ${cap}` },
+          { status: 400 }
+        );
+      }
+    }
+
     // run calculation
+    const isFinalMonth = parsed.data.month_number === Number(chitGroup.duration_months);
     const calc = calculateAuction({
       total_amount: Number(chitGroup.total_amount),
       total_members: chitGroup.total_members,
@@ -97,7 +113,12 @@ export async function POST(req: NextRequest) {
       commission_value: Number(chitGroup.commission_value),
       round_off_value: chitGroup.round_off_value,
       carry_previous,
+      no_round_off: isFinalMonth,
     });
+
+    // If final month, explicitly ensure no carry is stored or shown (there is no next month)
+    const stored_carry_next = isFinalMonth ? 0 : calc.carry_next;
+    const stored_roundoff_dividend = isFinalMonth ? calc.raw_dividend : calc.roundoff_dividend;
 
     // per_member_dividend is now computed inside calculateAuction (per-member-first rounding)
     const dividend_per_member = calc.per_member_dividend;
@@ -113,6 +134,8 @@ export async function POST(req: NextRequest) {
       round_off_value: chitGroup.round_off_value,
       original_bid: parsed.data.original_bid,
       ...calc,
+      roundoff_dividend: stored_roundoff_dividend,
+      carry_next: stored_carry_next,
     };
 
     const auction = await prisma.auction.create({
@@ -125,8 +148,8 @@ export async function POST(req: NextRequest) {
         commission: calc.commission,
         carry_previous: calc.carry_previous,
         raw_dividend: calc.raw_dividend,
-        roundoff_dividend: calc.roundoff_dividend,
-        carry_next: calc.carry_next,
+        roundoff_dividend: stored_roundoff_dividend,
+        carry_next: stored_carry_next,
         calculation_data,
       },
     });

@@ -48,7 +48,7 @@ export default function GroupsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ChitGroup | null>(null);
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('ACTIVE');
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
@@ -200,11 +200,11 @@ export default function GroupsPage() {
                             const done = [...schedule]
                               .filter((s) => s.auction_date)
                               .sort((a, b) => b.month_number - a.month_number);
-                            if (done.length > 0) return 'Last Auction';
+                            if (done.length > 0) return t('lastAuction');
                           }
                           // Prefer showing the auction start date (entered in the modal) instead
                           // of the created date when available.
-                          return group.auction_start_date ? 'Start Date' : t('created');
+                          return group.auction_start_date ? t('startDate') : t('created');
                         })()}
                       </p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
@@ -215,7 +215,7 @@ export default function GroupsPage() {
                             .filter((s) => s.auction_date)
                             .sort((a, b) => b.month_number - a.month_number);
                           if (done.length > 0) {
-                            return `${new Date(done[0].auction_date!).toLocaleDateString('en-IN')} (M${done[0].month_number})`;
+                            return `${new Date(done[0].auction_date!).toLocaleDateString('en-IN')} (M : ${done[0].month_number})`;
                           }
                         }
                         if (group.auction_start_date) {
@@ -475,8 +475,8 @@ function GroupFormModal({
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               options={[
-                { value: 'PENDING', label: t('statusPending') },
                 { value: 'ACTIVE', label: t('statusActive') },
+                { value: 'PENDING', label: t('statusPending') },
                 { value: 'COMPLETED', label: t('statusCompleted') },
                 { value: 'CANCELLED', label: t('statusCancelled') },
               ]}
