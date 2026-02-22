@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ const CreateChitGroupSchema = z.object({
   commission_value: z.number().positive(),
   round_off_value: z.union([z.literal(10), z.literal(50), z.literal(100)]),
   status: z.enum(["ACTIVE", "PENDING", "CANCELLED", "COMPLETED"]).optional().default("PENDING"),
+  auction_start_date: z.string().datetime().optional(),
 });
 
 // ─── POST /api/chit-groups ─────────────────────────────────
@@ -55,7 +57,21 @@ export async function POST(req: NextRequest) {
         total_amount: parsed.data.total_amount,
         monthly_amount: parsed.data.monthly_amount,
         commission_value: parsed.data.commission_value,
+        auction_start_date: parsed.data.auction_start_date
+          ? new Date(parsed.data.auction_start_date)
+          : undefined,
       },
+    });
+
+    await logAudit({
+      user_id: parsed.data.user_id,
+      action_type: "CREATE",
+      action_detail: `Chit group created: ${chitGroup.name}`,
+      table_name: "chit_groups",
+      record_id: chitGroup.id,
+      new_data: { id: chitGroup.id, name: chitGroup.name, status: chitGroup.status },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(chitGroup, { status: 201 });

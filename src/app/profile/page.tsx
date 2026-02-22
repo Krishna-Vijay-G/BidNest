@@ -12,14 +12,16 @@ import {
   HiOutlineCalendarDays,
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 export default function ProfilePage() {
   const { user, isLoading, refreshUser } = useAuth();
+  const { t } = useLang();
 
   if (isLoading) {
     return (
       <>
-        <Header title="Profile" />
+        <Header title={t('profile')} />
         <PageLoader />
       </>
     );
@@ -28,7 +30,7 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <>
-        <Header title="Profile" />
+        <Header title={t('profile')} />
         <div className="p-8 text-center text-foreground-muted">
           Unable to load profile. Please refresh the page.
         </div>
@@ -38,7 +40,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <Header title="My Profile" subtitle="Manage your personal information" />
+      <Header title={t('profile')} subtitle="Manage your personal information" />
 
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl space-y-6">
         {/* Profile Header */}
@@ -54,7 +56,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-3">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                   <HiOutlineShieldCheck className="w-3.5 h-3.5" />
-                  Active Account
+                  {t('activeAccount')}
                 </span>
               </div>
             </div>
@@ -71,7 +73,7 @@ export default function ProfilePage() {
         <Card>
           <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <HiOutlineShieldCheck className="w-5 h-5 text-cyan-400" />
-            Account Details
+            {t('accountDetails')}
           </h3>
           <div className="space-y-0">
             <InfoRow
@@ -86,7 +88,7 @@ export default function ProfilePage() {
             />
             <InfoRow
               icon={<HiOutlineCalendarDays className="w-4 h-4" />}
-              label="Member Since"
+              label={t('memberSince')}
               value={new Date(user.created_at).toLocaleDateString('en-IN', {
                 day: '2-digit',
                 month: 'long',
@@ -127,6 +129,7 @@ function ProfileForm({
   user: { id: string; name: string; email: string; phone: string };
   onUpdated: () => void;
 }) {
+  const { t } = useLang();
   const [name, setName] = useState(user.name || '');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -164,11 +167,11 @@ function ProfileForm({
     <Card>
       <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
         <HiOutlineUserCircle className="w-5 h-5 text-cyan-400" />
-        Personal Information
+        {t('personalInformation')}
       </h3>
       <form onSubmit={handleSave} className="space-y-4">
         <Input
-          label="Full Name"
+          label={t('memberName')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -187,7 +190,7 @@ function ProfileForm({
         />
         <div className="flex justify-end pt-2">
           <Button type="submit" isLoading={isSaving}>
-            Save Changes
+            {t('saveChanges')}
           </Button>
         </div>
       </form>
@@ -197,6 +200,7 @@ function ProfileForm({
 
 function PasswordForm() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChanging, setIsChanging] = useState(false);
@@ -239,12 +243,12 @@ function PasswordForm() {
     <Card>
       <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
         <HiOutlineLockClosed className="w-5 h-5 text-cyan-400" />
-        Change Password
+        {t('changePassword')}
       </h3>
       <form onSubmit={handleChangePassword} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="New Password"
+            label={t('newPassword')}
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -252,7 +256,7 @@ function PasswordForm() {
             helperText="Minimum 6 characters"
           />
           <Input
-            label="Confirm Password"
+            label={t('confirmPassword')}
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -261,7 +265,7 @@ function PasswordForm() {
         </div>
         <div className="flex justify-end pt-2">
           <Button type="submit" isLoading={isChanging}>
-            Update Password
+            {t('updatePassword')}
           </Button>
         </div>
       </form>

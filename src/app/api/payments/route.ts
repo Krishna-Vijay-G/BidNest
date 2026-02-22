@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -130,6 +131,17 @@ export async function POST(req: NextRequest) {
         payment_date: new Date(parsed.data.payment_date),
         status,
       },
+    });
+
+    await logAudit({
+      user_id: chitGroup.user_id,
+      action_type: "CREATE",
+      action_detail: `Payment received: ₹${parsed.data.amount_paid} for group ${parsed.data.chit_group_id} month ${parsed.data.month_number} ticket #${chitMember.ticket_number}`,
+      table_name: "payments",
+      record_id: payment.id,
+      new_data: { id: payment.id, amount_paid: Number(payment.amount_paid), status, month_number: payment.month_number },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(

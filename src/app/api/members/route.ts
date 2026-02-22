@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -49,6 +50,17 @@ export async function POST(req: NextRequest) {
 
     const member = await prisma.member.create({
       data: parsed.data,
+    });
+
+    await logAudit({
+      user_id: parsed.data.user_id,
+      action_type: "CREATE",
+      action_detail: `Member created: ${(parsed.data.name as any).value}`,
+      table_name: "members",
+      record_id: member.id,
+      new_data: { id: member.id, name: (parsed.data.name as any).value },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(member, { status: 201 });

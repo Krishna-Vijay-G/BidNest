@@ -20,7 +20,7 @@ export function Badge({ children, variant = 'default' }: BadgeProps) {
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const map: Record<string, { label: string; variant: BadgeProps['variant'] }> = {
     ACTIVE: { label: 'Active', variant: 'success' },
     PENDING: { label: 'Pending', variant: 'warning' },
@@ -34,5 +34,8 @@ export function StatusBadge({ status }: { status: string }) {
 
   const config = map[status] ?? { label: status, variant: 'default' as const };
 
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  // Use provided label override (translated) if available, otherwise use mapped label
+  const displayLabel = label ?? config.label;
+
+  return <Badge variant={config.variant}>{displayLabel}</Badge>;
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { calculateAuction } from "@/utils/dividend";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 // ─── SCHEMAS ───────────────────────────────────────────────
 
@@ -11,6 +12,7 @@ const CreateAuctionSchema = z.object({
   month_number: z.number().int().positive(),
   winner_chit_member_id: z.string().uuid(),
   original_bid: z.number().positive(),
+  date: z.string().optional(),
 });
 
 // ─── POST /api/auctions ────────────────────────────────────
@@ -86,7 +88,23 @@ export async function POST(req: NextRequest) {
       ? Number(previousAuction.carry_next)
       : 0;
 
+    // If this is the final month for the group, enforce the auction bid equals
+    // the commission cap: fixed commission_value, or percent of total_amount.
+    if (parsed.data.month_number === Number(chitGroup.duration_months)) {
+      const cap =
+        chitGroup.commission_type === 'FIXED'
+          ? Number(chitGroup.commission_value)
+          : Math.floor((Number(chitGroup.total_amount) * Number(chitGroup.commission_value)) / 100);
+      if (parsed.data.original_bid !== cap) {
+        return NextResponse.json(
+          { error: `For the final month, original_bid must be ${cap}` },
+          { status: 400 }
+        );
+      }
+    }
+
     // run calculation
+    const isFinalMonth = parsed.data.month_number === Number(chitGroup.duration_months);
     const calc = calculateAuction({
       total_amount: Number(chitGroup.total_amount),
       total_members: chitGroup.total_members,
@@ -95,7 +113,12 @@ export async function POST(req: NextRequest) {
       commission_value: Number(chitGroup.commission_value),
       round_off_value: chitGroup.round_off_value,
       carry_previous,
+      no_round_off: isFinalMonth,
     });
+
+    // If final month, explicitly ensure no carry is stored or shown (there is no next month)
+    const stored_carry_next = isFinalMonth ? 0 : calc.carry_next;
+    const stored_roundoff_dividend = isFinalMonth ? calc.raw_dividend : calc.roundoff_dividend;
 
     // per_member_dividend is now computed inside calculateAuction (per-member-first rounding)
     const dividend_per_member = calc.per_member_dividend;
@@ -110,7 +133,10 @@ export async function POST(req: NextRequest) {
       commission_value: Number(chitGroup.commission_value),
       round_off_value: chitGroup.round_off_value,
       original_bid: parsed.data.original_bid,
+      winner_payout: calc.winning_amount - (Number(chitGroup.monthly_amount) - dividend_per_member),
       ...calc,
+      roundoff_dividend: stored_roundoff_dividend,
+      carry_next: stored_carry_next,
     };
 
     const auction = await prisma.auction.create({
@@ -123,10 +149,35 @@ export async function POST(req: NextRequest) {
         commission: calc.commission,
         carry_previous: calc.carry_previous,
         raw_dividend: calc.raw_dividend,
-        roundoff_dividend: calc.roundoff_dividend,
-        carry_next: calc.carry_next,
+        roundoff_dividend: stored_roundoff_dividend,
+        carry_next: stored_carry_next,
         calculation_data,
       },
+    });
+
+    // Update the chit group's auction_schedule JSON
+    const currentGroup = await prisma.chitGroup.findUnique({ where: { id: parsed.data.chit_group_id } });
+    const schedule: { month_number: number; auction_date: string | null; auction_id: string | null }[] =
+      Array.isArray(currentGroup?.auction_schedule) ? (currentGroup!.auction_schedule as any[]) : [];
+    const existingIdx = schedule.findIndex((s) => s.month_number === parsed.data.month_number);
+    const entry = { month_number: parsed.data.month_number, auction_date: parsed.data.date || new Date().toISOString(), auction_id: auction.id };
+    if (existingIdx >= 0) schedule[existingIdx] = entry;
+    else schedule.push(entry);
+    schedule.sort((a, b) => a.month_number - b.month_number);
+    await prisma.chitGroup.update({
+      where: { id: parsed.data.chit_group_id },
+      data: { auction_schedule: schedule },
+    });
+
+    await logAudit({
+      user_id: chitGroup.user_id,
+      action_type: "CREATE",
+      action_detail: `Auction conducted: group ${parsed.data.chit_group_id} month ${parsed.data.month_number} winner ticket #${winnerChitMember.ticket_number}`,
+      table_name: "auctions",
+      record_id: auction.id,
+      new_data: { id: auction.id, chit_group_id: auction.chit_group_id, month_number: auction.month_number, winner_chit_member_id: auction.winner_chit_member_id },
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
     });
 
     return NextResponse.json(auction, { status: 201 });

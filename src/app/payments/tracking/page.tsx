@@ -11,6 +11,7 @@ import {
   HiOutlineTrophy,
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ function formatCurrency(amount: number) {
 
 export default function PaymentTrackingPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
     try {
@@ -344,7 +346,7 @@ export default function PaymentTrackingPage() {
   if (isLoadingGroups) {
     return (
       <>
-        <Header title="Payment Tracker" />
+        <Header title={t('tracking')} />
         <PageLoader />
       </>
     );
@@ -353,7 +355,7 @@ export default function PaymentTrackingPage() {
   return (
     <>
       <Header
-        title="Payment Tracker"
+        title={t('tracking')}
         subtitle="Track monthly payment status for each member"
       />
 
@@ -362,20 +364,20 @@ export default function PaymentTrackingPage() {
         <Card>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Select
-              label="Status"
+              label={t('status')}
               value={groupStatusFilter}
               onChange={(e) => setGroupStatusFilter(e.target.value)}
               options={[
-                { value: 'ACTIVE', label: 'Active' },
-                { value: 'PENDING', label: 'Pending' },
-                { value: 'COMPLETED', label: 'Completed' },
-                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'ACTIVE', label: t('statusActive') },
+                { value: 'PENDING', label: t('statusPending') },
+                { value: 'COMPLETED', label: t('statusCompleted') },
+                { value: 'CANCELLED', label: t('statusCancelled') },
                 { value: 'ALL', label: 'All statuses' },
               ]}
             />
 
             <Select
-              label="Chit Group"
+              label={t('groups')}
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
               options={[
@@ -390,7 +392,7 @@ export default function PaymentTrackingPage() {
             />
 
             <Select
-              label="Month"
+              label={t('month')}
               value={selectedMonth?.toString() ?? ''}
               onChange={(e) => {
                 const v = e.target.value;
@@ -433,22 +435,22 @@ export default function PaymentTrackingPage() {
             {/* Summary Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="glass rounded-2xl border border-border p-4">
-                <p className="text-xs text-foreground-muted mb-1">Total Collected</p>
+                <p className="text-xs text-foreground-muted mb-1">{t('totalCollected')}</p>
                 <p className="text-xl font-bold text-cyan-400">{formatCurrency(totalCollected)}</p>
                 <p className="text-xs text-foreground-muted mt-1">of {formatCurrency(totalExpected)}</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
-                <p className="text-xs text-foreground-muted mb-1">Completed</p>
+                <p className="text-xs text-foreground-muted mb-1">{t('completed')}</p>
                 <p className="text-xl font-bold text-emerald-400">{counts.completed}</p>
                 <p className="text-xs text-foreground-muted mt-1">members</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
-                <p className="text-xs text-foreground-muted mb-1">Partial</p>
+                <p className="text-xs text-foreground-muted mb-1">{t('partial')}</p>
                 <p className="text-xl font-bold text-amber-400">{counts.partial}</p>
                 <p className="text-xs text-foreground-muted mt-1">members</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
-                <p className="text-xs text-foreground-muted mb-1">Pending</p>
+                <p className="text-xs text-foreground-muted mb-1">{t('pending')}</p>
                 <p className="text-xl font-bold text-red-400">{counts.pending}</p>
                 <p className="text-xs text-foreground-muted mt-1">members</p>
               </div>
@@ -500,14 +502,14 @@ export default function PaymentTrackingPage() {
                     <table className="glass-table w-full">
                       <thead>
                         <tr>
-                          <th>Ticket</th>
-                          <th>Member</th>
-                          <th>Total Due</th>
-                          <th>Total Paid</th>
-                          <th>Remaining</th>
-                          <th>Won Month(s)</th>
-                          <th>Status</th>
-                          <th>Action</th>
+                          <th>{t('ticketNumber')}</th>
+                          <th>{t('member')}</th>
+                          <th>{t('totalDue')}</th>
+                          <th>{t('totalPaid')}</th>
+                          <th>{t('remaining')}</th>
+                          <th>{t('wonMonths')}</th>
+                          <th>{t('status')}</th>
+                          <th>{t('actions')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -584,7 +586,7 @@ export default function PaymentTrackingPage() {
                                         <tbody>
                                           {row.monthBreakdown.map((mb) => (
                                             <tr key={mb.month} className="border-b border-border/50 last:border-0">
-                                              <td className="px-4 py-2 text-left! text-cyan-400 font-medium">Month {mb.month}</td>
+                                              <td className="px-4 py-2 text-left! text-cyan-400 font-medium">{t('month')} {mb.month}</td>
                                               <td className="px-4 py-2 text-right! text-foreground">
                                                 {mb.isWinner ? <span className="text-foreground-muted">—</span> : formatCurrency(mb.due)}
                                               </td>
@@ -646,20 +648,20 @@ export default function PaymentTrackingPage() {
                 <div className="p-6 pb-4 flex items-center gap-2">
                   <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
                   <h3 className="text-base font-semibold text-foreground">
-                    Month {selectedMonth} — Member Payment Status
+                    {t('month')} {selectedMonth} — Member Payment Status
                   </h3>
                 </div>
                 <div className="overflow-x-auto px-6 pb-6">
                   <table className="glass-table w-full">
                     <thead>
                       <tr>
-                        <th>Ticket</th>
-                        <th>Member</th>
-                        <th>Due</th>
-                        <th>Paid</th>
-                        <th>Remaining</th>
-                        <th>Status</th>
-                        <th>Action</th>
+                        <th>{t('ticketNumber')}</th>
+                        <th>{t('member')}</th>
+                        <th>{t('amountDue')}</th>
+                        <th>{t('totalPaid')}</th>
+                        <th>{t('remaining')}</th>
+                        <th>{t('status')}</th>
+                        <th>{t('actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -766,11 +768,12 @@ export default function PaymentTrackingPage() {
 // ─── Status Badge ─────────────────────────────────────────
 
 function MemberStatusBadge({ status }: { status: MemberRow['status'] }) {
+  const { t } = useLang();
   const map: Record<MemberRow['status'], { label: string; cls: string }> = {
-    WINNER: { label: 'Winner', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    COMPLETED: { label: 'Completed', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    PARTIAL: { label: 'Partial', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    PENDING: { label: 'Pending', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    WINNER: { label: t('winner'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    COMPLETED: { label: t('completed'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
   };
   const { label, cls } = map[status];
   return (
@@ -781,11 +784,12 @@ function MemberStatusBadge({ status }: { status: MemberRow['status'] }) {
 }
 
 function AggregatedStatusBadge({ status }: { status: AggregatedRow['status'] }) {
+  const { t } = useLang();
   const map: Record<AggregatedRow['status'], { label: string; cls: string }> = {
-    CLEAR: { label: 'Clear', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    COMPLETED: { label: 'All Paid', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    PARTIAL: { label: 'Partial', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    PENDING: { label: 'Pending', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    CLEAR: { label: t('settled'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    COMPLETED: { label: t('fullySettled'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
   };
   const { label, cls } = map[status];
   return (
@@ -823,6 +827,7 @@ function RecordPaymentModal({
   const [upiId, setUpiId] = useState('');
   const [selectedMonthForPayment, setSelectedMonthForPayment] = useState(month_number);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { t } = useLang();
 
   // Look up the selected month's figures from the breakdown (all-months mode)
   // or fall back to the row prop (single-month mode)
@@ -879,18 +884,18 @@ function RecordPaymentModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Record Payment — #${row.ticketNumber} ${row.memberName}`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={`${t('recordPayment')} — #${row.ticketNumber} ${row.memberName}`}>
       <div className="mb-4 p-3 bg-surface border border-border rounded-xl space-y-1">
         <div className="flex justify-between text-sm">
-          <span className="text-foreground-muted">Monthly Due</span>
+          <span className="text-foreground-muted">{t('amountDue')}</span>
           <span className="font-semibold text-foreground">{formatCurrency(displayDue)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-foreground-muted">Already Paid</span>
+          <span className="text-foreground-muted">{t('totalPaid')}</span>
           <span className="font-semibold text-emerald-400">{formatCurrency(displayPaid)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-foreground-muted">Remaining</span>
+          <span className="text-foreground-muted">{t('remaining')}</span>
           <span className="font-semibold text-red-400">{formatCurrency(displayRemaining)}</span>
         </div>
       </div>
@@ -928,7 +933,7 @@ function RecordPaymentModal({
 
         {paymentMethod === 'UPI' && (
           <Input
-            label="UPI ID"
+            label={t('upiId')}
             value={upiId}
             onChange={(e) => setUpiId(e.target.value)}
             placeholder="name@upi"
@@ -937,8 +942,8 @@ function RecordPaymentModal({
         )}
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={onClose} type="button">Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Record Payment</Button>
+          <Button variant="outline" onClick={onClose} type="button">{t('cancel')}</Button>
+          <Button type="submit" isLoading={isSubmitting}>{t('recordPayment')}</Button>
         </div>
       </form>
     </Modal>

@@ -8,6 +8,7 @@ import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/co
 import { HiOutlineTrophy, HiOutlinePlus } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { calculateAuction } from '@/utils/dividend';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 interface ChitGroup {
   id: string;
@@ -19,6 +20,7 @@ interface ChitGroup {
   commission_value: string;
   round_off_value: number;
   status: string;
+  duration_months: number;
 }
 
 interface ChitMember {
@@ -62,6 +64,7 @@ function formatCurrency(amount: number) {
 
 export default function AuctionsPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,7 +121,7 @@ export default function AuctionsPage() {
   if (isLoading) {
     return (
       <>
-        <Header title="Auctions" />
+        <Header title={t('auctions')} />
         <PageLoader />
       </>
     );
@@ -126,12 +129,12 @@ export default function AuctionsPage() {
 
   return (
     <>
-      <Header title="Auctions" subtitle={`${auctions.length} total auctions`}>
+      <Header title={t('auctions')} subtitle={`${auctions.length} total auctions`}>
         <Button
           icon={<HiOutlinePlus className="w-4 h-4" />}
           onClick={() => setShowCreateModal(true)}
         >
-          New Auction
+          {t('conductAuction')}
         </Button>
       </Header>
 
@@ -147,10 +150,10 @@ export default function AuctionsPage() {
                 setFilterGroup('all');
               }}
               options={[
-                { value: 'ACTIVE', label: 'Active' },
-                { value: 'PENDING', label: 'Pending' },
-                { value: 'COMPLETED', label: 'Completed' },
-                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'ACTIVE', label: t('statusActive') },
+                { value: 'PENDING', label: t('statusPending') },
+                { value: 'COMPLETED', label: t('statusCompleted') },
+                { value: 'CANCELLED', label: t('statusCancelled') },
                 { value: 'all', label: 'All Statuses' },
               ]}
             />
@@ -176,7 +179,7 @@ export default function AuctionsPage() {
         {filteredAuctions.length === 0 ? (
           <EmptyState
             icon={<HiOutlineTrophy className="w-8 h-8" />}
-            title="No auctions yet"
+            title={t('noAuctions')}
             description="Conduct your first auction to get started."
           />
         ) : (
@@ -185,25 +188,25 @@ export default function AuctionsPage() {
               <table className="glass-table w-full">
                 <thead>
                   <tr>
-                    <th>Month</th>
-                    <th>Winner</th>
-                    <th>Ticket</th>
-                    <th>Original Bid</th>
-                    <th>Winning Amount</th>
-                    <th>Commission</th>
-                    <th>Carry Prev</th>
-                    <th>Raw Dividend</th>
-                    <th>Roundoff Div</th>
-                    <th>Carry Next</th>
-                    <th>Per Member</th>
-                    <th>To Collect</th>
+                    <th>{t('month')}</th>
+                    <th>{t('winner')}</th>
+                    <th>{t('ticketNumber')}</th>
+                    <th>{t('originalBid')}</th>
+                    <th>{t('winnerPayout')}</th>
+                    <th>{t('commission')}</th>
+                    <th>{t('carryFromPrev')}</th>
+                    <th>{t('dividend')}</th>
+                    <th>{`Roundoff ${t('dividend')}`}</th>
+                    <th>{t('carryNext')}</th>
+                    <th>{t('perMember')}</th>
+                    <th>{t('toCollect')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredAuctions.map((auction) => (
                     <tr key={auction.id}>
                       <td className="font-semibold text-cyan-400">
-                        Month {auction.month_number}
+                        {t('month')} {auction.month_number}
                       </td>
                       <td className="font-medium text-foreground">
                         {auction.winner_chit_member?.member?.name?.value || 'N/A'}
@@ -249,6 +252,7 @@ export default function AuctionsPage() {
       <AuctionFormModal
         isOpen={showCreateModal}
         groups={groups}
+        auctions={auctions}
         onClose={() => setShowCreateModal(false)}
         onSaved={() => {
           setShowCreateModal(false);
@@ -264,17 +268,21 @@ export default function AuctionsPage() {
 function AuctionFormModal({
   isOpen,
   groups,
+  auctions,
   onClose,
   onSaved,
 }: {
   isOpen: boolean;
   groups: ChitGroup[];
+  auctions: Auction[];
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLang();
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [monthNumber, setMonthNumber] = useState('');
   const [originalBid, setOriginalBid] = useState('');
+  const [isLastMonthFixed, setIsLastMonthFixed] = useState(false);
   const [winnerChitMemberId, setWinnerChitMemberId] = useState('');
   const [chitMembers, setChitMembers] = useState<ChitMember[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -307,6 +315,31 @@ function AuctionFormModal({
     });
   }, [selectedGroupId]);
 
+  // When group or monthNumber changes, determine if this is the last month
+  // and if so, auto-fill & lock the original bid to the commission cap.
+  useEffect(() => {
+    const group = groups.find((g) => g.id === selectedGroupId);
+    if (!group || !monthNumber) {
+      setIsLastMonthFixed(false);
+      return;
+    }
+
+    const isLast = Number(monthNumber) === Number(group.duration_months);
+    if (!isLast) {
+      setIsLastMonthFixed(false);
+      return;
+    }
+
+    // compute cap: fixed commission value, or percent of total_amount
+    const cap =
+      group.commission_type === 'FIXED'
+        ? Number(group.commission_value)
+        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+
+    setOriginalBid(String(cap));
+    setIsLastMonthFixed(true);
+  }, [selectedGroupId, monthNumber, groups]);
+
   // compute available members (exclude tickets that already won)
   useEffect(() => {
     const winners = new Set<string>();
@@ -330,6 +363,7 @@ function AuctionFormModal({
     const group = groups.find((g) => g.id === selectedGroupId);
     if (!group) return;
 
+    const isFinalMonth = Number(monthNumber) === Number(group.duration_months);
     const calc = calculateAuction({
       total_amount: Number(group.total_amount),
       total_members: group.total_members,
@@ -338,13 +372,23 @@ function AuctionFormModal({
       commission_value: Number(group.commission_value),
       round_off_value: group.round_off_value,
       carry_previous: carryPrevious,
+      no_round_off: isFinalMonth,
     });
 
     // per_member_dividend now returned directly by calculateAuction
     const dividend_per_member = calc.per_member_dividend;
     const monthly_due = Number(group.monthly_amount) - dividend_per_member;
 
-    setPreview({ ...calc, dividend_per_member, monthly_due, total_members: group.total_members });
+    // Force final-month preview to show zero carry (no next month)
+    setPreview({
+      ...calc,
+      dividend_per_member,
+      monthly_due,
+      total_members: group.total_members,
+      carry_next: isFinalMonth ? 0 : calc.carry_next,
+      roundoff_dividend: isFinalMonth ? calc.raw_dividend : calc.roundoff_dividend,
+      winner_payout: calc.winning_amount - monthly_due,
+    });
   }, [selectedGroupId, originalBid, monthNumber, groups, carryPrevious]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -375,7 +419,7 @@ function AuctionFormModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Conduct Auction" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('conductAuction')} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
           label="Chit Group"
@@ -386,20 +430,25 @@ function AuctionFormModal({
           }}
           options={[
             { value: '', label: 'Select a group...' },
-            // only active groups should be available for conducting auctions
-            ...groups
-              .filter((g) => g.status === 'ACTIVE')
-              .map((g) => ({
-                value: g.id,
-                label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
-              })),
+              // only active groups with remaining auctions should be available
+              ...groups
+                .filter((g) => {
+                  if (g.status !== 'ACTIVE') return false;
+                  const conducted = auctions.filter((a) => a.chit_group_id === g.id).length;
+                  // keep if conducted auctions are less than the group's duration
+                  return conducted < (g.duration_months ?? Infinity);
+                })
+                .map((g) => ({
+                  value: g.id,
+                  label: `${g.name} — ${formatCurrency(Number(g.total_amount))} · ${g.total_members}M`,
+                })),
           ]}
           required
         />
 
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="Month Number"
+            label={t('monthNumber')}
             type="number"
             value={monthNumber}
             onChange={(e) => setMonthNumber(e.target.value)}
@@ -407,24 +456,26 @@ function AuctionFormModal({
             required
           />
           <Input
-            label="Original Bid (₹)"
+            label={t('originalBid')}
             type="number"
             value={originalBid}
             onChange={(e) => setOriginalBid(e.target.value)}
+            disabled={isLastMonthFixed}
             placeholder="e.g. 643"
             required
+            helperText={isLastMonthFixed ? t('lastMonthBidFixed') : undefined}
           />
         </div>
 
         <Select
-          label="Winner (Ticket Holder)"
+          label={t('winner')}
           value={winnerChitMemberId}
           onChange={(e) => setWinnerChitMemberId(e.target.value)}
           options={
             availableMembers.length === 0
-              ? [{ value: '', label: 'No eligible tickets (all have won)' }]
+              ? [{ value: '', label: t('noEligibleTickets') }]
               : [
-                  { value: '', label: 'Select winner...' },
+                  { value: '', label: t('selectWinner') },
                   ...availableMembers.map((cm) => ({
                     value: cm.id,
                     label: `#${cm.ticket_number} — ${cm.member?.name?.value || 'Unknown'}`,
@@ -435,60 +486,61 @@ function AuctionFormModal({
         />
 
         {carryPrevious > 0 && (
-          <p className="text-xs text-amber-400">Carry from previous month: {formatCurrency(carryPrevious)}</p>
+          <p className="text-xs text-amber-400">{t('carryFromPrev')}: {formatCurrency(carryPrevious)}</p>
         )}
 
         {/* Preview */}
         {preview && (
           <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
             <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-3">
-              Calculation Preview
+              {t('calculationPreview')}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <p className="text-xs text-foreground-muted">Winning Amount</p>
+                <p className="text-xs text-foreground-muted">{t('winnerGets')}</p>
                 <p className="text-sm font-semibold text-emerald-400">
                   {formatCurrency(preview.winning_amount)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Commission</p>
+                <p className="text-xs text-foreground-muted">{t('commission')}</p>
                 <p className="text-sm font-semibold text-red-400">
                   {formatCurrency(preview.commission)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Net Win (Payout)</p>
+                <p className="text-xs text-foreground-muted">{t('winnerPayout')}</p>
                 <p className="text-sm font-semibold text-cyan-400">
-                  {formatCurrency(preview.winning_amount - preview.commission)}
+                  {formatCurrency(preview.winner_payout)}
+                  <span className="text-xs text-foreground-muted ml-2">({formatCurrency(preview.winning_amount)} - {formatCurrency(preview.monthly_due)})</span>
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Raw Dividend</p>
+                <p className="text-xs text-foreground-muted">{t('dividend')}</p>
                 <p className="text-sm font-semibold text-foreground">
                   {formatCurrency(preview.raw_dividend)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Roundoff Dividend</p>
+                <p className="text-xs text-foreground-muted">Roundoff {t('dividend')}</p>
                 <p className="text-sm font-semibold text-amber-400">
                   {formatCurrency(preview.roundoff_dividend)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Carry Next</p>
+                <p className="text-xs text-foreground-muted">{t('carryNext')}</p>
                 <p className="text-sm font-semibold text-orange-400">
                   {formatCurrency(preview.carry_next)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Per Member Div.</p>
+                <p className="text-xs text-foreground-muted">{t('perMember')}</p>
                 <p className="text-sm font-semibold text-purple-400">
                   {formatCurrency(preview.dividend_per_member)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Each Member Pays</p>
+                <p className="text-xs text-foreground-muted">{t('toCollect')}</p>
                 <p className="text-sm font-semibold text-cyan-400">
                   {formatCurrency(preview.monthly_due)}
                 </p>
@@ -499,10 +551,10 @@ function AuctionFormModal({
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose} type="button">
-            Cancel
+            {t('cancel')}
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            Conduct Auction
+            {t('conductAuction')}
           </Button>
         </div>
       </form>

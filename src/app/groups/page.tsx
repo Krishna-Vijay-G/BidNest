@@ -15,6 +15,7 @@ import {
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { useLang } from '@/lib/i18n/LanguageContext';
 
 interface ChitGroup {
   id: string;
@@ -28,6 +29,8 @@ interface ChitGroup {
   round_off_value: number;
   status: string;
   created_at: string;
+  auction_start_date: string | null;
+  auction_schedule: { month_number: number; auction_date: string | null; auction_id: string | null }[] | null;
 }
 
 function formatCurrency(amount: number) {
@@ -40,11 +43,12 @@ function formatCurrency(amount: number) {
 
 export default function GroupsPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ChitGroup | null>(null);
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('ACTIVE');
   const hasFetched = useRef(false);
 
   const loadData = useCallback(async (force = false) => {
@@ -103,7 +107,7 @@ export default function GroupsPage() {
   if (isLoading) {
     return (
       <>
-        <Header title="Chit Groups" />
+        <Header title={t('groups')} />
         <PageLoader />
       </>
     );
@@ -111,12 +115,12 @@ export default function GroupsPage() {
 
   return (
     <>
-      <Header title="Chit Groups" subtitle={`${groups.length} total groups`}>
+      <Header title={t('groups')} subtitle={`${groups.length} ${t('totalGroups')}`}>
         <Button
           icon={<HiOutlinePlus className="w-4 h-4" />}
           onClick={() => setShowCreateModal(true)}
         >
-          New Group
+          {t('newGroup')}
         </Button>
       </Header>
 
@@ -127,11 +131,11 @@ export default function GroupsPage() {
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             options={[
-              { value: 'all', label: 'All Status' },
-              { value: 'PENDING', label: 'Pending' },
-              { value: 'ACTIVE', label: 'Active' },
-              { value: 'COMPLETED', label: 'Completed' },
-              { value: 'CANCELLED', label: 'Cancelled' },
+              { value: 'all', label: t('allStatus') },
+              { value: 'ACTIVE', label: t('statusActive') },
+              { value: 'PENDING', label: t('statusPending') },
+              { value: 'COMPLETED', label: t('statusCompleted') },
+              { value: 'CANCELLED', label: t('statusCancelled') },
             ]}
           />
         </div>
@@ -139,7 +143,7 @@ export default function GroupsPage() {
         {displayedGroups.length === 0 ? (
           <EmptyState
             icon={<HiOutlineUserGroup className="w-8 h-8" />}
-            title="No chit groups found"
+            title={t('noGroups')}
             description="Create your first chit group to get started."
           />
         ) : (
@@ -148,15 +152,18 @@ export default function GroupsPage() {
               <div key={group.id} className="glass rounded-2xl border border-border p-5 flex flex-col gap-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-base font-bold text-foreground">
-                      {group.name}
-                    </p>
-                    <p className="text-sm text-foreground-muted mt-0.5">
-                      {formatCurrency(Number(group.total_amount))} · {group.total_members} members · {group.duration_months} months
-                    </p>
-                  </div>
-                  <StatusBadge status={group.status} />
+                    <div>
+                      <p className="text-base font-bold text-foreground">
+                        {group.name}
+                      </p>
+                      <p className="text-sm text-foreground mt-0.5">
+                        {formatCurrency(Number(group.total_amount))}
+                      </p>
+                      <p className="text-sm text-foreground-muted mt-0.5">
+                        {group.total_members} {t('members')} · {group.duration_months} {t('month')}
+                      </p>
+                    </div>
+                    <StatusBadge status={group.status} label={t((`status${group.status[0] + group.status.slice(1).toLowerCase()}`) as any)} />
                 </div>
 
                 {/* Progress */}
@@ -165,13 +172,13 @@ export default function GroupsPage() {
                 {/* Details */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-surface rounded-xl p-3">
-                    <p className="text-xs text-foreground-muted">Monthly</p>
+                    <p className="text-xs text-foreground-muted">{t('monthly')}</p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
                       {formatCurrency(Number(group.monthly_amount))}
                     </p>
                   </div>
                   <div className="bg-surface rounded-xl p-3">
-                    <p className="text-xs text-foreground-muted">Commission</p>
+                    <p className="text-xs text-foreground-muted">{t('commission')}</p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
                       {group.commission_type === 'PERCENT'
                         ? `${group.commission_value}%`
@@ -179,15 +186,43 @@ export default function GroupsPage() {
                     </p>
                   </div>
                   <div className="bg-surface rounded-xl p-3">
-                    <p className="text-xs text-foreground-muted">Round Off</p>
+                    <p className="text-xs text-foreground-muted">{t('roundOff')}</p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
                       ₹{group.round_off_value}
                     </p>
                   </div>
                   <div className="bg-surface rounded-xl p-3">
-                    <p className="text-xs text-foreground-muted">Created</p>
+                      <p className="text-xs text-foreground-muted">
+                        {(() => {
+                          const schedule = group.auction_schedule;
+                          if (schedule && schedule.length > 0) {
+                            // find most recent done auction
+                            const done = [...schedule]
+                              .filter((s) => s.auction_date)
+                              .sort((a, b) => b.month_number - a.month_number);
+                            if (done.length > 0) return t('lastAuction');
+                          }
+                          // Prefer showing the auction start date (entered in the modal) instead
+                          // of the created date when available.
+                          return group.auction_start_date ? t('startDate') : t('created');
+                        })()}
+                      </p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
-                      {new Date(group.created_at).toLocaleDateString('en-IN')}
+                      {(() => {
+                        const schedule = group.auction_schedule;
+                        if (schedule && schedule.length > 0) {
+                          const done = [...schedule]
+                            .filter((s) => s.auction_date)
+                            .sort((a, b) => b.month_number - a.month_number);
+                          if (done.length > 0) {
+                            return `${new Date(done[0].auction_date!).toLocaleDateString('en-IN')} (M : ${done[0].month_number})`;
+                          }
+                        }
+                        if (group.auction_start_date) {
+                          return new Date(group.auction_start_date).toLocaleDateString('en-IN');
+                        }
+                        return new Date(group.created_at).toLocaleDateString('en-IN');
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -199,7 +234,7 @@ export default function GroupsPage() {
                     className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 transition-all"
                   >
                     <HiOutlineEye className="w-4 h-4" />
-                    View
+                    {t('viewManage')}
                   </Link>
                   <button
                     onClick={() => setEditingGroup(group)}
@@ -260,6 +295,7 @@ function GroupFormModal({
   onSaved: () => void;
 }) {
   const isEditing = !!group;
+  const { t } = useLang();
   const [name, setName] = useState(group ? group.name : '');
   const [totalAmount, setTotalAmount] = useState(group ? String(group.total_amount) : '');
   const [totalMembers, setTotalMembers] = useState(group ? String(group.total_members) : '');
@@ -268,6 +304,9 @@ function GroupFormModal({
   const [commissionValue, setCommissionValue] = useState(group ? String(group.commission_value) : '');
   const [roundOffValue, setRoundOffValue] = useState(group ? String(group.round_off_value) : '50');
   const [status, setStatus] = useState(group?.status ?? 'PENDING');
+  const [auctionStartDate, setAuctionStartDate] = useState(
+    group?.auction_start_date ? new Date(group.auction_start_date).toISOString().split('T')[0] : ''
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -280,6 +319,7 @@ function GroupFormModal({
       setCommissionValue(String(group.commission_value));
       setRoundOffValue(String(group.round_off_value));
       setStatus(group.status);
+      setAuctionStartDate(group.auction_start_date ? new Date(group.auction_start_date).toISOString().split('T')[0] : '');
     }
   }, [group]);
 
@@ -301,6 +341,7 @@ function GroupFormModal({
           commission_type: commissionType,
           commission_value: Number(commissionValue),
           round_off_value: Number(roundOffValue),
+          ...(auctionStartDate ? { auction_start_date: new Date(auctionStartDate).toISOString() } : {}),
         }),
       });
       const data = await res.json();
@@ -323,6 +364,7 @@ function GroupFormModal({
           commission_type: commissionType,
           commission_value: Number(commissionValue),
           round_off_value: Number(roundOffValue),
+          ...(auctionStartDate ? { auction_start_date: new Date(auctionStartDate).toISOString() } : {}),
         }),
       });
       const data = await res.json();
@@ -337,14 +379,14 @@ function GroupFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? 'Edit Chit Group' : 'Create Chit Group'}
+      title={isEditing ? t('editGroup') : t('createGroup')}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {!isEditing && (
           <>
             <Input
-              label="Group Name"
+              label={t('groupName')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Office Chit 2026"
@@ -352,7 +394,7 @@ function GroupFormModal({
             />
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label="Total Amount (₹)"
+                label={t('totalAmount')}
                 type="number"
                 value={totalAmount}
                 onChange={(e) => setTotalAmount(e.target.value)}
@@ -360,7 +402,7 @@ function GroupFormModal({
                 required
               />
               <Input
-                label="Total Members"
+                label={t('totalMembersLabel')}
                 type="number"
                 value={totalMembers}
                 onChange={(e) => setTotalMembers(e.target.value)}
@@ -370,7 +412,7 @@ function GroupFormModal({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label="Duration (months)"
+                label={t('duration')}
                 type="number"
                 value={durationMonths}
                 onChange={(e) => setDurationMonths(e.target.value)}
@@ -378,28 +420,29 @@ function GroupFormModal({
                 required
               />
               <Input
-                label="Monthly Amount (₹)"
+                label={t('monthlyAmount')}
                 type="number"
                 value={monthlyAmount || ''}
                 disabled
-                helperText="Auto calculated"
+                helperText={t('autoCalculated')}
               />
             </div>
+            
           </>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <Select
-            label="Commission Type"
+            label={t('commissionType')}
             value={commissionType}
             onChange={(e) => setCommissionType(e.target.value as 'PERCENT' | 'FIXED')}
             options={[
-              { value: 'FIXED', label: 'Fixed Amount' },
-              { value: 'PERCENT', label: 'Percentage' },
+              { value: 'FIXED', label: t('fixedAmount') },
+              { value: 'PERCENT', label: t('percentage') },
             ]}
           />
           <Input
-            label={commissionType === 'PERCENT' ? 'Commission (%)' : 'Commission (₹)'}
+            label={t('commissionValue')}
             type="number"
             value={commissionValue}
             onChange={(e) => setCommissionValue(e.target.value)}
@@ -410,7 +453,7 @@ function GroupFormModal({
 
         <div className="grid grid-cols-2 gap-4">
           <Select
-            label="Round Off Value"
+            label={t('roundOff')}
             value={roundOffValue}
             onChange={(e) => setRoundOffValue(e.target.value)}
             options={[
@@ -419,16 +462,23 @@ function GroupFormModal({
               { value: '100', label: '₹100' },
             ]}
           />
+          <Input
+              label={t('startDate')}
+              type="date"
+              value={auctionStartDate}
+              onChange={(e) => setAuctionStartDate(e.target.value)}
+              helperText="The First Auction Date."
+            />
           {isEditing && (
             <Select
-              label="Status"
+              label={t('status')}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               options={[
-                { value: 'PENDING', label: 'Pending' },
-                { value: 'ACTIVE', label: 'Active' },
-                { value: 'COMPLETED', label: 'Completed' },
-                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'ACTIVE', label: t('statusActive') },
+                { value: 'PENDING', label: t('statusPending') },
+                { value: 'COMPLETED', label: t('statusCompleted') },
+                { value: 'CANCELLED', label: t('statusCancelled') },
               ]}
             />
           )}
@@ -436,10 +486,10 @@ function GroupFormModal({
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose} type="button">
-            Cancel
+            {t('cancel')}
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            {isEditing ? 'Save Changes' : 'Create Group'}
+            {isEditing ? t('saveChanges') : t('createGroup')}
           </Button>
         </div>
       </form>
@@ -448,6 +498,7 @@ function GroupFormModal({
 }
 
 function GroupProgress({ groupId, duration }: { groupId: string; duration: number }) {
+  const { t } = useLang();
   const [completed, setCompleted] = useState<number | null>(null);
 
   useEffect(() => {
@@ -481,7 +532,7 @@ function GroupProgress({ groupId, duration }: { groupId: string; duration: numbe
   return (
     <div className="w-full mt-3">
       <div className="flex items-center justify-between text-xs text-foreground-muted mb-1">
-        <span>{completed} / {duration} months</span>
+        <span>{completed} / {duration} {t('month')}</span>
         <span className="font-medium">{pct}%</span>
       </div>
       <div className="neon-progress">

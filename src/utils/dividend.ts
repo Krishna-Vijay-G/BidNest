@@ -21,6 +21,8 @@ export interface CalculationInput {
   commission_value: number;
   round_off_value: number;
   carry_previous: number;
+  /** When true, do not apply round-off logic (final month) - distribute full raw_dividend */
+  no_round_off?: boolean;
 }
 
 export function calculateAuction(input: CalculationInput): AuctionCalculation {
@@ -45,14 +47,29 @@ export function calculateAuction(input: CalculationInput): AuctionCalculation {
 
   // raw dividend pool = bid - commission + carry from previous month
   const raw_dividend = original_bid - commission + carry_previous;
+  // If caller requests no round-off (final month), distribute full raw_dividend
+  if (input.no_round_off) {
+    const per_member_dividend = raw_dividend / total_members;
+    const roundoff_dividend = raw_dividend;
+    const carry_next = 0;
 
-  // ── NEW per-member-first logic ──────────────────────────────────────────
+    return {
+      winning_amount,
+      commission,
+      carry_previous,
+      raw_dividend,
+      per_member_dividend,
+      roundoff_dividend,
+      carry_next,
+    };
+  }
+
+  // ── Default per-member-first rounding logic ─────────────────────────────
   // 1. Divide the pool per member FIRST
   const per_member_raw = raw_dividend / total_members;
 
   // 2. Round each member's share DOWN to the nearest round_off_value
-  const per_member_dividend =
-    Math.floor(per_member_raw / round_off_value) * round_off_value;
+  const per_member_dividend = Math.floor(per_member_raw / round_off_value) * round_off_value;
 
   // 3. Total rounded pool (what actually gets distributed)
   const roundoff_dividend = per_member_dividend * total_members;

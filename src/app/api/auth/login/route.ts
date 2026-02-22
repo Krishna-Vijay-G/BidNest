@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { signToken, createAuthCookie } from "@/lib/auth";
+import { logAudit, getIp } from "@/lib/auditLog";
 
 const LoginSchema = z.object({
   login: z.string().min(1), // username or email
@@ -59,6 +60,16 @@ export async function POST(req: NextRequest) {
     });
 
     const nameData = user.name as { value: string; updated_at: string };
+
+    await logAudit({
+      user_id: user.id,
+      action_type: "LOGIN",
+      action_detail: `User logged in: ${user.username}`,
+      table_name: "users",
+      record_id: user.id,
+      ip_address: getIp(req),
+      user_agent: req.headers.get("user-agent"),
+    });
 
     return NextResponse.json(
       {
