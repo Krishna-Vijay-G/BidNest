@@ -206,6 +206,20 @@ export default function MemberDetailPage() {
   const [upiId, setUpiId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Load active tab from localStorage on mount
+  useEffect(() => {
+    const savedTab = localStorage.getItem(`member-${id}-activeTab`);
+    if (savedTab) {
+      setActiveTab(savedTab);
+    }
+  }, [id]);
+
+  // Custom setter for activeTab that saves to localStorage
+  const updateActiveTab = (newTab: string) => {
+    setActiveTab(newTab);
+    localStorage.setItem(`member-${id}-activeTab`, newTab);
+  };
+
   async function fetchAll() {
     setIsLoading(true);
     try {
@@ -358,7 +372,7 @@ export default function MemberDetailPage() {
             <div className="mb-4 w-full md:w-64">
               <Select
                 value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value)}
+                onChange={(e) => updateActiveTab(e.target.value)}
                 options={tabs.map(tab => ({ value: tab.id, label: tab.label }))}
               />
             </div>
@@ -375,7 +389,7 @@ export default function MemberDetailPage() {
                     <OverviewGroupCard
                       key={summary.ticket.id}
                       summary={summary}
-                      onViewDetails={() => setActiveTab(summary.ticket.id)}
+                      onViewDetails={() => updateActiveTab(summary.ticket.id)}
                     />
                   ))
                 )}
@@ -683,7 +697,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
           </div>
 
           {/* Desktop table */}
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="glass-table w-full">
               <thead>
                 <tr>
@@ -697,9 +711,59 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
                 </tr>
               </thead>
               <tbody>
-                {months.map(row => (
-                  <MonthTableRow key={row.month} row={row} />
-                ))}
+                {months.map(row => {
+                  const statusConfig = {
+                    WON: { label: t('wonAuction'), color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+                    COMPLETED: { label: t('completed'), color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+                    PARTIAL: { label: t('partial'), color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
+                    PENDING: { label: t('pending'), color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+                  }[row.paymentStatus];
+
+                  const lastPayment = row.payments[row.payments.length - 1];
+
+                  return (
+                    <tr key={row.month}>
+                      <td className="font-semibold text-foreground">{t('month')} {row.month}</td>
+                      <td>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border ${statusConfig.bg} ${statusConfig.color}`}>
+                          {row.paymentStatus === 'WON' && <HiOutlineTrophy className="w-3 h-3" />}
+                          {row.paymentStatus === 'COMPLETED' && <HiOutlineCheckCircle className="w-3 h-3" />}
+                          {statusConfig.label}
+                        </span>
+                      </td>
+                      <td>
+                        {row.wonThisMonth
+                          ? <span className="text-amber-400 font-semibold">{fmt(row.wonAmount)}</span>
+                          : <span className="text-foreground">{fmt(row.amountDue)}</span>
+                        }
+                      </td>
+                      <td>
+                        {row.wonThisMonth
+                          ? <span className="text-foreground-muted text-xs">—</span>
+                          : <span className={row.amountPaid > 0 ? 'text-emerald-400 font-semibold' : 'text-foreground-muted'}>{fmt(row.amountPaid)}</span>
+                        }
+                      </td>
+                      <td>
+                        {row.wonThisMonth ? (
+                          <span className="text-foreground-muted text-xs">—</span>
+                        ) : row.balance <= 0 ? (
+                          <span className="text-emerald-400 text-xs font-medium">✓ {t('settled')}</span>
+                        ) : (
+                          <span className="text-red-400 font-semibold">{fmt(row.balance)}</span>
+                        )}
+                      </td>
+                      <td className="text-foreground-muted text-sm">
+                        {lastPayment?.payment_method || '—'}
+                      </td>
+                      <td className="text-foreground-muted text-sm">
+                        {lastPayment
+                          ? new Date(lastPayment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+                          : '—'
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
 
               {/* Totals footer */}
@@ -714,6 +778,36 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
                     {totalBalance > 0 ? `-${fmt(totalBalance)}` : `✓ ${t('settled')}`}
                   </td>
                   <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Mobile table */}
+          <div className="md:hidden">
+            <table className="glass-table w-full">
+              <thead>
+                <tr>
+                  <th>{t('month')}</th>
+                  <th>{t('status')}</th>
+                  <th>{t('balance')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {months.map(row => (
+                  <MonthTableRow key={row.month} row={row} />
+                ))}
+              </tbody>
+
+              {/* Totals footer */}
+              <tfoot>
+                <tr className="border-t-2 border-border">
+                  <td colSpan={2} className="px-4 py-3 text-sm font-semibold text-foreground-muted">
+                    {t('total')} ({months.filter(m => !m.wonThisMonth).length} {t('payingMonths')})
+                  </td>
+                  <td className={`px-4 py-3 text-sm font-bold ${totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {totalBalance > 0 ? `-${fmt(totalBalance)}` : `✓ ${t('settled')}`}
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -742,8 +836,8 @@ function MonthTableRow({ row }: { row: MonthRow }) {
   return (
     <>
       <tr
-        className={`cursor-pointer ${row.wonThisMonth ? 'bg-amber-500/5' : ''}`}
-        onClick={() => row.payments.length > 0 && setExpanded(e => !e)}
+        className={`cursor-pointer hover:bg-surface/50 ${row.wonThisMonth ? 'bg-amber-500/5' : ''}`}
+        onClick={() => setExpanded(e => !e)}
       >
         <td className="font-semibold text-foreground">{t('month')} {row.month}</td>
         <td>
@@ -754,18 +848,6 @@ function MonthTableRow({ row }: { row: MonthRow }) {
           </span>
         </td>
         <td>
-          {row.wonThisMonth
-            ? <span className="text-amber-400 font-semibold">{fmt(row.wonAmount)}</span>
-            : <span className="text-foreground">{fmt(row.amountDue)}</span>
-          }
-        </td>
-        <td>
-          {row.wonThisMonth
-            ? <span className="text-foreground-muted text-xs">—</span>
-            : <span className={row.amountPaid > 0 ? 'text-emerald-400 font-semibold' : 'text-foreground-muted'}>{fmt(row.amountPaid)}</span>
-          }
-        </td>
-        <td>
           {row.wonThisMonth ? (
             <span className="text-foreground-muted text-xs">—</span>
           ) : row.balance <= 0 ? (
@@ -774,35 +856,62 @@ function MonthTableRow({ row }: { row: MonthRow }) {
             <span className="text-red-400 font-semibold">{fmt(row.balance)}</span>
           )}
         </td>
-        <td className="text-foreground-muted text-sm">
-          {lastPayment?.payment_method || '—'}
-        </td>
-        <td className="text-foreground-muted text-sm">
-          {lastPayment
-            ? new Date(lastPayment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
-            : '—'
-          }
-          {row.payments.length > 1 && (
-            <span className="ml-1 text-xs text-cyan-400">+{row.payments.length - 1} {t('more')} {expanded ? '▲' : '▼'}</span>
-          )}
-        </td>
       </tr>
 
-      {/* Expanded sub-payments */}
-      {expanded && row.payments.length > 1 && row.payments.map((p, i) => (
-        <tr key={p.id} className="bg-surface/50">
-          <td colSpan={2} className="pl-10 py-2 text-xs text-foreground-muted">
-            {t('payment')} {i + 1}
-          </td>
-          <td />
-          <td className="py-2 text-xs text-emerald-400 font-medium">{fmt(Number(p.amount_paid))}</td>
-          <td />
-          <td className="py-2 text-xs text-foreground-muted">{p.payment_method}</td>
-          <td className="py-2 text-xs text-foreground-muted">
-            {new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+      {/* Expanded details */}
+      {expanded && (
+        <tr>
+          <td colSpan={3} className="bg-surface/30 p-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-foreground-muted">{t('amountDue')}:</span>
+                <span className="text-foreground font-semibold ml-2">
+                  {row.wonThisMonth ? fmt(row.wonAmount) : fmt(row.amountDue)}
+                </span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('amountPaid')}:</span>
+                <span className="text-emerald-400 font-semibold ml-2">
+                  {row.wonThisMonth ? '—' : fmt(row.amountPaid)}
+                </span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('paymentMethod')}:</span>
+                <span className="text-foreground font-semibold ml-2">
+                  {lastPayment?.payment_method || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('date')}:</span>
+                <span className="text-foreground font-semibold ml-2">
+                  {lastPayment
+                    ? new Date(lastPayment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+                    : '—'
+                  }
+                </span>
+              </div>
+            </div>
+            {/* Show multiple payments if any */}
+            {row.payments.length > 1 && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs text-foreground-muted mb-2">{t('allPayments')}:</p>
+                <div className="space-y-1">
+                  {row.payments.map((p, i) => (
+                    <div key={p.id} className="flex justify-between items-center text-xs">
+                      <span className="text-foreground-muted">{t('payment')} {i + 1}:</span>
+                      <span className="text-emerald-400 font-medium">{fmt(Number(p.amount_paid))}</span>
+                      <span className="text-foreground-muted">{p.payment_method}</span>
+                      <span className="text-foreground-muted">
+                        {new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </td>
         </tr>
-      ))}
+      )}
     </>
   );
 }

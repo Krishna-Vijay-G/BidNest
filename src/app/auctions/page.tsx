@@ -73,6 +73,30 @@ export default function AuctionsPage() {
   const [groupStatusFilter, setGroupStatusFilter] = useState('ACTIVE');
   const hasFetched = useRef(false);
 
+  // Load filters from localStorage on mount
+  useEffect(() => {
+    const savedFilterGroup = localStorage.getItem('auctions-filterGroup');
+    const savedGroupStatus = localStorage.getItem('auctions-groupStatusFilter');
+    
+    if (savedFilterGroup) {
+      setFilterGroup(savedFilterGroup);
+    }
+    if (savedGroupStatus) {
+      setGroupStatusFilter(savedGroupStatus);
+    }
+  }, []);
+
+  // Custom setters for filters that save to localStorage
+  const updateFilterGroup = (value: string) => {
+    setFilterGroup(value);
+    localStorage.setItem('auctions-filterGroup', value);
+  };
+
+  const updateGroupStatusFilter = (value: string) => {
+    setGroupStatusFilter(value);
+    localStorage.setItem('auctions-groupStatusFilter', value);
+  };
+
   const loadData = useCallback(async (force = false) => {
     if (!user) return;
     if (!force && hasFetched.current) return;
@@ -114,9 +138,11 @@ export default function AuctionsPage() {
       .map((g) => g.id)
   );
 
-  const filteredAuctions = auctions.filter((a) =>
-    filterGroup === 'all' ? allowedGroupIds.has(a.chit_group_id) : a.chit_group_id === filterGroup
-  );
+  const filteredAuctions = auctions
+    .filter((a) =>
+      filterGroup === 'all' ? allowedGroupIds.has(a.chit_group_id) : a.chit_group_id === filterGroup
+    )
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   if (isLoading) {
     return (
@@ -145,9 +171,9 @@ export default function AuctionsPage() {
             <Select
               value={groupStatusFilter}
               onChange={(e) => {
-                setGroupStatusFilter(e.target.value);
+                updateGroupStatusFilter(e.target.value);
                 // reset group selection when status changes
-                setFilterGroup('all');
+                updateFilterGroup('all');
               }}
               options={[
                 { value: 'ACTIVE', label: t('statusActive') },
@@ -162,7 +188,7 @@ export default function AuctionsPage() {
           <div className="w-64">
             <Select
               value={filterGroup}
-              onChange={(e) => setFilterGroup(e.target.value)}
+              onChange={(e) => updateFilterGroup(e.target.value)}
               options={[
                 { value: 'all', label: groupStatusFilter === 'all' ? 'All Groups' : `All ${groupStatusFilter} Groups` },
                 ...groups
@@ -184,13 +210,13 @@ export default function AuctionsPage() {
           />
         ) : (
           <Card padding={false}>
-            <div className="overflow-x-auto">
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="glass-table w-full">
                 <thead>
                   <tr>
-                    <th>{t('month')}</th>
+                    <th>{t('group')}</th>
                     <th>{t('winner')}</th>
-                    <th>{t('ticketNumber')}</th>
                     <th>{t('originalBid')}</th>
                     <th>{t('winnerPayout')}</th>
                     <th>{t('commission')}</th>
@@ -203,43 +229,84 @@ export default function AuctionsPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {filteredAuctions.map((auction) => {
+                    const group = groups.find(g => g.id === auction.chit_group_id);
+                    return (
+                      <tr key={auction.id}>
+                        <td className="font-medium text-foreground">
+                          <div className="flex flex-col">
+                            <span>{group?.name || 'N/A'}</span>
+                            <span className="text-xs text-foreground-muted">{t('month')} {auction.month_number}</span>
+                          </div>
+                        </td>
+                        <td className="font-medium text-foreground">
+                          {auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+                        </td>
+                        <td>
+                          <span className="text-blue-400 font-semibold">
+                            {formatCurrency(Number(auction.original_bid))}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-emerald-400 font-semibold">
+                            {formatCurrency(Number(auction.winning_amount))}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-red-400 font-semibold">
+                            {formatCurrency(Number(auction.commission))}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-foreground-muted font-semibold">
+                            {formatCurrency(Number(auction.carry_previous))}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-foreground-secondary font-semibold">
+                            {formatCurrency(Number(auction.raw_dividend))}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-cyan-400 font-semibold">
+                            {formatCurrency(Number(auction.roundoff_dividend))}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-amber-400 font-semibold">
+                            {formatCurrency(Number(auction.carry_next))}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-purple-400 font-semibold">
+                            {formatCurrency(auction.calculation_data?.dividend_per_member || 0)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="font-semibold text-foreground">
+                            {formatCurrency(auction.calculation_data?.amount_to_collect || 0)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile table */}
+            <div className="md:hidden">
+              <table className="glass-table w-full">
+                <thead>
+                  <tr>
+                    <th>{t('group')}</th>
+                    <th>{t('winner')}</th>
+                    <th>{t('originalBid')}</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {filteredAuctions.map((auction) => (
-                    <tr key={auction.id}>
-                      <td className="font-semibold text-cyan-400">
-                        {t('month')} {auction.month_number}
-                      </td>
-                      <td className="font-medium text-foreground">
-                        {auction.winner_chit_member?.member?.name?.value || 'N/A'}
-                      </td>
-                      <td>#{auction.winner_chit_member?.ticket_number}</td>
-                      <td className="text-foreground-secondary">
-                        {formatCurrency(Number(auction.original_bid))}
-                      </td>
-                      <td className="font-semibold text-emerald-400">
-                        {formatCurrency(Number(auction.winning_amount))}
-                      </td>
-                      <td className="text-red-400">
-                        {formatCurrency(Number(auction.commission))}
-                      </td>
-                      <td className="text-foreground-muted">
-                        {formatCurrency(Number(auction.carry_previous))}
-                      </td>
-                      <td className="text-foreground-secondary">
-                        {formatCurrency(Number(auction.raw_dividend))}
-                      </td>
-                      <td className="text-cyan-400">
-                        {formatCurrency(Number(auction.roundoff_dividend))}
-                      </td>
-                      <td className="text-amber-400">
-                        {formatCurrency(Number(auction.carry_next))}
-                      </td>
-                      <td className="text-purple-400">
-                        {formatCurrency(auction.calculation_data?.dividend_per_member || 0)}
-                      </td>
-                      <td className="font-semibold text-foreground">
-                        {formatCurrency(auction.calculation_data?.amount_to_collect || 0)}
-                      </td>
-                    </tr>
+                    <AuctionMobileRow key={auction.id} auction={auction} groups={groups} />
                   ))}
                 </tbody>
               </table>
@@ -290,6 +357,9 @@ function AuctionFormModal({
   const [carryPrevious, setCarryPrevious] = useState(0);
   const [groupAuctions, setGroupAuctions] = useState<any[]>([]);
   const [availableMembers, setAvailableMembers] = useState<ChitMember[]>([]);
+  const [auctionDate, setAuctionDate] = useState('');
+
+  const selectedGroup = groups.find(g => g.id === selectedGroupId);
 
   // load chit members and last carry_previous when group selected
   useEffect(() => {
@@ -314,6 +384,13 @@ function AuctionFormModal({
       }
     });
   }, [selectedGroupId]);
+
+  // Initialize auction date when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setAuctionDate(new Date().toISOString().slice(0, 10));
+    }
+  }, [isOpen]);
 
   // When group or monthNumber changes, determine if this is the last month
   // and if so, auto-fill & lock the original bid to the commission cap.
@@ -395,6 +472,21 @@ function AuctionFormModal({
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Validate bid is not below commission
+    const group = groups.find(g => g.id === selectedGroupId);
+    if (group) {
+      const commissionCap =
+        group.commission_type === 'FIXED'
+          ? Number(group.commission_value)
+          : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+      
+      if (Number(originalBid) < commissionCap) {
+        toast.error(`Bid cannot be less than the commission amount: ₹${commissionCap}`);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const res = await fetch('/api/auctions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -403,6 +495,7 @@ function AuctionFormModal({
         month_number: Number(monthNumber),
         winner_chit_member_id: winnerChitMemberId,
         original_bid: Number(originalBid),
+        date: auctionDate,
       }),
     });
 
@@ -485,65 +578,68 @@ function AuctionFormModal({
           required={availableMembers.length > 0}
         />
 
+        <Input
+          label={t('date')}
+          type="date"
+          value={auctionDate}
+          onChange={(e) => setAuctionDate(e.target.value)}
+        />
+
         {carryPrevious > 0 && (
           <p className="text-xs text-amber-400">{t('carryFromPrev')}: {formatCurrency(carryPrevious)}</p>
         )}
 
         {/* Preview */}
         {preview && (
-          <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
+          <div className="bg-surface border border-border rounded-xl p-4">
             <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-3">
               {t('calculationPreview')}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <p className="text-xs text-foreground-muted">{t('winnerGets')}</p>
+                <p className="text-xs text-foreground-muted">{t('winnerPayout')}</p>
                 <p className="text-sm font-semibold text-emerald-400">
                   {formatCurrency(preview.winning_amount)}
+                  <span className="text-xs text-foreground-muted ml-2">(- {formatCurrency(preview.monthly_due)})</span>
                 </p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">{t('originalBid')}</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(Number(originalBid))}</p>
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">{t('commission')}</p>
-                <p className="text-sm font-semibold text-red-400">
-                  {formatCurrency(preview.commission)}
-                </p>
+                <p className="text-sm font-semibold text-red-400">{formatCurrency(preview.commission)}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">{t('winnerPayout')}</p>
-                <p className="text-sm font-semibold text-cyan-400">
-                  {formatCurrency(preview.winner_payout)}
-                  <span className="text-xs text-foreground-muted ml-2">({formatCurrency(preview.winning_amount)} - {formatCurrency(preview.monthly_due)})</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-foreground-muted">{t('dividend')}</p>
+                <p className="text-xs text-foreground-muted">{t('rawDividend')}</p>
                 <p className="text-sm font-semibold text-foreground">
                   {formatCurrency(preview.raw_dividend)}
+                  {preview.carry_previous > 0 && (
+                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(Number(originalBid) - preview.commission)} + {formatCurrency(preview.carry_previous)})</span>
+                  )}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">Roundoff {t('dividend')}</p>
-                <p className="text-sm font-semibold text-amber-400">
-                  {formatCurrency(preview.roundoff_dividend)}
-                </p>
+                <p className="text-xs text-foreground-muted">{t('rawPerMemberDiv')}</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(preview.raw_dividend / (selectedGroup?.total_members || 1))}</p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">{t('carryNext')}</p>
+                <p className="text-xs text-foreground-muted">{t('perMemberDiv')}</p>
+                <p className="text-sm font-semibold text-purple-400">{formatCurrency(preview.per_member_dividend)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">{t('roundoffCarry')}</p>
                 <p className="text-sm font-semibold text-orange-400">
                   {formatCurrency(preview.carry_next)}
+                  {preview.carry_next > 0 && (
+                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(preview.carry_next / (selectedGroup?.total_members || 1))} per person)</span>
+                  )}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-foreground-muted">{t('perMember')}</p>
-                <p className="text-sm font-semibold text-purple-400">
-                  {formatCurrency(preview.dividend_per_member)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-foreground-muted">{t('toCollect')}</p>
-                <p className="text-sm font-semibold text-cyan-400">
-                  {formatCurrency(preview.monthly_due)}
-                </p>
+                <p className="text-xs text-foreground-muted">{t('eachMemberPays')}</p>
+                <p className="text-sm font-bold text-cyan-400">{formatCurrency(preview.monthly_due)}</p>
               </div>
             </div>
           </div>
@@ -559,5 +655,72 @@ function AuctionFormModal({
         </div>
       </form>
     </Modal>
+  );
+}
+
+// ─── Mobile Auction Row ─────────────────────────────────────────────────────
+
+function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitGroup[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const { t } = useLang();
+  const group = groups.find(g => g.id === auction.chit_group_id);
+
+  return (
+    <>
+      <tr className="cursor-pointer hover:bg-surface/50" onClick={() => setExpanded(!expanded)}>
+        <td className="font-medium text-foreground whitespace-nowrap">
+          <div className="flex flex-col">
+            <span>{group?.name || 'N/A'}</span>
+            <span className="text-xs text-foreground-muted">{t('month')} {auction.month_number}</span>
+          </div>
+        </td>
+        <td className="font-medium text-foreground whitespace-nowrap">
+          {auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+        </td>
+        <td className="text-foreground-secondary whitespace-nowrap">
+          {formatCurrency(Number(auction.original_bid))}
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={3} className="bg-surface/30 p-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-foreground-muted">{t('winnerPayout')}:</span>
+                <span className="text-emerald-400 font-semibold ml-2">{formatCurrency(Number(auction.winning_amount))}</span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('commission')}:</span>
+                <span className="text-red-400 font-semibold ml-2">{formatCurrency(Number(auction.commission))}</span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('carryFromPrev')}:</span>
+                <span className="text-foreground-muted font-semibold ml-2">{formatCurrency(Number(auction.carry_previous))}</span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('dividend')}:</span>
+                <span className="text-foreground-secondary font-semibold ml-2">{formatCurrency(Number(auction.raw_dividend))}</span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">Roundoff {t('dividend')}:</span>
+                <span className="text-cyan-400 font-semibold ml-2">{formatCurrency(Number(auction.roundoff_dividend))}</span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('carryNext')}:</span>
+                <span className="text-amber-400 font-semibold ml-2">{formatCurrency(Number(auction.carry_next))}</span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('perMember')}:</span>
+                <span className="text-purple-400 font-semibold ml-2">{formatCurrency(auction.calculation_data?.dividend_per_member || 0)}</span>
+              </div>
+              <div>
+                <span className="text-foreground-muted">{t('toCollect')}:</span>
+                <span className="text-foreground font-semibold ml-2">{formatCurrency(auction.calculation_data?.amount_to_collect || 0)}</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

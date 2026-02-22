@@ -5,6 +5,7 @@ export const translations = {
     dashboardSubtitle: 'BidNest Dashboard',
     members: 'Members',
     groups: 'Chit Groups',
+    group: 'Group',
     auctions: 'Auctions',
     payments: 'Payments',
     profile: 'Profile',
@@ -147,7 +148,7 @@ export const translations = {
     startDate: 'Start Date',
     paymentProgress: 'Payment progress',
     auctionsCompleted: 'Auctions completed',
-    carryFromPrev: 'Carry from previous month',
+    carryFromPrev: 'Carry from Last',
     calculationPreview: 'Calculation Preview',
     winnerGets: 'Winner Gets',
     baseMonthly: 'Base Monthly',
@@ -174,6 +175,7 @@ export const translations = {
     remaining: 'Remaining',
     payingMonths: 'paying months',
     payment: 'Payment',
+    allPayments: 'All Payments',
     more: 'more',
 
     // Profile Extended
@@ -202,6 +204,7 @@ export const translations = {
     dashboardSubtitle: 'பிட்நெஸ்ட் டாஷ்போர்டு',
     members: 'உறுப்பினர்கள்',
     groups: 'சீட்டு குழுக்கள்',
+    group: 'குழு',
     auctions: 'ஏலங்கள்',
     payments: 'கட்டணங்கள்',
     profile: 'சுயவிவரம்',
@@ -371,6 +374,7 @@ export const translations = {
     remaining: 'மீதம்',
     payingMonths: 'செலுத்தும் மாதங்கள்',
     payment: 'கட்டணம்',
+    allPayments: 'அனைத்து கட்டணங்கள்',
     more: 'மேலும்',
 
     // Profile Extended

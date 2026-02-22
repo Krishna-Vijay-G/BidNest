@@ -777,6 +777,18 @@ function ConductAuctionModal({
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Validate bid is not below commission
+    const commissionCap =
+      group.commission_type === 'FIXED'
+        ? Number(group.commission_value)
+        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+    
+    if (Number(originalBid) < commissionCap) {
+      toast.error(`Bid cannot be less than the commission amount: ₹${commissionCap}`);
+      setIsSubmitting(false);
+      return;
+    }
+
     if ((availableMembers || []).length === 0) {
       toast.error('No eligible tickets available — all tickets have already won');
       setIsSubmitting(false);
@@ -868,7 +880,7 @@ function ConductAuctionModal({
         )}
 
         {lastCarryNext > 0 && (
-          <p className="text-xs text-amber-400">{t('carryFromPrev')}: {formatCurrency(lastCarryNext)}</p>
+          <p className="text-xs text-green-400 font-semibold">{t('carryFromPrev')}: {formatCurrency(lastCarryNext)}</p>
         )}
 
         {/* Full Preview */}
@@ -882,7 +894,8 @@ function ConductAuctionModal({
                 <p className="text-xs text-foreground-muted">{t('winnerPayout')}</p>
                 <p className="text-sm font-semibold text-emerald-400">
                   {formatCurrency(preview.winning_amount)}
-                  <span className="text-xs text-foreground-muted ml-2">(- {formatCurrency(preview.monthly_due)})</span>
+                  <span className="md:hidden text-xs text-foreground-muted ml-2">(- {formatCurrency(preview.monthly_due)})</span>
+                  <span className="hidden md:block text-xs text-foreground-muted">(- {formatCurrency(preview.monthly_due)})</span>
                 </p>
               </div>
               <div>
@@ -898,7 +911,7 @@ function ConductAuctionModal({
                 <p className="text-sm font-semibold text-foreground">
                   {formatCurrency(preview.raw_dividend)}
                   {preview.carry_previous > 0 && (
-                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(Number(originalBid) - preview.commission)} + {formatCurrency(preview.carry_previous)})</span>
+                    <span className="text-xs text-foreground-muted ml-2 md:ml-0 md:block">({formatCurrency(Number(originalBid) - preview.commission)} + {formatCurrency(preview.carry_previous)})</span>
                   )}
                 </p>
               </div>
@@ -915,7 +928,7 @@ function ConductAuctionModal({
                 <p className="text-sm font-semibold text-orange-400">
                   {formatCurrency(preview.carry_next)}
                   {preview.carry_next > 0 && (
-                    <span className="text-xs text-foreground-muted ml-2">({formatCurrency(preview.carry_next / group.total_members)} per person)</span>
+                    <span className="text-xs text-foreground-muted ml-2 md:ml-0 md:block">({formatCurrency(preview.carry_next / group.total_members)} per person)</span>
                   )}
                 </p>
               </div>

@@ -41,6 +41,7 @@ interface Auction {
     amount_to_collect: number;
     dividend_per_member: number;
     monthly_contribution: number;
+    winner_payout: number;
   };
 }
 
@@ -94,7 +95,7 @@ function buildGroupStats(
     const gPayments = payments.filter((p) => p.chit_group_id === g.id);
     const gAuctions = auctions.filter((a) => a.chit_group_id === g.id);
     const inflow = gPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
-    const payouts = gAuctions.reduce((s, a) => s + Number(a.winning_amount), 0);
+    const payouts = gAuctions.reduce((s, a) => s + (a.calculation_data?.winner_payout || Number(a.winning_amount)), 0);
     const commission = gAuctions.reduce((s, a) => s + Number(a.commission), 0);
     return {
       group: g,
