@@ -447,9 +447,7 @@ export default function PaymentsPage() {
                 <table className="glass-table w-full">
                   <thead>
                     <tr>
-                      <th></th>
                       <th>{t('member')}</th>
-                      <th>{t('ticketNumber')}</th>
                       <th>{t('totalPaid')}</th>
                       <th>{t('totalDue')}</th>
                       <th>{t('remaining')}</th>
@@ -488,20 +486,16 @@ export default function PaymentsPage() {
                               className="cursor-pointer hover:bg-surface/50"
                               onClick={() => setExpandedPaymentId(isExpanded ? null : summary.memberId)}
                             >
-                              <td>
-                                <HiOutlineChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                              </td>
                               <td className="font-medium text-foreground">
                                 <Link href={`/members/${summary.member?.member?.id}`} className="hover:underline">
-                                  {summary.member?.member?.name?.value || 'N/A'}
+                                  {summary.member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{summary.member?.ticket_number}</span>
                                 </Link>
                               </td>
-                              <td>#{summary.member?.ticket_number}</td>
-                              <td className="font-semibold text-emerald-400">{fmt(summary.totalPaid)}</td>
-                              <td className="font-semibold text-amber-400">{fmt(summary.totalDue)}</td>
-                              <td className={`font-semibold ${summary.remaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>
+                              <td><span className="font-semibold text-emerald-400">{fmt(summary.totalPaid)}</span></td>
+                              <td><span className="font-semibold text-amber-400">{fmt(summary.totalDue)}</span></td>
+                              <td><span className={`font-semibold ${summary.remaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>
                                 {fmt(summary.remaining)}
-                              </td>
+                              </span></td>
                               <td>
                                 <StatusBadge status={summary.status} />
                               </td>
@@ -517,9 +511,19 @@ export default function PaymentsPage() {
                                         .sort((a, b) => a.month_number - b.month_number)
                                         .map((p, idx) => {
                                           const auction = auctions.find(a => a.chit_group_id === p.chit_group_id && a.month_number === p.month_number);
-                                          const monthDue = auction?.calculation_data?.amount_to_collect ?? 0;
+                                          const monthlyAmount = auction?.calculation_data?.amount_to_collect ?? 0;
                                           const monthPaid = Number(p.amount_paid);
-                                          const monthRemaining = monthDue - monthPaid;
+                                          
+                                          // Calculate cumulative paid for this month up to this payment
+                                          const paymentsForMonth = summary.payments
+                                            .filter(payment => payment.month_number === p.month_number)
+                                            .sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+                                          const paymentIndex = paymentsForMonth.findIndex(payment => payment.id === p.id);
+                                          const cumulativePaidUpToThis = paymentsForMonth
+                                            .slice(0, paymentIndex + 1)
+                                            .reduce((sum, payment) => sum + Number(payment.amount_paid), 0);
+                                          
+                                          const monthRemaining = monthlyAmount - cumulativePaidUpToThis;
                                           const group = groups.find(g => g.id === p.chit_group_id);
 
                                           return (
@@ -540,7 +544,7 @@ export default function PaymentsPage() {
                                                   <div className="text-xs text-foreground-muted uppercase tracking-wide">Paid</div>
                                                 </div>
                                                 <div className="text-center">
-                                                  <div className="text-base font-bold text-amber-400">{fmt(monthDue)}</div>
+                                                  <div className="text-base font-bold text-amber-400">{fmt(monthlyAmount)}</div>
                                                   <div className="text-xs text-foreground-muted uppercase tracking-wide">Due</div>
                                                 </div>
                                                 <div className="text-center">
