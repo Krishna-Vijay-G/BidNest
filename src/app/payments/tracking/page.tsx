@@ -604,7 +604,7 @@ export default function PaymentTrackingPage() {
                                               </td>
                                               <td className="px-4 py-2 text-center!">
                                                 {mb.isWinner ? (
-                                                  <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 Winner</span>
+                                                  <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 {t('winner')}</span>
                                                 ) : (
                                                   <span className="text-foreground-muted">—</span>
                                                 )}
@@ -612,7 +612,7 @@ export default function PaymentTrackingPage() {
                                             </tr>
                                           ))}
                                           <tr className="bg-surface border-t-2 border-border font-semibold">
-                                            <td className="px-4 py-2 text-left! text-foreground-muted">Total</td>
+                                            <td className="px-4 py-2 text-left! text-foreground-muted">{t('total')}</td>
                                             <td className="px-4 py-2 text-right! text-foreground">{formatCurrency(row.totalDue)}</td>
                                             <td className="px-4 py-2 text-right! text-emerald-400">{formatCurrency(row.totalPaid)}</td>
                                             <td className="px-4 py-2 text-right! text-red-400">{formatCurrency(row.remaining)}</td>
@@ -877,14 +877,14 @@ function RecordPaymentModal({
     if (!res.ok) {
       toast.error(data.error || 'Failed to record payment');
     } else {
-      toast.success(`Payment recorded for ${row.memberName}`);
+      toast.success(`${t('paymentRecorded')} for ${row.memberName}`);
       onSaved();
     }
     setIsSubmitting(false);
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`${t('recordPayment')} — #${row.ticketNumber} ${row.memberName}`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={<>{t('recordPayment')} — {row.memberName} <span className="text-green-400">#{row.ticketNumber}</span></>}>
       <div className="mb-4 p-3 bg-surface border border-border rounded-xl space-y-1">
         <div className="flex justify-between text-sm">
           <span className="text-foreground-muted">{t('amountDue')}</span>
@@ -903,17 +903,17 @@ function RecordPaymentModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         {allowMonthSelect && auctions.length > 0 && (
           <Select
-            label="Month to Pay For"
+            label={t('monthToPayFor')}
             value={String(selectedMonthForPayment)}
             onChange={(e) => setSelectedMonthForPayment(Number(e.target.value))}
             options={auctions
               .slice()
               .sort((a, b) => a.month_number - b.month_number)
-              .map((a) => ({ value: String(a.month_number), label: `Month ${a.month_number}` }))}
+              .map((a) => ({ value: String(a.month_number), label: `${t('monthLabel')} ${a.month_number}` }))}
           />
         )}
         <Input
-          label={`Amount to Pay (max ${formatCurrency(displayRemaining)})`}
+          label={`${t('amountToPay')} (${t('max')} ${formatCurrency(displayRemaining)})`}
           type="number"
           value={amountPaid}
           onChange={(e) => setAmountPaid(e.target.value)}
@@ -921,13 +921,13 @@ function RecordPaymentModal({
         />
 
         <Select
-          label="Payment Method"
+          label={t('paymentMethod')}
           value={paymentMethod}
           onChange={(e) => setPaymentMethod(e.target.value)}
           options={[
-            { value: 'CASH', label: 'Cash' },
-            { value: 'UPI', label: 'UPI' },
-            { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+            { value: 'CASH', label: t('cash') },
+            { value: 'UPI', label: t('upi') },
+            { value: 'BANK_TRANSFER', label: t('bankTransfer') },
           ]}
         />
 

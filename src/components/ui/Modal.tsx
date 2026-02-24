@@ -7,7 +7,7 @@ import { HiOutlineXMark } from 'react-icons/hi2';
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: string | React.ReactNode;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
 }
