@@ -58,9 +58,12 @@ export const translations = {
     tickets: 'Tickets',
     progress: 'Progress',
     viewManage: 'View & Manage',
+    allGroups: 'All Groups',
+    selectGroup: 'Select a group...',
 
     // Auctions
     conductAuction: 'Conduct Auction',
+    totalAuctions: '{count} total auctions',
     monthNumber: 'Month Number',
     originalBid: 'Original Bid',
     winner: 'Winner',
@@ -69,6 +72,7 @@ export const translations = {
     toCollect: 'To Collect',
     carryNext: 'Carry Next',
     noAuctions: 'No auctions conducted yet.',
+    noAuctionsDescription: 'Conduct your first auction to get started.',
     lastAuction: 'Last Auction',
     lastMonthBidFixed: 'Last month — bid fixed to commission cap.',
     editTicket: 'Edit Ticket',
@@ -132,6 +136,7 @@ export const translations = {
     // Common
     overview: 'Overview',
     total: 'total',
+    all: 'All',
     month: 'Month',
     groupNotFoundDescription: 'Group not found or you do not have access.',
     noTicketsAssigned: 'No tickets assigned yet.',
@@ -157,6 +162,7 @@ export const translations = {
     rawPerMemberDiv: 'Raw Per-Member Div.',
     perMemberDiv: 'Per Member Div.',
     roundoffCarry: 'Roundoff Carry',
+    roundoffDividend: 'Roundoff Dividend',
     eachMemberPays: 'Each Member Pays',
     noEligibleTickets: 'No eligible tickets (all have won)',
     fixedAmount: 'Fixed Amount',
@@ -257,9 +263,12 @@ export const translations = {
     tickets: 'டிக்கெட்டுகள்',
     progress: 'முன்னேற்றம்',
     viewManage: 'நிர்வகிக்கவும்',
+    allGroups: 'அனைத்து சீட்டு குழுக்கள்',
+    selectGroup: 'ஒரு குழுவை தேர்ந்தெடுக்கவும்...',
 
     // Auctions
     conductAuction: 'ஏலம் நடத்து',
+    totalAuctions: '{count} மொத்த ஏலங்கள்',
     monthNumber: 'மாத எண்',
     originalBid: 'அசல் ஏலம்',
     winner: 'வெற்றியாளர்',
@@ -268,6 +277,7 @@ export const translations = {
     toCollect: 'வசூலிக்க',
     carryNext: 'அடுத்த மாதம் இருப்பு',
     noAuctions: 'இன்னும் ஏலம் நடக்கவில்லை.',
+    noAuctionsDescription: 'தொடக்கத்திற்கு உங்கள் முதல் ஏலத்தை நடத்துங்கள்.',
     lastAuction: 'கடைசி ஏலம்',
     lastMonthBidFixed: 'கடைசி மாதம் — ஏலம் கமிஷன் தொகைக்கு நிர்ணயிக்கப்பட்டது.',
     editTicket: 'டிக்கெட்டை திருத்து',
@@ -331,6 +341,7 @@ export const translations = {
     // Common
     overview: 'மேலோட்டம்',
     total: 'மொத்தம்',
+    all: 'அனைத்து',
     month: 'மாதம்',
     groupNotFoundDescription: 'குழு கிடைக்கவில்லை அல்லது உங்களுக்கு அணுகல் இல்லை.',
     noTicketsAssigned: 'இன்னும் டிக்கெட்டுகள் ஒதுக்கப்படவில்லை.',
@@ -356,6 +367,7 @@ export const translations = {
     rawPerMemberDiv: 'மொத்தம்/ஒவ்வொருவருக்கு',
     perMemberDiv: 'ஒவ்வொருவருக்கான ஈவுத்தொகை',
     roundoffCarry: 'சுற்று மதிப்பு கடன்',
+    roundoffDividend: 'சுற்று மதிப்பு ஈவுத்தொகை',
     eachMemberPays: 'ஒவ்வொருவர் செலுத்துவது',
     noEligibleTickets: 'தகுதியான டிக்கெட்டுகள் இல்லை (அனைவரும் வென்றனர்)',
     fixedAmount: 'நிலையான தொகை',
