@@ -502,7 +502,6 @@ export default function PaymentTrackingPage() {
                     <table className="glass-table w-full">
                       <thead>
                         <tr>
-                          <th>{t('ticketNumber')}</th>
                           <th>{t('member')}</th>
                           <th>{t('totalDue')}</th>
                           <th>{t('totalPaid')}</th>
@@ -523,8 +522,7 @@ export default function PaymentTrackingPage() {
                                 className="cursor-pointer hover:bg-surface/50"
                                 onClick={() => setExpandedRow(expandedRow === row.chitMemberId ? null : row.chitMemberId)}
                               >
-                                <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
-                                <td className="font-medium text-foreground">{row.memberName}</td>
+                                <td className="font-medium text-foreground">{row.memberName} <span className="text-cyan-400 font-semibold">#{row.ticketNumber}</span></td>
                                 <td className="text-foreground">{formatCurrency(row.totalDue)}</td>
                                 <td>
                                   {row.totalPaid > 0
@@ -655,7 +653,6 @@ export default function PaymentTrackingPage() {
                   <table className="glass-table w-full">
                     <thead>
                       <tr>
-                        <th>{t('ticketNumber')}</th>
                         <th>{t('member')}</th>
                         <th>{t('amountDue')}</th>
                         <th>{t('totalPaid')}</th>
@@ -669,8 +666,7 @@ export default function PaymentTrackingPage() {
                         .sort((a, b) => a.ticketNumber - b.ticketNumber)
                         .map((row) => (
                           <tr key={row.chitMemberId}>
-                            <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
-                            <td className="font-medium text-foreground">{row.memberName}</td>
+                            <td className="font-medium text-foreground">{row.memberName} <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                             <td>
                               {row.isWinner ? (
                                 <span className="text-foreground-muted text-xs">—</span>
