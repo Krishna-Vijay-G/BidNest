@@ -4,9 +4,9 @@
   "description": "Modern chit fund management platform",
   "start_url": "/dashboard",
   "display": "standalone",
-  "orientation": "any",
+  "orientation": "portrait-primary",
   "background_color": "#050510",
-  "theme_color": "#00f0ff",
+  "theme_color": "#050510",
   "categories": ["finance", "business"],
   "icons": [
     {
