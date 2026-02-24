@@ -327,7 +327,7 @@ export default function PaymentsPage() {
               value={groupStatusFilter}
               onChange={(e) => setAndPersistStatusFilter(e.target.value)}
               options={[
-                { value: 'ALL', label: 'All statuses' },
+                { value: 'ALL', label: t('allStatuses') },
                 { value: 'ACTIVE', label: t('statusActive') },
                 { value: 'PENDING', label: t('statusPending') },
                 { value: 'COMPLETED', label: t('statusCompleted') },

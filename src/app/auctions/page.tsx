@@ -1,7 +1,8 @@
 //src/app/auctions/page.tsx
-'use client';
+ 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
@@ -48,9 +49,14 @@ interface Auction {
     monthly_contribution: number;
   };
   created_at: string;
-  winner_chit_member: {
+  winner_chit_member_id?: string;
+  winner_chit_member?: {
+    id?: string;
     ticket_number: number;
-    member: { name: { value: string } };
+    member: { 
+      id: string;
+      name: { value: string } 
+    };
   };
 }
 
@@ -244,16 +250,34 @@ export default function AuctionsPage() {
                 <tbody>
                   {filteredAuctions.map((auction) => {
                     const group = groups.find(g => g.id === auction.chit_group_id);
+                    const winnerMemberId = auction.winner_chit_member?.member?.id;
                     return (
                       <tr key={auction.id}>
                         <td className="font-medium text-foreground">
                           <div className="flex flex-col">
-                            <span>{group?.name || 'N/A'}</span>
+                            <span>
+                              {group?.id ? (
+                                <Link href={`/groups/${group.id}`} className="font-medium hover:underline">
+                                  {group.name}
+                                </Link>
+                              ) : (
+                                'N/A'
+                              )}
+                            </span>
                             <span className="text-xs text-foreground-muted">{t('month')} {auction.month_number}</span>
                           </div>
                         </td>
                         <td className="font-medium text-foreground">
-                          {auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+                          {winnerMemberId ? (
+                            <>
+                              <Link href={`/members/${winnerMemberId}`} className="font-medium hover:underline">
+                                {auction.winner_chit_member?.member?.name?.value || 'N/A'}
+                              </Link>{' '}
+                              <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+                            </>
+                          ) : (
+                            <>{auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span></>
+                          )}
                         </td>
                         <td>
                           <span className="text-blue-400 font-semibold">
@@ -677,18 +701,36 @@ function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitG
   const [expanded, setExpanded] = useState(false);
   const { t } = useLang();
   const group = groups.find(g => g.id === auction.chit_group_id);
+  const winnerMemberId = auction.winner_chit_member?.member?.id;
 
   return (
     <>
       <tr className="cursor-pointer hover:bg-surface/50" onClick={() => setExpanded(!expanded)}>
         <td className="font-medium text-foreground whitespace-nowrap">
           <div className="flex flex-col">
-            <span>{group?.name || 'N/A'}</span>
+            <span>
+              {group?.id ? (
+                <Link href={`/groups/${group.id}`} className="font-medium hover:underline">
+                  {group.name}
+                </Link>
+              ) : (
+                'N/A'
+              )}
+            </span>
             <span className="text-xs text-foreground-muted">{t('month')} {auction.month_number}</span>
           </div>
         </td>
         <td className="font-medium text-foreground whitespace-nowrap">
-          {auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+          {winnerMemberId ? (
+            <>
+              <Link href={`/members/${winnerMemberId}`} className="font-medium hover:underline">
+                {auction.winner_chit_member?.member?.name?.value || 'N/A'}
+              </Link>{' '}
+              <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+            </>
+          ) : (
+            <>{auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span></>
+          )}
         </td>
         <td className="text-foreground-secondary whitespace-nowrap">
           {formatCurrency(Number(auction.original_bid))}

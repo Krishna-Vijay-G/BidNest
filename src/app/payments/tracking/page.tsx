@@ -356,7 +356,7 @@ export default function PaymentTrackingPage() {
     <>
       <Header
         title={t('tracking')}
-        subtitle="Track monthly payment status for each member"
+        subtitle={t('trackingSubtitle')}
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -372,7 +372,7 @@ export default function PaymentTrackingPage() {
                 { value: 'PENDING', label: t('statusPending') },
                 { value: 'COMPLETED', label: t('statusCompleted') },
                 { value: 'CANCELLED', label: t('statusCancelled') },
-                { value: 'ALL', label: 'All statuses' },
+                { value: 'ALL', label: t('allStatuses') },
               ]}
             />
 
@@ -381,7 +381,7 @@ export default function PaymentTrackingPage() {
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
               options={[
-                { value: '', label: 'Select a group...' },
+                { value: '', label: t('selectGroup') },
                 ...groups
                   .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
                   .map((g) => ({
@@ -399,14 +399,14 @@ export default function PaymentTrackingPage() {
                 setSelectedMonth(v === 'all' ? 'all' : Number(v));
               }}
               options={[
-                { value: '', label: 'Select month...' },
-                ...(auctions.length > 0 ? [{ value: 'all', label: '📊 All Months (Combined)' }] : []),
+                { value: '', label: t('selectMonth') },
+                ...(auctions.length > 0 ? [{ value: 'all', label: t('allMonthsCombined') }] : []),
                 ...auctions
                   .slice()
                   .sort((a, b) => a.month_number - b.month_number)
                   .map((a) => ({
                     value: String(a.month_number),
-                    label: `Month ${a.month_number}`,
+                    label: `${t('monthLabel')} ${a.month_number}`,
                   })),
               ]}
               disabled={auctions.length === 0}
@@ -437,22 +437,22 @@ export default function PaymentTrackingPage() {
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('totalCollected')}</p>
                 <p className="text-xl font-bold text-cyan-400">{formatCurrency(totalCollected)}</p>
-                <p className="text-xs text-foreground-muted mt-1">of {formatCurrency(totalExpected)}</p>
+                <p className="text-xs text-amber-400 mt-1">{t('of')} {formatCurrency(totalExpected)}</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('completed')}</p>
                 <p className="text-xl font-bold text-emerald-400">{counts.completed}</p>
-                <p className="text-xs text-foreground-muted mt-1">members</p>
+                <p className="text-xs text-foreground-muted mt-1">{t('membersLower')}</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('partial')}</p>
                 <p className="text-xl font-bold text-amber-400">{counts.partial}</p>
-                <p className="text-xs text-foreground-muted mt-1">members</p>
+                <p className="text-xs text-foreground-muted mt-1">{t('membersLower')}</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('pending')}</p>
                 <p className="text-xl font-bold text-red-400">{counts.pending}</p>
-                <p className="text-xs text-foreground-muted mt-1">members</p>
+                <p className="text-xs text-foreground-muted mt-1">{t('membersLower')}</p>
               </div>
             </div>
 
@@ -462,8 +462,8 @@ export default function PaymentTrackingPage() {
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-foreground-muted">
                     {isAllMode
-                      ? `Overall Collection Progress (${auctions.length} months)`
-                      : `Month ${selectedMonth} Progress`}
+                      ? `${t('overallCollectionProgress')} (${auctions.length} ${t('months').toLowerCase()})`
+                      : `${t('monthProgress')} ${selectedMonth}`}
                   </span>
                   <span className="text-foreground font-medium">
                     {formatCurrency(totalCollected)} / {formatCurrency(totalExpected)}
@@ -494,9 +494,9 @@ export default function PaymentTrackingPage() {
                   <div className="p-6 pb-4 flex items-center gap-2">
                     <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
                     <h3 className="text-base font-semibold text-foreground">
-                      All {auctions.length} Month{auctions.length !== 1 ? 's' : ''} — Combined Balance
+                      {auctions.length} {t('months')} — {t('combinedBalance')}
                     </h3>
-                    <span className="ml-2 text-xs text-foreground-muted">(click a row to expand month breakdown)</span>
+                    <span className="ml-2 text-xs text-foreground-muted">{t('clickToExpand')}</span>
                   </div>
                   <div className="overflow-x-auto px-6 pb-6">
                     <table className="glass-table w-full">
@@ -562,7 +562,7 @@ export default function PaymentTrackingPage() {
                                         }
                                       }}
                                     >
-                                      Record Payment
+                                      {t('update')}
                                     </Button>
                                   )}
                                 </td>
@@ -576,11 +576,11 @@ export default function PaymentTrackingPage() {
                                       <table className="glass-table w-full text-sm">
                                         <thead>
                                           <tr className="border-b border-border">
-                                            <th className="text-left! px-4 py-2 text-foreground-muted font-medium">Month</th>
-                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Due</th>
-                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Paid</th>
-                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Remaining</th>
-                                            <th className="text-center! px-4 py-2 text-foreground-muted font-medium">Note</th>
+                                            <th className="text-left! px-4 py-2 text-foreground-muted font-medium">{t('month')}</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('due')}</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('paid')}</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('remaining')}</th>
+                                            <th className="text-center! px-4 py-2 text-foreground-muted font-medium">{t('note')}</th>
                                           </tr>
                                         </thead>
                                         <tbody>

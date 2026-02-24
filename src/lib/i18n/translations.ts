@@ -4,6 +4,17 @@ export const translations = {
     dashboard: 'Dashboard',
     dashboardSubtitle: 'BidNest Dashboard',
     members: 'Members',
+    membersLower: 'members',
+    of: 'of',
+    overallCollectionProgress: 'Overall Collection Progress',
+    monthProgress: 'Month Progress',
+    allMonthsCombinedBalance: 'All Months — Combined Balance',
+    combinedBalance: 'Combined Balance',
+    clickToExpand: '(click a row to expand month breakdown)',
+    update: 'Update',
+    due: 'Due',
+    paid: 'Paid',
+    note: 'Note',
     groups: 'Chit Groups',
     group: 'Group',
     auctions: 'Auctions',
@@ -34,6 +45,7 @@ export const translations = {
     search: 'Search by name, nickname or mobile...',
     noMembers: 'No members found',
     allStatus: 'All Status',
+    allStatuses: 'All statuses',
     addFirstMember: 'Add your first member to get started.',
     deactivate: 'Deactivate',
     saveChanges: 'Save Changes',
@@ -93,6 +105,7 @@ export const translations = {
     noPayments: 'No payments found',
     noPaymentsDescription: 'Create a chit group to start tracking payments.',
     tracking: 'Payment Tracker',
+    trackingSubtitle: 'Track monthly payment status for each member',
 
     // Tickets
     addTicket: 'Add Ticket',
@@ -100,6 +113,8 @@ export const translations = {
     selectMember: 'Select member...',
     selectWinner: 'Select winner...',
     selectMonth: 'Select month...',
+    allMonthsCombined: '📊 All Months (Combined)',
+    monthLabel: 'Month',
     months: 'Months',
     ticketShort: 'Ticket #',
 
@@ -130,7 +145,7 @@ export const translations = {
     amountDue: 'Amount Due',
     balance: 'Balance',
     settled: 'Settled',
-    fullySettled: 'Fully Settled',
+    fullySettled: 'Settled',
     notInAnyGroup: 'Not assigned to any chit group yet.',
 
     // Common
@@ -209,6 +224,17 @@ export const translations = {
     dashboard: 'டாஷ்போர்டு',
     dashboardSubtitle: 'பிட்நெஸ்ட் டாஷ்போர்டு',
     members: 'உறுப்பினர்கள்',
+    membersLower: 'உறுப்பினர்கள்',
+    of: 'இல்',
+    overallCollectionProgress: 'ஒட்டுமொத்த தொகுப்பு முன்னேற்றம்',
+    monthProgress: 'மாத முன்னேற்றம்',
+    allMonthsCombinedBalance: 'அனைத்து மாதங்கள் — ஒருங்கிணைக்கப்பட்ட இருப்பு',
+    combinedBalance: 'ஒருங்கிணைக்கப்பட்ட இருப்பு',
+    clickToExpand: '(மாத விவரங்களை விரிவாக்க ஒரு வரியை கிளிக் செய்யவும்)',
+    update: 'புதுப்பி',
+    due: 'நிலுவை',
+    paid: 'செலுத்தப்பட்டது',
+    note: 'குறிப்பு',
     groups: 'சீட்டு குழுக்கள்',
     group: 'குழு',
     auctions: 'ஏலங்கள்',
@@ -239,6 +265,7 @@ export const translations = {
     search: 'பெயர் அல்லது மொபைல் மூலம் தேடு...',
     noMembers: 'உறுப்பினர்கள் இல்லை',
     allStatus: 'அனைத்து நிலைகள்',
+    allStatuses: 'அனைத்து நிலைகள்',
     addFirstMember: 'தொடங்க முதல் உறுப்பினரை சேர்க்கவும்.',
     deactivate: 'செயலிழக்கச் செய்',
     saveChanges: 'மாற்றங்களை சேமி',
@@ -298,6 +325,7 @@ export const translations = {
     noPayments: 'கட்டணங்கள் இல்லை',
     noPaymentsDescription: 'கட்டணங்களை கண்காணிக்க ஒரு சீட்டு குழுவை உருவாக்கவும்.',
     tracking: 'கட்டண கண்காணிப்பு',
+    trackingSubtitle: 'ஒவ்வொரு உறுப்பினரின் மாதாந்திர கட்டண நிலையை கண்காணிக்கவும்',
 
     // Tickets
     addTicket: 'டிக்கெட் சேர்',
@@ -305,6 +333,8 @@ export const translations = {
     selectMember: 'உறுப்பினரை தேர்ந்தெடு...',
     selectWinner: 'வெற்றியாளரை தேர்ந்தெடு...',
     selectMonth: 'மாதம் தேர்ந்தெடு...',
+    allMonthsCombined: '📊 அனைத்து மாதங்கள் (ஒருங்கிணைக்கப்பட்டது)',
+    monthLabel: 'மாதம்',
     months: 'மாதங்கள்',
     ticketShort: 'டிக்கெட் #',
 
@@ -335,7 +365,7 @@ export const translations = {
     amountDue: 'வேண்டிய தொகை',
     balance: 'நிலுவை',
     settled: 'தீர்வு',
-    fullySettled: 'முழுமையாக தீர்க்கப்பட்டது',
+    fullySettled: 'முடிந்தது',
     notInAnyGroup: 'இன்னும் எந்த சீட்டு குழுவிலும் சேர்க்கப்படவில்லை.',
 
     // Common
