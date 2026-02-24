@@ -109,6 +109,7 @@ export const translations = {
     noPaymentsDescription: 'Create a chit group to start tracking payments.',
     tracking: 'Payment Tracker',
     trackingSubtitle: 'Track monthly payment status for each member',
+    memberPaymentStatus: 'Member Payment Status',
 
     // Tickets
     addTicket: 'Add Ticket',
@@ -332,6 +333,7 @@ export const translations = {
     noPaymentsDescription: 'கட்டணங்களை கண்காணிக்க ஒரு சீட்டு குழுவை உருவாக்கவும்.',
     tracking: 'கட்டண கண்காணிப்பு',
     trackingSubtitle: 'ஒவ்வொரு உறுப்பினரின் மாதாந்திர கட்டண நிலையை கண்காணிக்கவும்',
+    memberPaymentStatus: 'உறுப்பினர் கட்டண நிலை',
 
     // Tickets
     addTicket: 'டிக்கெட் சேர்',

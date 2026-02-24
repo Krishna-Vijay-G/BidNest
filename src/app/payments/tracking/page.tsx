@@ -646,7 +646,7 @@ export default function PaymentTrackingPage() {
                 <div className="p-6 pb-4 flex items-center gap-2">
                   <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
                   <h3 className="text-base font-semibold text-foreground">
-                    {t('month')} {selectedMonth} — Member Payment Status
+                    {t('month')} {selectedMonth} — {t('memberPaymentStatus')}
                   </h3>
                 </div>
                 <div className="overflow-x-auto px-6 pb-6">
@@ -704,7 +704,7 @@ export default function PaymentTrackingPage() {
                                   variant="outline"
                                   onClick={() => setPayingMember(row)}
                                 >
-                                  Record Payment
+                                  {t('update')}
                                 </Button>
                               )}
                             </td>
