@@ -522,7 +522,7 @@ export default function PaymentTrackingPage() {
                                 className="cursor-pointer hover:bg-surface/50"
                                 onClick={() => setExpandedRow(expandedRow === row.chitMemberId ? null : row.chitMemberId)}
                               >
-                                <td className="font-medium text-foreground">{row.memberName} <span className="text-cyan-400 font-semibold">#{row.ticketNumber}</span></td>
+                                <td className="font-medium text-foreground">{row.memberName} <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                                 <td className="text-foreground">{formatCurrency(row.totalDue)}</td>
                                 <td>
                                   {row.totalPaid > 0
