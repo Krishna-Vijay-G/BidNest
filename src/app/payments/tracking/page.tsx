@@ -51,6 +51,8 @@ interface Payment {
   month_number: number;
   amount_paid: string;
   status: string;
+  notes: string | null;
+  created_at: string;
 }
 
 interface MemberRow {
@@ -95,7 +97,7 @@ function formatCurrency(amount: number) {
 
 export default function PaymentTrackingPage() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
     try {
@@ -540,28 +542,30 @@ export default function PaymentTrackingPage() {
                                 <td><AggregatedStatusBadge status={row.status} /></td>
                                 <td onClick={(e) => e.stopPropagation()}>
                                   {row.remaining > 0 && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        const firstDue = row.monthBreakdown.find(mb => mb.remaining > 0 && !mb.isWinner);
-                                        if (firstDue) {
-                                          setPayingMemberBreakdown(row.monthBreakdown);
-                                          setPayingMember({
-                                            chitMemberId: row.chitMemberId,
-                                            ticketNumber: row.ticketNumber,
-                                            memberName: row.memberName,
-                                            isWinner: false,
-                                            monthlyDue: firstDue.due,
-                                            totalPaid: firstDue.paid,
-                                            remaining: firstDue.remaining,
-                                            status: firstDue.paid > 0 ? 'PARTIAL' : 'PENDING',
-                                          });
-                                        }
-                                      }}
-                                    >
-                                      {t('update')}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          const firstDue = row.monthBreakdown.find(mb => mb.remaining > 0 && !mb.isWinner);
+                                          if (firstDue) {
+                                            setPayingMemberBreakdown(row.monthBreakdown);
+                                            setPayingMember({
+                                              chitMemberId: row.chitMemberId,
+                                              ticketNumber: row.ticketNumber,
+                                              memberName: row.memberName,
+                                              isWinner: false,
+                                              monthlyDue: firstDue.due,
+                                              totalPaid: firstDue.paid,
+                                              remaining: firstDue.remaining,
+                                              status: firstDue.paid > 0 ? 'PARTIAL' : 'PENDING',
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        {t('update')}
+                                      </Button>
+                                    </div>
                                   )}
                                 </td>
                               </tr>
@@ -569,7 +573,7 @@ export default function PaymentTrackingPage() {
                               {/* per-month breakdown sub-rows */}
                               {expandedRow === row.chitMemberId && (
                                 <tr key={`${row.chitMemberId}-breakdown`}>
-                                  <td colSpan={9} className="bg-surface/40 px-4 py-3">
+                                  <td colSpan={7} className="bg-surface/40 px-4 py-3">
                                     <div className="rounded-xl border border-border overflow-hidden">
                                       <table className="glass-table w-full text-sm">
                                         <thead>
@@ -578,7 +582,6 @@ export default function PaymentTrackingPage() {
                                             <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('due')}</th>
                                             <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('paid')}</th>
                                             <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('remaining')}</th>
-                                            <th className="text-center! px-4 py-2 text-foreground-muted font-medium">{t('note')}</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -586,7 +589,7 @@ export default function PaymentTrackingPage() {
                                             <tr key={mb.month} className="border-b border-border/50 last:border-0">
                                               <td className="px-4 py-2 text-left! text-cyan-400 font-medium">{t('month')} {mb.month}</td>
                                               <td className="px-4 py-2 text-right! text-foreground">
-                                                {mb.isWinner ? <span className="text-foreground-muted">—</span> : formatCurrency(mb.due)}
+                                                {mb.isWinner ? <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 {t('winner')}</span> : formatCurrency(mb.due)}
                                               </td>
                                               <td className="px-4 py-2 text-right!">
                                                 {mb.paid > 0
@@ -600,13 +603,6 @@ export default function PaymentTrackingPage() {
                                                     ? <span className="text-red-400">{formatCurrency(mb.remaining)}</span>
                                                     : <span className="text-emerald-400">₹0</span>}
                                               </td>
-                                              <td className="px-4 py-2 text-center!">
-                                                {mb.isWinner ? (
-                                                  <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 {t('winner')}</span>
-                                                ) : (
-                                                  <span className="text-foreground-muted">—</span>
-                                                )}
-                                              </td>
                                             </tr>
                                           ))}
                                           <tr className="bg-surface border-t-2 border-border font-semibold">
@@ -614,9 +610,6 @@ export default function PaymentTrackingPage() {
                                             <td className="px-4 py-2 text-right! text-foreground">{formatCurrency(row.totalDue)}</td>
                                             <td className="px-4 py-2 text-right! text-emerald-400">{formatCurrency(row.totalPaid)}</td>
                                             <td className="px-4 py-2 text-right! text-red-400">{formatCurrency(row.remaining)}</td>
-                                            <td className="px-4 py-2 text-center!">
-                                              <span className="text-foreground-muted">—</span>
-                                            </td>
                                           </tr>
                                         </tbody>
                                       </table>
@@ -624,6 +617,8 @@ export default function PaymentTrackingPage() {
                                   </td>
                                 </tr>
                               )}
+
+
                             </>
                           ))}
                       </tbody>
@@ -665,7 +660,8 @@ export default function PaymentTrackingPage() {
                       {memberRows
                         .sort((a, b) => a.ticketNumber - b.ticketNumber)
                         .map((row) => (
-                          <tr key={row.chitMemberId}>
+                          <>
+                            <tr key={row.chitMemberId}>
                             <td className="font-medium text-foreground">{row.memberName} <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                             <td>
                               {row.isWinner ? (
@@ -698,17 +694,21 @@ export default function PaymentTrackingPage() {
                               <MemberStatusBadge status={row.status} />
                             </td>
                             <td>
-                              {!row.isWinner && row.status !== 'COMPLETED' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setPayingMember(row)}
-                                >
-                                  {t('update')}
-                                </Button>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {!row.isWinner && row.status !== 'COMPLETED' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setPayingMember(row)}
+                                  >
+                                    {t('update')}
+                                  </Button>
+                                )}
+                              </div>
                             </td>
                           </tr>
+
+                          </>
                         ))}
                     </tbody>
                   </table>
@@ -822,6 +822,7 @@ function RecordPaymentModal({
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [upiId, setUpiId] = useState('');
   const [selectedMonthForPayment, setSelectedMonthForPayment] = useState(month_number);
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { t } = useLang();
 
@@ -836,6 +837,7 @@ function RecordPaymentModal({
     if (isOpen) {
       setPaymentMethod('CASH');
       setUpiId('');
+      setNotes('');
       setSelectedMonthForPayment(month_number);
       // initial amount = remaining for the initial month
       const initial = monthBreakdown.find((mb) => mb.month === month_number);
@@ -865,6 +867,7 @@ function RecordPaymentModal({
         amount_paid: Number(amountPaid),
         payment_method: paymentMethod,
         upi_id: paymentMethod === 'UPI' ? upiId : undefined,
+        notes: notes.trim() || undefined,
         payment_date: new Date().toISOString(),
       }),
     });
@@ -936,6 +939,13 @@ function RecordPaymentModal({
             required
           />
         )}
+
+        <Input
+          label={t('notes')}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Optional notes about this payment"
+        />
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose} type="button">{t('cancel')}</Button>

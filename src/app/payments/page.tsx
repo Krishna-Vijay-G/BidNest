@@ -54,6 +54,7 @@ interface Payment {
   payment_method: string;
   payment_date: string;
   status: string;
+  notes: string | null;
   chit_member: {
     ticket_number: number;
     member: { id: string; name: { value: string } };
@@ -538,18 +539,29 @@ export default function PaymentsPage() {
                                                   {new Date(p.payment_date).toLocaleDateString('en-IN')} · {new Date(p.payment_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                               </div>
-                                              <div className="flex items-center justify-between gap-4">
-                                                <div className="text-center">
-                                                  <div className="text-base font-bold text-emerald-400">{fmt(monthPaid)}</div>
-                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Paid</div>
+                                              <div className="flex items-center justify-between gap-6">
+                                                <div className="flex items-center gap-6">
+                                                  <div className="text-center">
+                                                    <div className="text-base font-bold text-emerald-400">{fmt(monthPaid)}</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">Paid</div>
+                                                  </div>
+                                                  <div className="text-center">
+                                                    <div className="text-base font-bold text-amber-400">{fmt(monthlyAmount)}</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">Due</div>
+                                                  </div>
+                                                  <div className="text-center">
+                                                    <div className={`text-base font-bold ${monthRemaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>{fmt(monthRemaining)}</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">Remaining</div>
+                                                  </div>
                                                 </div>
-                                                <div className="text-center">
-                                                  <div className="text-base font-bold text-amber-400">{fmt(monthlyAmount)}</div>
-                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Due</div>
-                                                </div>
-                                                <div className="text-center">
-                                                  <div className={`text-base font-bold ${monthRemaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>{fmt(monthRemaining)}</div>
-                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Remaining</div>
+                                                <div className="flex-1 min-w-0">
+                                                  {p.notes ? (
+                                                    <div className="bg-surface/60 rounded-lg p-3 border border-border">
+                                                      <p className="text-sm text-foreground">{p.notes}</p>
+                                                    </div>
+                                                  ) : (
+                                                    <div className="text-sm text-foreground-muted italic">Click to add notes</div>
+                                                  )}
                                                 </div>
                                               </div>
                                             </div>
