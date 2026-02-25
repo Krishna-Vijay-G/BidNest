@@ -100,6 +100,10 @@ export const translations = {
     date: 'Date',
     notes: 'Notes',
     notesPlaceholder: 'Optional notes about this payment',
+    enterNotesPlaceholder: 'Enter notes...',
+    saveNotes: 'Save Notes',
+    saving: 'Saving...',
+    clickToAddNotes: 'Click to add notes',
     cash: 'Cash',
     upi: 'UPI',
     bankTransfer: 'Bank Transfer',
@@ -210,6 +214,7 @@ export const translations = {
     payingMonths: 'paying months',
     payment: 'Payment',
     allPayments: 'All Payments',
+    paymentHistory: 'Payment History',
     more: 'more',
 
     // Profile Extended
@@ -333,6 +338,10 @@ export const translations = {
     date: 'தேதி',
     notes: 'குறிப்புகள்',
     notesPlaceholder: 'இந்த கட்டணத்தைப் பற்றிய விருப்ப குறிப்புகள்',
+    enterNotesPlaceholder: 'குறிப்புகளை உள்ளீடு செய்...',
+    saveNotes: 'குறிப்புகளை சேமி',
+    saving: 'சேமிக்கப்படுகிறது...',
+    clickToAddNotes: 'குறிப்புகளைச் சேர்க்க கிளிக் செய்யவும்',
     cash: 'ரொக்கம்',
     upi: 'UPI',
     bankTransfer: 'வங்கி பரிமாற்றம்',
@@ -443,6 +452,7 @@ export const translations = {
     payingMonths: 'செலுத்தும் மாதங்கள்',
     payment: 'கட்டணம்',
     allPayments: 'அனைத்து கட்டணங்கள்',
+    paymentHistory: 'கட்டண வரலாறு',
     more: 'மேலும்',
 
     // Profile Extended

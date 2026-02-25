@@ -395,7 +395,7 @@ export default function PaymentsPage() {
         <div className="mt-2">
           <span className="text-sm text-foreground-muted">
             {filterGroup === 'all'
-              ? `${visibleGroups.length} groups · ${payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id)).length} payments`
+            ? `${visibleGroups.length} ${t('groups')} · ${payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id)).length} ${t('payments')}`
               : `${recentPayments.length} recent payments`}
           </span>
         </div>
@@ -541,7 +541,7 @@ export default function PaymentsPage() {
                               <tr>
                                 <td colSpan={7} className="bg-surface/30 p-6">
                                   <div className="space-y-4">
-                                    <div className="text-base font-semibold text-foreground-secondary">Payment History ({summary.payments.length} payments)</div>
+                                    <div className="text-base font-semibold text-foreground-secondary">{t('paymentHistory')} ({summary.payments.length} {t('payments')})</div>
                                     <div className="space-y-3">
                                       {summary.payments
                                         .slice()
@@ -568,7 +568,7 @@ export default function PaymentsPage() {
                                               <div className="flex items-center justify-between flex-wrap gap-3">
                                                 <div className="flex items-center gap-4">
                                                   <span className="text-sm font-semibold text-foreground">{group?.name || 'N/A'}</span>
-                                                  <span className="text-sm font-semibold text-cyan-400">Month {p.month_number}</span>
+                                                  <span className="text-sm font-semibold text-cyan-400">{t('monthLabel')} {p.month_number}</span>
                                                   <span className="px-3 py-1 rounded bg-surface border border-border text-sm font-medium text-foreground-secondary">{p.payment_method}</span>
                                                 </div>
                                                 <div className="text-sm text-foreground-muted">
@@ -579,15 +579,15 @@ export default function PaymentsPage() {
                                                 <div className="flex items-center gap-6">
                                                   <div className="text-center">
                                                     <div className="text-base font-bold text-emerald-400">{fmt(monthPaid)}</div>
-                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">Paid</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">{t('paid')}</div>
                                                   </div>
                                                   <div className="text-center">
                                                     <div className="text-base font-bold text-amber-400">{fmt(monthlyAmount)}</div>
-                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">Due</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">{t('due')}</div>
                                                   </div>
                                                   <div className="text-center">
                                                     <div className={`text-base font-bold ${monthRemaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>{fmt(monthRemaining)}</div>
-                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">Remaining</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">{t('remaining')}</div>
                                                   </div>
                                                 </div>
                                                 <div className="flex-1 min-w-0">
@@ -599,7 +599,7 @@ export default function PaymentsPage() {
                                                         className="w-full bg-surface/60 border border-cyan-500/50 rounded-lg p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500 min-h-20 resize-none"
                                                         value={editNotes}
                                                         onChange={(e) => setEditNotes(e.target.value)}
-                                                        placeholder="Enter notes..."
+                                                        placeholder={t('enterNotesPlaceholder')}
                                                       />
                                                       <div className="flex justify-end gap-2">
                                                         <button
@@ -609,7 +609,7 @@ export default function PaymentsPage() {
                                                           }}
                                                           className="px-3 py-1.5 text-xs font-medium text-foreground-muted hover:text-foreground transition-colors"
                                                         >
-                                                          Cancel
+                                                          {t('cancel')}
                                                         </button>
                                                         <button
                                                           onClick={(e) => {
@@ -619,7 +619,7 @@ export default function PaymentsPage() {
                                                           disabled={isSavingNote}
                                                           className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-bold rounded-md transition-colors"
                                                         >
-                                                          {isSavingNote ? 'Saving...' : 'Save Notes'}
+                                                          {isSavingNote ? t('saving') : t('saveNotes')}
                                                         </button>
                                                       </div>
                                                     </div>
@@ -641,7 +641,7 @@ export default function PaymentsPage() {
                                                         </div>
                                                       ) : (
                                                         <div className="text-sm text-foreground-muted italic bg-surface/20 rounded-lg p-3 border border-dashed border-border group-hover:border-cyan-500/30 transition-colors">
-                                                          Click to add notes
+                                                          {t('clickToAddNotes')}
                                                         </div>
                                                       )}
                                                     </div>
