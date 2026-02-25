@@ -191,7 +191,13 @@ async function main() {
       if (!winner) { console.warn(`   ⚠  No available winner for ${g.def.name} M${mnum}`); continue; }
       usedWinners.add(winner.id);
 
-      const bid = Math.floor(Number(g.total_amount) * (0.05 + Math.random() * 0.2));
+      let bid;
+      // For the final month of a group, the required bid is the monthly amount
+      if (mnum === g.def.duration_months) {
+        bid = g.monthly_amount;
+      } else {
+        bid = Math.floor(Number(g.total_amount) * (0.05 + Math.random() * 0.2));
+      }
       let auc;
       try {
         auc = await post('/api/auctions', {

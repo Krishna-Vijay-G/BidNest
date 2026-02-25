@@ -15,6 +15,7 @@ import {
   HiOutlineScissors,
   HiOutlineUserGroup,
   HiOutlineChevronDown,
+  HiOutlinePencilSquare,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
 
@@ -54,6 +55,7 @@ interface Payment {
   payment_method: string;
   payment_date: string;
   status: string;
+  notes: string | null;
   chit_member: {
     ticket_number: number;
     member: { id: string; name: { value: string } };
@@ -154,11 +156,11 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{group.name}</p>
             <p className="text-xs text-foreground-muted">
-              {fmt(Number(group.total_amount))} · {group.total_members} members
+              {fmt(Number(group.total_amount))} · {group.total_members} {t('membersLower')}
             </p>
           </div>
         </div>
-        <StatusBadge status={group.status} />
+        <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
       </div>
 
       {/* Stats grid */}
@@ -227,6 +229,28 @@ export default function PaymentsPage() {
   };
   const hasFetched = useRef(false);
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const handleSaveNote = async (paymentId: string) => {
+    setIsSavingNote(true);
+    try {
+      const res = await fetch(`/api/payments/${paymentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: editNotes }),
+      });
+      if (res.ok) {
+        const updatedPayment = await res.json();
+        setPayments(prev => prev.map(p => p.id === paymentId ? { ...p, notes: updatedPayment.notes } : p));
+        setEditingPaymentId(null);
+      }
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     if (!user || hasFetched.current) return;
@@ -247,6 +271,19 @@ export default function PaymentsPage() {
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Focus and select textarea content when entering edit mode
+  useEffect(() => {
+    if (editingPaymentId && editTextareaRef.current) {
+      // small timeout to ensure element is mounted
+      setTimeout(() => {
+        try {
+          editTextareaRef.current?.focus();
+          editTextareaRef.current?.select();
+        } catch {}
+      }, 0);
+    }
+  }, [editingPaymentId]);
 
   // Validate stored status and filterGroup against fetched groups and set if valid
   useEffect(() => {
@@ -314,7 +351,7 @@ export default function PaymentsPage() {
     <>
       <Header
         title={t('payments')}
-        subtitle={filterGroup === 'all' ? 'All groups combined' : selectedStats?.group.name}
+        subtitle={filterGroup === 'all' ? t('allGroupsCombinedSubtitle') : selectedStats?.group.name}
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -327,7 +364,7 @@ export default function PaymentsPage() {
               value={groupStatusFilter}
               onChange={(e) => setAndPersistStatusFilter(e.target.value)}
               options={[
-                { value: 'ALL', label: 'All statuses' },
+                { value: 'ALL', label: t('allStatuses') },
                 { value: 'ACTIVE', label: t('statusActive') },
                 { value: 'PENDING', label: t('statusPending') },
                 { value: 'COMPLETED', label: t('statusCompleted') },
@@ -342,7 +379,7 @@ export default function PaymentsPage() {
               value={filterGroup}
               onChange={(e) => setAndPersistFilterGroup(e.target.value)}
               options={[
-                { value: 'all', label: '📊 All Groups Combined' },
+                { value: 'all', label: `📊 ${t('allGroupsCombined')}` },
                 ...groups
                   .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
                   .map((g) => ({
@@ -358,7 +395,7 @@ export default function PaymentsPage() {
         <div className="mt-2">
           <span className="text-sm text-foreground-muted">
             {filterGroup === 'all'
-              ? `${visibleGroups.length} groups · ${payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id)).length} payments`
+            ? `${visibleGroups.length} ${t('groups')} · ${payments.filter((p) => visibleGroups.some((g) => g.id === p.chit_group_id)).length} ${t('payments')}`
               : `${recentPayments.length} recent payments`}
           </span>
         </div>
@@ -368,28 +405,28 @@ export default function PaymentsPage() {
           <SummaryCard
             label={t('totalInflow')}
             value={fmt(displayInflow)}
-            sub="Money collected from members"
+            sub={t('totalInflowDesc')}
             icon={<HiOutlineArrowTrendingUp className="w-5 h-5" />}
             color="bg-emerald-500/10 text-emerald-400"
           />
           <SummaryCard
             label={t('totalPayouts')}
             value={fmt(displayPayouts)}
-            sub="Winning amounts disbursed"
+            sub={t('totalPayoutsDesc')}
             icon={<HiOutlineArrowTrendingDown className="w-5 h-5" />}
             color="bg-purple-500/10 text-purple-400"
           />
           <SummaryCard
             label={t('commissionEarned')}
             value={fmt(displayCommission)}
-            sub={`${pct(displayCommission, displayInflow)} of inflow`}
+            sub={`${pct(displayCommission, displayInflow)} ${t('ofInflow')}`}
             icon={<HiOutlineScissors className="w-5 h-5" />}
             color="bg-amber-500/10 text-amber-400"
           />
           <SummaryCard
             label={t('netBalance')}
             value={fmt(displayNet)}
-            sub={displayNet >= 0 ? 'Surplus' : 'Deficit'}
+            sub={displayNet >= 0 ? t('surplus') : t('deficit')}
             icon={<HiOutlineCurrencyRupee className="w-5 h-5" />}
             color={displayNet >= 0 ? 'bg-cyan-500/10 text-cyan-400' : 'bg-red-500/10 text-red-400'}
           />
@@ -433,7 +470,7 @@ export default function PaymentsPage() {
         {/* ── Recent Payments ─────────────────────────────────────────────── */}
         <section>
           <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
-            {filterGroup === 'all' ? `${t('recentPayments')} (All Groups)` : t('recentPayments')}
+            {filterGroup === 'all' ? `${t('recentPayments')} ${t('allGroupsParentheses')}` : t('recentPayments')}
           </h2>
           {recentPayments.length === 0 ? (
             <EmptyState
@@ -447,9 +484,7 @@ export default function PaymentsPage() {
                 <table className="glass-table w-full">
                   <thead>
                     <tr>
-                      <th></th>
                       <th>{t('member')}</th>
-                      <th>{t('ticketNumber')}</th>
                       <th>{t('totalPaid')}</th>
                       <th>{t('totalDue')}</th>
                       <th>{t('remaining')}</th>
@@ -488,38 +523,44 @@ export default function PaymentsPage() {
                               className="cursor-pointer hover:bg-surface/50"
                               onClick={() => setExpandedPaymentId(isExpanded ? null : summary.memberId)}
                             >
-                              <td>
-                                <HiOutlineChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                              </td>
                               <td className="font-medium text-foreground">
                                 <Link href={`/members/${summary.member?.member?.id}`} className="hover:underline">
-                                  {summary.member?.member?.name?.value || 'N/A'}
+                                  {summary.member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{summary.member?.ticket_number}</span>
                                 </Link>
                               </td>
-                              <td>#{summary.member?.ticket_number}</td>
-                              <td className="font-semibold text-emerald-400">{fmt(summary.totalPaid)}</td>
-                              <td className="font-semibold text-amber-400">{fmt(summary.totalDue)}</td>
-                              <td className={`font-semibold ${summary.remaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>
+                              <td><span className="font-semibold text-emerald-400">{fmt(summary.totalPaid)}</span></td>
+                              <td><span className="font-semibold text-amber-400">{fmt(summary.totalDue)}</span></td>
+                              <td><span className={`font-semibold ${summary.remaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>
                                 {fmt(summary.remaining)}
-                              </td>
+                              </span></td>
                               <td>
-                                <StatusBadge status={summary.status} />
+                                <StatusBadge status={summary.status} label={formatStatusLabel(summary.status, t)} />
                               </td>
                             </tr>
                             {isExpanded && (
                               <tr>
                                 <td colSpan={7} className="bg-surface/30 p-6">
                                   <div className="space-y-4">
-                                    <div className="text-base font-semibold text-foreground-secondary">Payment History ({summary.payments.length} payments)</div>
+                                    <div className="text-base font-semibold text-foreground-secondary">{t('paymentHistory')} ({summary.payments.length} {t('payments')})</div>
                                     <div className="space-y-3">
                                       {summary.payments
                                         .slice()
                                         .sort((a, b) => a.month_number - b.month_number)
                                         .map((p, idx) => {
                                           const auction = auctions.find(a => a.chit_group_id === p.chit_group_id && a.month_number === p.month_number);
-                                          const monthDue = auction?.calculation_data?.amount_to_collect ?? 0;
+                                          const monthlyAmount = auction?.calculation_data?.amount_to_collect ?? 0;
                                           const monthPaid = Number(p.amount_paid);
-                                          const monthRemaining = monthDue - monthPaid;
+                                          
+                                          // Calculate cumulative paid for this month up to this payment
+                                          const paymentsForMonth = summary.payments
+                                            .filter(payment => payment.month_number === p.month_number)
+                                            .sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+                                          const paymentIndex = paymentsForMonth.findIndex(payment => payment.id === p.id);
+                                          const cumulativePaidUpToThis = paymentsForMonth
+                                            .slice(0, paymentIndex + 1)
+                                            .reduce((sum, payment) => sum + Number(payment.amount_paid), 0);
+                                          
+                                          const monthRemaining = monthlyAmount - cumulativePaidUpToThis;
                                           const group = groups.find(g => g.id === p.chit_group_id);
 
                                           return (
@@ -527,25 +568,84 @@ export default function PaymentsPage() {
                                               <div className="flex items-center justify-between flex-wrap gap-3">
                                                 <div className="flex items-center gap-4">
                                                   <span className="text-sm font-semibold text-foreground">{group?.name || 'N/A'}</span>
-                                                  <span className="text-sm font-semibold text-cyan-400">Month {p.month_number}</span>
+                                                  <span className="text-sm font-semibold text-cyan-400">{t('monthLabel')} {p.month_number}</span>
                                                   <span className="px-3 py-1 rounded bg-surface border border-border text-sm font-medium text-foreground-secondary">{p.payment_method}</span>
                                                 </div>
                                                 <div className="text-sm text-foreground-muted">
                                                   {new Date(p.payment_date).toLocaleDateString('en-IN')} · {new Date(p.payment_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                               </div>
-                                              <div className="flex items-center justify-between gap-4">
-                                                <div className="text-center">
-                                                  <div className="text-base font-bold text-emerald-400">{fmt(monthPaid)}</div>
-                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Paid</div>
+                                              <div className="flex items-center justify-between gap-6">
+                                                <div className="flex items-center gap-6">
+                                                  <div className="text-center">
+                                                    <div className="text-base font-bold text-emerald-400">{fmt(monthPaid)}</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">{t('paid')}</div>
+                                                  </div>
+                                                  <div className="text-center">
+                                                    <div className="text-base font-bold text-amber-400">{fmt(monthlyAmount)}</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">{t('due')}</div>
+                                                  </div>
+                                                  <div className="text-center">
+                                                    <div className={`text-base font-bold ${monthRemaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>{fmt(monthRemaining)}</div>
+                                                    <div className="text-xs text-foreground-muted uppercase tracking-wide">{t('remaining')}</div>
+                                                  </div>
                                                 </div>
-                                                <div className="text-center">
-                                                  <div className="text-base font-bold text-amber-400">{fmt(monthDue)}</div>
-                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Due</div>
-                                                </div>
-                                                <div className="text-center">
-                                                  <div className={`text-base font-bold ${monthRemaining > 0 ? 'text-red-400' : 'text-cyan-400'}`}>{fmt(monthRemaining)}</div>
-                                                  <div className="text-xs text-foreground-muted uppercase tracking-wide">Remaining</div>
+                                                <div className="flex-1 min-w-0">
+                                                  {editingPaymentId === p.id ? (
+                                                    <div className="flex flex-col gap-2">
+                                                      <textarea
+                                                        autoFocus
+                                                        ref={editTextareaRef}
+                                                        className="w-full bg-surface/60 border border-cyan-500/50 rounded-lg p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500 min-h-20 resize-none"
+                                                        value={editNotes}
+                                                        onChange={(e) => setEditNotes(e.target.value)}
+                                                        placeholder={t('enterNotesPlaceholder')}
+                                                      />
+                                                      <div className="flex justify-end gap-2">
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingPaymentId(null);
+                                                          }}
+                                                          className="px-3 py-1.5 text-xs font-medium text-foreground-muted hover:text-foreground transition-colors"
+                                                        >
+                                                          {t('cancel')}
+                                                        </button>
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSaveNote(p.id);
+                                                          }}
+                                                          disabled={isSavingNote}
+                                                          className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-bold rounded-md transition-colors"
+                                                        >
+                                                          {isSavingNote ? t('saving') : t('saveNotes')}
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <div 
+                                                      className="group relative cursor-pointer"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingPaymentId(p.id);
+                                                        setEditNotes(p.notes || '');
+                                                      }}
+                                                    >
+                                                      {p.notes ? (
+                                                        <div className="bg-surface/60 rounded-lg p-3 border border-border group-hover:border-cyan-500/30 transition-colors">
+                                                          <p className="text-sm text-foreground">{p.notes}</p>
+                                                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <HiOutlinePencilSquare className="w-4 h-4 text-cyan-400" />
+                                                          </div>
+                                                        </div>
+                                                      ) : (
+                                                        <div className="text-sm text-foreground-muted italic bg-surface/20 rounded-lg p-3 border border-dashed border-border group-hover:border-cyan-500/30 transition-colors">
+                                                          {t('clickToAddNotes')}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )}
                                                 </div>
                                               </div>
                                             </div>
@@ -570,4 +670,13 @@ export default function PaymentsPage() {
       </div>
     </>
   );
+}
+
+function formatStatusLabel(status: string, t: (k: any) => string) {
+  if (!status) return '';
+  const lower = status.toLowerCase();
+  const lowerLabel = t(lower as any);
+  if (lowerLabel !== lower) return lowerLabel;
+  const capitalized = status[0] + status.slice(1).toLowerCase();
+  return t((`status${capitalized}`) as any);
 }

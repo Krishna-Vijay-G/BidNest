@@ -1,7 +1,8 @@
 //src/app/auctions/page.tsx
-'use client';
+ 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
@@ -48,7 +49,9 @@ interface Auction {
     monthly_contribution: number;
   };
   created_at: string;
-  winner_chit_member: {
+  winner_chit_member_id?: string;
+  winner_chit_member?: {
+    id?: string;
     ticket_number: number;
     member: { name: { value: string } };
   };
@@ -144,6 +147,16 @@ export default function AuctionsPage() {
     )
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  // Build a localized label for the "All groups" option depending on status
+  const getAllGroupsLabel = (status: string) => {
+    if (status === 'all') return t('allGroups');
+    if (status === 'ACTIVE') return `${t('all')} ${t('statusActive')} ${t('groups')}`;
+    if (status === 'PENDING') return `${t('all')} ${t('statusPending')} ${t('groups')}`;
+    if (status === 'COMPLETED') return `${t('all')} ${t('statusCompleted')} ${t('groups')}`;
+    if (status === 'CANCELLED') return `${t('all')} ${t('statusCancelled')} ${t('groups')}`;
+    return t('allGroups');
+  };
+
   if (isLoading) {
     return (
       <>
@@ -155,7 +168,10 @@ export default function AuctionsPage() {
 
   return (
     <>
-      <Header title={t('auctions')} subtitle={`${auctions.length} total auctions`}>
+      <Header
+        title={t('auctions')}
+        subtitle={t('totalAuctions').replace('{count}', String(auctions.length))}
+      >
         <Button
           icon={<HiOutlinePlus className="w-4 h-4" />}
           onClick={() => setShowCreateModal(true)}
@@ -180,7 +196,7 @@ export default function AuctionsPage() {
                 { value: 'PENDING', label: t('statusPending') },
                 { value: 'COMPLETED', label: t('statusCompleted') },
                 { value: 'CANCELLED', label: t('statusCancelled') },
-                { value: 'all', label: 'All Statuses' },
+                    { value: 'all', label: t('allStatus') },
               ]}
             />
           </div>
@@ -190,7 +206,7 @@ export default function AuctionsPage() {
               value={filterGroup}
               onChange={(e) => updateFilterGroup(e.target.value)}
               options={[
-                { value: 'all', label: groupStatusFilter === 'all' ? 'All Groups' : `All ${groupStatusFilter} Groups` },
+                { value: 'all', label: getAllGroupsLabel(groupStatusFilter) },
                 ...groups
                   .filter((g) => (groupStatusFilter === 'all' ? true : g.status === groupStatusFilter))
                   .map((g) => ({
@@ -206,7 +222,7 @@ export default function AuctionsPage() {
           <EmptyState
             icon={<HiOutlineTrophy className="w-8 h-8" />}
             title={t('noAuctions')}
-            description="Conduct your first auction to get started."
+            description={t('noAuctionsDescription')}
           />
         ) : (
           <Card padding={false}>
@@ -222,7 +238,7 @@ export default function AuctionsPage() {
                     <th>{t('commission')}</th>
                     <th>{t('carryFromPrev')}</th>
                     <th>{t('dividend')}</th>
-                    <th>{`Roundoff ${t('dividend')}`}</th>
+                    <th>{t('roundoffDividend')}</th>
                     <th>{t('carryNext')}</th>
                     <th>{t('perMember')}</th>
                     <th>{t('toCollect')}</th>
@@ -231,16 +247,34 @@ export default function AuctionsPage() {
                 <tbody>
                   {filteredAuctions.map((auction) => {
                     const group = groups.find(g => g.id === auction.chit_group_id);
+                    const winnerId = auction.winner_chit_member?.id ?? auction.winner_chit_member_id;
                     return (
                       <tr key={auction.id}>
                         <td className="font-medium text-foreground">
                           <div className="flex flex-col">
-                            <span>{group?.name || 'N/A'}</span>
+                            <span>
+                              {group?.id ? (
+                                <Link href={`/groups/${group.id}`} className="font-medium hover:underline">
+                                  {group.name}
+                                </Link>
+                              ) : (
+                                'N/A'
+                              )}
+                            </span>
                             <span className="text-xs text-foreground-muted">{t('month')} {auction.month_number}</span>
                           </div>
                         </td>
                         <td className="font-medium text-foreground">
-                          {auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+                          {winnerId ? (
+                            <>
+                              <Link href={`/members/${winnerId}`} className="font-medium hover:underline">
+                                {auction.winner_chit_member?.member?.name?.value || 'N/A'}
+                              </Link>{' '}
+                              <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+                            </>
+                          ) : (
+                            <>{auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span></>
+                          )}
                         </td>
                         <td>
                           <span className="text-blue-400 font-semibold">
@@ -522,7 +556,7 @@ function AuctionFormModal({
             setWinnerChitMemberId('');
           }}
           options={[
-            { value: '', label: 'Select a group...' },
+            { value: '', label: t('selectGroup') },
               // only active groups with remaining auctions should be available
               ...groups
                 .filter((g) => {
@@ -664,18 +698,36 @@ function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitG
   const [expanded, setExpanded] = useState(false);
   const { t } = useLang();
   const group = groups.find(g => g.id === auction.chit_group_id);
+  const winnerId = auction.winner_chit_member?.id ?? auction.winner_chit_member_id;
 
   return (
     <>
       <tr className="cursor-pointer hover:bg-surface/50" onClick={() => setExpanded(!expanded)}>
         <td className="font-medium text-foreground whitespace-nowrap">
           <div className="flex flex-col">
-            <span>{group?.name || 'N/A'}</span>
+            <span>
+              {group?.id ? (
+                <Link href={`/groups/${group.id}`} className="font-medium hover:underline">
+                  {group.name}
+                </Link>
+              ) : (
+                'N/A'
+              )}
+            </span>
             <span className="text-xs text-foreground-muted">{t('month')} {auction.month_number}</span>
           </div>
         </td>
         <td className="font-medium text-foreground whitespace-nowrap">
-          {auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+          {winnerId ? (
+            <>
+              <Link href={`/members/${winnerId}`} className="font-medium hover:underline">
+                {auction.winner_chit_member?.member?.name?.value || 'N/A'}
+              </Link>{' '}
+              <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
+            </>
+          ) : (
+            <>{auction.winner_chit_member?.member?.name?.value || 'N/A'} <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span></>
+          )}
         </td>
         <td className="text-foreground-secondary whitespace-nowrap">
           {formatCurrency(Number(auction.original_bid))}
@@ -702,7 +754,7 @@ function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitG
                 <span className="text-foreground-secondary font-semibold ml-2">{formatCurrency(Number(auction.raw_dividend))}</span>
               </div>
               <div>
-                <span className="text-foreground-muted">Roundoff {t('dividend')}:</span>
+                <span className="text-foreground-muted">{t('roundoffDividend')}:</span>
                 <span className="text-cyan-400 font-semibold ml-2">{formatCurrency(Number(auction.roundoff_dividend))}</span>
               </div>
               <div>

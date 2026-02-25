@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
@@ -37,6 +38,7 @@ interface Auction {
 
 interface ChitMember {
   id: string;
+  member_id: string;
   ticket_number: number;
   is_active: boolean;
   member: {
@@ -51,10 +53,13 @@ interface Payment {
   month_number: number;
   amount_paid: string;
   status: string;
+  notes: string | null;
+  created_at: string;
 }
 
 interface MemberRow {
   chitMemberId: string;
+  memberId: string;
   ticketNumber: number;
   memberName: string;
   isWinner: boolean;
@@ -67,6 +72,7 @@ interface MemberRow {
 // All-months aggregated row
 interface AggregatedRow {
   chitMemberId: string;
+  memberId: string;
   ticketNumber: number;
   memberName: string;
   totalDue: number;       // sum of amount_to_collect for non-winner months
@@ -95,7 +101,7 @@ function formatCurrency(amount: number) {
 
 export default function PaymentTrackingPage() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [groups, setGroups] = useState<ChitGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>(() => {
     try {
@@ -272,6 +278,7 @@ export default function PaymentTrackingPage() {
 
     return {
       chitMemberId: cm.id,
+      memberId: cm.member_id,
       ticketNumber: cm.ticket_number,
       memberName: cm.member?.name?.value || 'Unknown',
       isWinner,
@@ -317,7 +324,7 @@ export default function PaymentTrackingPage() {
     else if (totalPaid > 0 && remaining > 0) status = 'PARTIAL';
     else status = 'PENDING';
 
-    return { chitMemberId: cm.id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
+    return { chitMemberId: cm.id, memberId: cm.member_id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
   });
 
   const counts = isAllMode
@@ -356,7 +363,7 @@ export default function PaymentTrackingPage() {
     <>
       <Header
         title={t('tracking')}
-        subtitle="Track monthly payment status for each member"
+        subtitle={t('trackingSubtitle')}
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -372,7 +379,7 @@ export default function PaymentTrackingPage() {
                 { value: 'PENDING', label: t('statusPending') },
                 { value: 'COMPLETED', label: t('statusCompleted') },
                 { value: 'CANCELLED', label: t('statusCancelled') },
-                { value: 'ALL', label: 'All statuses' },
+                { value: 'ALL', label: t('allStatuses') },
               ]}
             />
 
@@ -381,7 +388,7 @@ export default function PaymentTrackingPage() {
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
               options={[
-                { value: '', label: 'Select a group...' },
+                { value: '', label: t('selectGroup') },
                 ...groups
                   .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
                   .map((g) => ({
@@ -399,14 +406,14 @@ export default function PaymentTrackingPage() {
                 setSelectedMonth(v === 'all' ? 'all' : Number(v));
               }}
               options={[
-                { value: '', label: 'Select month...' },
-                ...(auctions.length > 0 ? [{ value: 'all', label: '📊 All Months (Combined)' }] : []),
+                { value: '', label: t('selectMonth') },
+                ...(auctions.length > 0 ? [{ value: 'all', label: t('allMonthsCombined') }] : []),
                 ...auctions
                   .slice()
                   .sort((a, b) => a.month_number - b.month_number)
                   .map((a) => ({
                     value: String(a.month_number),
-                    label: `Month ${a.month_number}`,
+                    label: `${t('monthLabel')} ${a.month_number}`,
                   })),
               ]}
               disabled={auctions.length === 0}
@@ -437,22 +444,22 @@ export default function PaymentTrackingPage() {
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('totalCollected')}</p>
                 <p className="text-xl font-bold text-cyan-400">{formatCurrency(totalCollected)}</p>
-                <p className="text-xs text-foreground-muted mt-1">of {formatCurrency(totalExpected)}</p>
+                <p className="text-xs text-amber-400 mt-1">{t('of')} {formatCurrency(totalExpected)}</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('completed')}</p>
                 <p className="text-xl font-bold text-emerald-400">{counts.completed}</p>
-                <p className="text-xs text-foreground-muted mt-1">members</p>
+                <p className="text-xs text-foreground-muted mt-1">{t('membersLower')}</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('partial')}</p>
                 <p className="text-xl font-bold text-amber-400">{counts.partial}</p>
-                <p className="text-xs text-foreground-muted mt-1">members</p>
+                <p className="text-xs text-foreground-muted mt-1">{t('membersLower')}</p>
               </div>
               <div className="glass rounded-2xl border border-border p-4">
                 <p className="text-xs text-foreground-muted mb-1">{t('pending')}</p>
                 <p className="text-xl font-bold text-red-400">{counts.pending}</p>
-                <p className="text-xs text-foreground-muted mt-1">members</p>
+                <p className="text-xs text-foreground-muted mt-1">{t('membersLower')}</p>
               </div>
             </div>
 
@@ -462,8 +469,8 @@ export default function PaymentTrackingPage() {
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-foreground-muted">
                     {isAllMode
-                      ? `Overall Collection Progress (${auctions.length} months)`
-                      : `Month ${selectedMonth} Progress`}
+                      ? `${t('overallCollectionProgress')} (${auctions.length} ${t('months').toLowerCase()})`
+                      : `${t('monthProgress')} ${selectedMonth}`}
                   </span>
                   <span className="text-foreground font-medium">
                     {formatCurrency(totalCollected)} / {formatCurrency(totalExpected)}
@@ -494,15 +501,14 @@ export default function PaymentTrackingPage() {
                   <div className="p-6 pb-4 flex items-center gap-2">
                     <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
                     <h3 className="text-base font-semibold text-foreground">
-                      All {auctions.length} Month{auctions.length !== 1 ? 's' : ''} — Combined Balance
+                      {auctions.length} {t('months')} — {t('combinedBalance')}
                     </h3>
-                    <span className="ml-2 text-xs text-foreground-muted">(click a row to expand month breakdown)</span>
+                    <span className="ml-2 text-xs text-foreground-muted">{t('clickToExpand')}</span>
                   </div>
                   <div className="overflow-x-auto px-6 pb-6">
                     <table className="glass-table w-full">
                       <thead>
                         <tr>
-                          <th>{t('ticketNumber')}</th>
                           <th>{t('member')}</th>
                           <th>{t('totalDue')}</th>
                           <th>{t('totalPaid')}</th>
@@ -523,8 +529,7 @@ export default function PaymentTrackingPage() {
                                 className="cursor-pointer hover:bg-surface/50"
                                 onClick={() => setExpandedRow(expandedRow === row.chitMemberId ? null : row.chitMemberId)}
                               >
-                                <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
-                                <td className="font-medium text-foreground">{row.memberName}</td>
+                                <td className="font-medium text-foreground"><Link href={`/members/${row.memberId}`} className="text-foreground-400 hover:text-foreground-300" onClick={(e) => e.stopPropagation()}>{row.memberName}</Link> <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                                 <td className="text-foreground">{formatCurrency(row.totalDue)}</td>
                                 <td>
                                   {row.totalPaid > 0
@@ -534,7 +539,7 @@ export default function PaymentTrackingPage() {
                                 <td>
                                   {row.remaining > 0
                                     ? <span className="text-red-400 font-semibold">{formatCurrency(row.remaining)}</span>
-                                    : <span className="text-emerald-400">₹0</span>}
+                                    : <span className="text-emerald-400 font-semibold">₹0</span>}
                                 </td>
                                 <td className="text-amber-400 text-sm">
                                   {row.wonMonths.length > 0 ? row.wonMonths.map(m => `M${m}`).join(', ') : '—'}
@@ -542,28 +547,31 @@ export default function PaymentTrackingPage() {
                                 <td><AggregatedStatusBadge status={row.status} /></td>
                                 <td onClick={(e) => e.stopPropagation()}>
                                   {row.remaining > 0 && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        const firstDue = row.monthBreakdown.find(mb => mb.remaining > 0 && !mb.isWinner);
-                                        if (firstDue) {
-                                          setPayingMemberBreakdown(row.monthBreakdown);
-                                          setPayingMember({
-                                            chitMemberId: row.chitMemberId,
-                                            ticketNumber: row.ticketNumber,
-                                            memberName: row.memberName,
-                                            isWinner: false,
-                                            monthlyDue: firstDue.due,
-                                            totalPaid: firstDue.paid,
-                                            remaining: firstDue.remaining,
-                                            status: firstDue.paid > 0 ? 'PARTIAL' : 'PENDING',
-                                          });
-                                        }
-                                      }}
-                                    >
-                                      Record Payment
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          const firstDue = row.monthBreakdown.find(mb => mb.remaining > 0 && !mb.isWinner);
+                                          if (firstDue) {
+                                            setPayingMemberBreakdown(row.monthBreakdown);
+                                            setPayingMember({
+                                              chitMemberId: row.chitMemberId,
+                                              memberId: row.memberId,
+                                              ticketNumber: row.ticketNumber,
+                                              memberName: row.memberName,
+                                              isWinner: false,
+                                              monthlyDue: firstDue.due,
+                                              totalPaid: firstDue.paid,
+                                              remaining: firstDue.remaining,
+                                              status: firstDue.paid > 0 ? 'PARTIAL' : 'PENDING',
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        {t('update')}
+                                      </Button>
+                                    </div>
                                   )}
                                 </td>
                               </tr>
@@ -571,16 +579,15 @@ export default function PaymentTrackingPage() {
                               {/* per-month breakdown sub-rows */}
                               {expandedRow === row.chitMemberId && (
                                 <tr key={`${row.chitMemberId}-breakdown`}>
-                                  <td colSpan={9} className="bg-surface/40 px-4 py-3">
+                                  <td colSpan={7} className="bg-surface/40 px-4 py-3">
                                     <div className="rounded-xl border border-border overflow-hidden">
                                       <table className="glass-table w-full text-sm">
                                         <thead>
                                           <tr className="border-b border-border">
-                                            <th className="text-left! px-4 py-2 text-foreground-muted font-medium">Month</th>
-                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Due</th>
-                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Paid</th>
-                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">Remaining</th>
-                                            <th className="text-center! px-4 py-2 text-foreground-muted font-medium">Note</th>
+                                            <th className="text-left! px-4 py-2 text-foreground-muted font-medium">{t('month')}</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('due')}</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('paid')}</th>
+                                            <th className="text-right! px-4 py-2 text-foreground-muted font-medium">{t('remaining')}</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -588,37 +595,27 @@ export default function PaymentTrackingPage() {
                                             <tr key={mb.month} className="border-b border-border/50 last:border-0">
                                               <td className="px-4 py-2 text-left! text-cyan-400 font-medium">{t('month')} {mb.month}</td>
                                               <td className="px-4 py-2 text-right! text-foreground">
-                                                {mb.isWinner ? <span className="text-foreground-muted">—</span> : formatCurrency(mb.due)}
+                                                {mb.isWinner ? <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 {t('winner')}</span> : formatCurrency(mb.due)}
                                               </td>
                                               <td className="px-4 py-2 text-right!">
                                                 {mb.paid > 0
-                                                  ? <span className="text-emerald-400">{formatCurrency(mb.paid)}</span>
-                                                  : <span className="text-foreground-muted">₹0</span>}
+                                                  ? <span className="text-emerald-400 font-semibold">{formatCurrency(mb.paid)}</span>
+                                                  : <span className="text-foreground-muted">—</span>}
                                               </td>
                                               <td className="px-4 py-2 text-right!">
                                                 {mb.isWinner
                                                   ? <span className="text-foreground-muted">—</span>
                                                   : mb.remaining > 0
-                                                    ? <span className="text-red-400">{formatCurrency(mb.remaining)}</span>
-                                                    : <span className="text-emerald-400">₹0</span>}
-                                              </td>
-                                              <td className="px-4 py-2 text-center!">
-                                                {mb.isWinner ? (
-                                                  <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">🏆 Winner</span>
-                                                ) : (
-                                                  <span className="text-foreground-muted">—</span>
-                                                )}
+                                                    ? <span className="text-red-400 font-semibold">{formatCurrency(mb.remaining)}</span>
+                                                    : <span className="text-emerald-400 font-semibold">₹0</span>}
                                               </td>
                                             </tr>
                                           ))}
                                           <tr className="bg-surface border-t-2 border-border font-semibold">
-                                            <td className="px-4 py-2 text-left! text-foreground-muted">Total</td>
+                                            <td className="px-4 py-2 text-left! text-foreground-muted">{t('total')}</td>
                                             <td className="px-4 py-2 text-right! text-foreground">{formatCurrency(row.totalDue)}</td>
                                             <td className="px-4 py-2 text-right! text-emerald-400">{formatCurrency(row.totalPaid)}</td>
                                             <td className="px-4 py-2 text-right! text-red-400">{formatCurrency(row.remaining)}</td>
-                                            <td className="px-4 py-2 text-center!">
-                                              <span className="text-foreground-muted">—</span>
-                                            </td>
                                           </tr>
                                         </tbody>
                                       </table>
@@ -626,6 +623,8 @@ export default function PaymentTrackingPage() {
                                   </td>
                                 </tr>
                               )}
+
+
                             </>
                           ))}
                       </tbody>
@@ -648,14 +647,13 @@ export default function PaymentTrackingPage() {
                 <div className="p-6 pb-4 flex items-center gap-2">
                   <HiOutlineBanknotes className="w-5 h-5 text-cyan-400" />
                   <h3 className="text-base font-semibold text-foreground">
-                    {t('month')} {selectedMonth} — Member Payment Status
+                    {t('month')} {selectedMonth} — {t('memberPaymentStatus')}
                   </h3>
                 </div>
                 <div className="overflow-x-auto px-6 pb-6">
                   <table className="glass-table w-full">
                     <thead>
                       <tr>
-                        <th>{t('ticketNumber')}</th>
                         <th>{t('member')}</th>
                         <th>{t('amountDue')}</th>
                         <th>{t('totalPaid')}</th>
@@ -668,9 +666,9 @@ export default function PaymentTrackingPage() {
                       {memberRows
                         .sort((a, b) => a.ticketNumber - b.ticketNumber)
                         .map((row) => (
-                          <tr key={row.chitMemberId}>
-                            <td className="font-semibold text-cyan-400">#{row.ticketNumber}</td>
-                            <td className="font-medium text-foreground">{row.memberName}</td>
+                          <>
+                            <tr key={row.chitMemberId}>
+                            <td className="font-medium text-foreground"><Link href={`/members/${row.memberId}`} className="text-blue-400 hover:text-blue-300 underline">{row.memberName}</Link> <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                             <td>
                               {row.isWinner ? (
                                 <span className="text-foreground-muted text-xs">—</span>
@@ -695,24 +693,28 @@ export default function PaymentTrackingPage() {
                                   {formatCurrency(row.remaining)}
                                 </span>
                               ) : (
-                                <span className="text-emerald-400">₹0</span>
+                                <span className="text-emerald-400 font-semibold">₹0</span>
                               )}
                             </td>
                             <td>
                               <MemberStatusBadge status={row.status} />
                             </td>
                             <td>
-                              {!row.isWinner && row.status !== 'COMPLETED' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setPayingMember(row)}
-                                >
-                                  Record Payment
-                                </Button>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {!row.isWinner && row.status !== 'COMPLETED' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setPayingMember(row)}
+                                  >
+                                    {t('update')}
+                                  </Button>
+                                )}
+                              </div>
                             </td>
                           </tr>
+
+                          </>
                         ))}
                     </tbody>
                   </table>
@@ -826,6 +828,7 @@ function RecordPaymentModal({
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [upiId, setUpiId] = useState('');
   const [selectedMonthForPayment, setSelectedMonthForPayment] = useState(month_number);
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { t } = useLang();
 
@@ -840,6 +843,7 @@ function RecordPaymentModal({
     if (isOpen) {
       setPaymentMethod('CASH');
       setUpiId('');
+      setNotes('');
       setSelectedMonthForPayment(month_number);
       // initial amount = remaining for the initial month
       const initial = monthBreakdown.find((mb) => mb.month === month_number);
@@ -869,6 +873,7 @@ function RecordPaymentModal({
         amount_paid: Number(amountPaid),
         payment_method: paymentMethod,
         upi_id: paymentMethod === 'UPI' ? upiId : undefined,
+        notes: notes.trim() || undefined,
         payment_date: new Date().toISOString(),
       }),
     });
@@ -877,14 +882,14 @@ function RecordPaymentModal({
     if (!res.ok) {
       toast.error(data.error || 'Failed to record payment');
     } else {
-      toast.success(`Payment recorded for ${row.memberName}`);
+      toast.success(`${t('paymentRecorded')} for ${row.memberName}`);
       onSaved();
     }
     setIsSubmitting(false);
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`${t('recordPayment')} — #${row.ticketNumber} ${row.memberName}`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={<>{t('recordPayment')} — {row.memberName} <span className="text-green-400">#{row.ticketNumber}</span></>}>
       <div className="mb-4 p-3 bg-surface border border-border rounded-xl space-y-1">
         <div className="flex justify-between text-sm">
           <span className="text-foreground-muted">{t('amountDue')}</span>
@@ -903,17 +908,17 @@ function RecordPaymentModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         {allowMonthSelect && auctions.length > 0 && (
           <Select
-            label="Month to Pay For"
+            label={t('monthToPayFor')}
             value={String(selectedMonthForPayment)}
             onChange={(e) => setSelectedMonthForPayment(Number(e.target.value))}
             options={auctions
               .slice()
               .sort((a, b) => a.month_number - b.month_number)
-              .map((a) => ({ value: String(a.month_number), label: `Month ${a.month_number}` }))}
+              .map((a) => ({ value: String(a.month_number), label: `${t('monthLabel')} ${a.month_number}` }))}
           />
         )}
         <Input
-          label={`Amount to Pay (max ${formatCurrency(displayRemaining)})`}
+          label={`${t('amountToPay')} (${t('max')} ${formatCurrency(displayRemaining)})`}
           type="number"
           value={amountPaid}
           onChange={(e) => setAmountPaid(e.target.value)}
@@ -921,13 +926,13 @@ function RecordPaymentModal({
         />
 
         <Select
-          label="Payment Method"
+          label={t('paymentMethod')}
           value={paymentMethod}
           onChange={(e) => setPaymentMethod(e.target.value)}
           options={[
-            { value: 'CASH', label: 'Cash' },
-            { value: 'UPI', label: 'UPI' },
-            { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+            { value: 'CASH', label: t('cash') },
+            { value: 'UPI', label: t('upi') },
+            { value: 'BANK_TRANSFER', label: t('bankTransfer') },
           ]}
         />
 
@@ -940,6 +945,13 @@ function RecordPaymentModal({
             required
           />
         )}
+
+        <Input
+          label={t('notes')}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder={t('notesPlaceholder')}
+        />
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose} type="button">{t('cancel')}</Button>
