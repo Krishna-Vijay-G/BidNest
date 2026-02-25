@@ -15,6 +15,7 @@ import {
   HiOutlineScissors,
   HiOutlineUserGroup,
   HiOutlineChevronDown,
+  HiOutlinePencilSquare,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
 
@@ -228,6 +229,28 @@ export default function PaymentsPage() {
   };
   const hasFetched = useRef(false);
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const handleSaveNote = async (paymentId: string) => {
+    setIsSavingNote(true);
+    try {
+      const res = await fetch(`/api/payments/${paymentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: editNotes }),
+      });
+      if (res.ok) {
+        const updatedPayment = await res.json();
+        setPayments(prev => prev.map(p => p.id === paymentId ? { ...p, notes: updatedPayment.notes } : p));
+        setEditingPaymentId(null);
+      }
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     if (!user || hasFetched.current) return;
@@ -248,6 +271,19 @@ export default function PaymentsPage() {
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Focus and select textarea content when entering edit mode
+  useEffect(() => {
+    if (editingPaymentId && editTextareaRef.current) {
+      // small timeout to ensure element is mounted
+      setTimeout(() => {
+        try {
+          editTextareaRef.current?.focus();
+          editTextareaRef.current?.select();
+        } catch {}
+      }, 0);
+    }
+  }, [editingPaymentId]);
 
   // Validate stored status and filterGroup against fetched groups and set if valid
   useEffect(() => {
@@ -555,12 +591,60 @@ export default function PaymentsPage() {
                                                   </div>
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                  {p.notes ? (
-                                                    <div className="bg-surface/60 rounded-lg p-3 border border-border">
-                                                      <p className="text-sm text-foreground">{p.notes}</p>
+                                                  {editingPaymentId === p.id ? (
+                                                    <div className="flex flex-col gap-2">
+                                                      <textarea
+                                                        autoFocus
+                                                        ref={editTextareaRef}
+                                                        className="w-full bg-surface/60 border border-cyan-500/50 rounded-lg p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500 min-h-20 resize-none"
+                                                        value={editNotes}
+                                                        onChange={(e) => setEditNotes(e.target.value)}
+                                                        placeholder="Enter notes..."
+                                                      />
+                                                      <div className="flex justify-end gap-2">
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingPaymentId(null);
+                                                          }}
+                                                          className="px-3 py-1.5 text-xs font-medium text-foreground-muted hover:text-foreground transition-colors"
+                                                        >
+                                                          Cancel
+                                                        </button>
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSaveNote(p.id);
+                                                          }}
+                                                          disabled={isSavingNote}
+                                                          className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-bold rounded-md transition-colors"
+                                                        >
+                                                          {isSavingNote ? 'Saving...' : 'Save Notes'}
+                                                        </button>
+                                                      </div>
                                                     </div>
                                                   ) : (
-                                                    <div className="text-sm text-foreground-muted italic">Click to add notes</div>
+                                                    <div 
+                                                      className="group relative cursor-pointer"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingPaymentId(p.id);
+                                                        setEditNotes(p.notes || '');
+                                                      }}
+                                                    >
+                                                      {p.notes ? (
+                                                        <div className="bg-surface/60 rounded-lg p-3 border border-border group-hover:border-cyan-500/30 transition-colors">
+                                                          <p className="text-sm text-foreground">{p.notes}</p>
+                                                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <HiOutlinePencilSquare className="w-4 h-4 text-cyan-400" />
+                                                          </div>
+                                                        </div>
+                                                      ) : (
+                                                        <div className="text-sm text-foreground-muted italic bg-surface/20 rounded-lg p-3 border border-dashed border-border group-hover:border-cyan-500/30 transition-colors">
+                                                          Click to add notes
+                                                        </div>
+                                                      )}
+                                                    </div>
                                                   )}
                                                 </div>
                                               </div>

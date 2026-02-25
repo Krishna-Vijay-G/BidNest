@@ -53,10 +53,7 @@ interface Auction {
   winner_chit_member?: {
     id?: string;
     ticket_number: number;
-    member: { 
-      id: string;
-      name: { value: string } 
-    };
+    member: { name: { value: string } };
   };
 }
 
@@ -250,7 +247,7 @@ export default function AuctionsPage() {
                 <tbody>
                   {filteredAuctions.map((auction) => {
                     const group = groups.find(g => g.id === auction.chit_group_id);
-                    const winnerMemberId = auction.winner_chit_member?.member?.id;
+                    const winnerId = auction.winner_chit_member?.id ?? auction.winner_chit_member_id;
                     return (
                       <tr key={auction.id}>
                         <td className="font-medium text-foreground">
@@ -268,9 +265,9 @@ export default function AuctionsPage() {
                           </div>
                         </td>
                         <td className="font-medium text-foreground">
-                          {winnerMemberId ? (
+                          {winnerId ? (
                             <>
-                              <Link href={`/members/${winnerMemberId}`} className="font-medium hover:underline">
+                              <Link href={`/members/${winnerId}`} className="font-medium hover:underline">
                                 {auction.winner_chit_member?.member?.name?.value || 'N/A'}
                               </Link>{' '}
                               <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
@@ -701,7 +698,7 @@ function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitG
   const [expanded, setExpanded] = useState(false);
   const { t } = useLang();
   const group = groups.find(g => g.id === auction.chit_group_id);
-  const winnerMemberId = auction.winner_chit_member?.member?.id;
+  const winnerId = auction.winner_chit_member?.id ?? auction.winner_chit_member_id;
 
   return (
     <>
@@ -721,9 +718,9 @@ function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitG
           </div>
         </td>
         <td className="font-medium text-foreground whitespace-nowrap">
-          {winnerMemberId ? (
+          {winnerId ? (
             <>
-              <Link href={`/members/${winnerMemberId}`} className="font-medium hover:underline">
+              <Link href={`/members/${winnerId}`} className="font-medium hover:underline">
                 {auction.winner_chit_member?.member?.name?.value || 'N/A'}
               </Link>{' '}
               <span className="text-green-400 font-semibold">#{auction.winner_chit_member?.ticket_number}</span>
