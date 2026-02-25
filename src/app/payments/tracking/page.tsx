@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
@@ -37,6 +38,7 @@ interface Auction {
 
 interface ChitMember {
   id: string;
+  member_id: string;
   ticket_number: number;
   is_active: boolean;
   member: {
@@ -57,6 +59,7 @@ interface Payment {
 
 interface MemberRow {
   chitMemberId: string;
+  memberId: string;
   ticketNumber: number;
   memberName: string;
   isWinner: boolean;
@@ -69,6 +72,7 @@ interface MemberRow {
 // All-months aggregated row
 interface AggregatedRow {
   chitMemberId: string;
+  memberId: string;
   ticketNumber: number;
   memberName: string;
   totalDue: number;       // sum of amount_to_collect for non-winner months
@@ -274,6 +278,7 @@ export default function PaymentTrackingPage() {
 
     return {
       chitMemberId: cm.id,
+      memberId: cm.member_id,
       ticketNumber: cm.ticket_number,
       memberName: cm.member?.name?.value || 'Unknown',
       isWinner,
@@ -319,7 +324,7 @@ export default function PaymentTrackingPage() {
     else if (totalPaid > 0 && remaining > 0) status = 'PARTIAL';
     else status = 'PENDING';
 
-    return { chitMemberId: cm.id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
+    return { chitMemberId: cm.id, memberId: cm.member_id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
   });
 
   const counts = isAllMode
@@ -524,7 +529,7 @@ export default function PaymentTrackingPage() {
                                 className="cursor-pointer hover:bg-surface/50"
                                 onClick={() => setExpandedRow(expandedRow === row.chitMemberId ? null : row.chitMemberId)}
                               >
-                                <td className="font-medium text-foreground">{row.memberName} <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
+                                <td className="font-medium text-foreground"><Link href={`/members/${row.memberId}`} className="text-foreground-400 hover:text-foreground-300" onClick={(e) => e.stopPropagation()}>{row.memberName}</Link> <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                                 <td className="text-foreground">{formatCurrency(row.totalDue)}</td>
                                 <td>
                                   {row.totalPaid > 0
@@ -552,6 +557,7 @@ export default function PaymentTrackingPage() {
                                             setPayingMemberBreakdown(row.monthBreakdown);
                                             setPayingMember({
                                               chitMemberId: row.chitMemberId,
+                                              memberId: row.memberId,
                                               ticketNumber: row.ticketNumber,
                                               memberName: row.memberName,
                                               isWinner: false,
@@ -594,7 +600,7 @@ export default function PaymentTrackingPage() {
                                               <td className="px-4 py-2 text-right!">
                                                 {mb.paid > 0
                                                   ? <span className="text-emerald-400">{formatCurrency(mb.paid)}</span>
-                                                  : <span className="text-foreground-muted">₹0</span>}
+                                                  : <span className="text-foreground-muted">—</span>}
                                               </td>
                                               <td className="px-4 py-2 text-right!">
                                                 {mb.isWinner
@@ -662,7 +668,7 @@ export default function PaymentTrackingPage() {
                         .map((row) => (
                           <>
                             <tr key={row.chitMemberId}>
-                            <td className="font-medium text-foreground">{row.memberName} <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
+                            <td className="font-medium text-foreground"><Link href={`/members/${row.memberId}`} className="text-blue-400 hover:text-blue-300 underline">{row.memberName}</Link> <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                             <td>
                               {row.isWinner ? (
                                 <span className="text-foreground-muted text-xs">—</span>
