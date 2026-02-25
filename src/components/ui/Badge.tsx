@@ -24,7 +24,7 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   const map: Record<string, { label: string; variant: BadgeProps['variant'] }> = {
     ACTIVE: { label: 'Active', variant: 'success' },
     PENDING: { label: 'Pending', variant: 'warning' },
-    COMPLETED: { label: 'Completed', variant: 'info' },
+    COMPLETED: { label: 'Completed', variant: 'success' },
     CANCELLED: { label: 'Cancelled', variant: 'danger' },
     PARTIAL: { label: 'Partial', variant: 'warning' },
     paid: { label: 'Paid', variant: 'success' },

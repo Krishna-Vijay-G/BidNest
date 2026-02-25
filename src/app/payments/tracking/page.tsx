@@ -539,7 +539,7 @@ export default function PaymentTrackingPage() {
                                 <td>
                                   {row.remaining > 0
                                     ? <span className="text-red-400 font-semibold">{formatCurrency(row.remaining)}</span>
-                                    : <span className="text-emerald-400">₹0</span>}
+                                    : <span className="text-emerald-400 font-semibold">₹0</span>}
                                 </td>
                                 <td className="text-amber-400 text-sm">
                                   {row.wonMonths.length > 0 ? row.wonMonths.map(m => `M${m}`).join(', ') : '—'}
@@ -599,15 +599,15 @@ export default function PaymentTrackingPage() {
                                               </td>
                                               <td className="px-4 py-2 text-right!">
                                                 {mb.paid > 0
-                                                  ? <span className="text-emerald-400">{formatCurrency(mb.paid)}</span>
+                                                  ? <span className="text-emerald-400 font-semibold">{formatCurrency(mb.paid)}</span>
                                                   : <span className="text-foreground-muted">—</span>}
                                               </td>
                                               <td className="px-4 py-2 text-right!">
                                                 {mb.isWinner
                                                   ? <span className="text-foreground-muted">—</span>
                                                   : mb.remaining > 0
-                                                    ? <span className="text-red-400">{formatCurrency(mb.remaining)}</span>
-                                                    : <span className="text-emerald-400">₹0</span>}
+                                                    ? <span className="text-red-400 font-semibold">{formatCurrency(mb.remaining)}</span>
+                                                    : <span className="text-emerald-400 font-semibold">₹0</span>}
                                               </td>
                                             </tr>
                                           ))}
@@ -693,7 +693,7 @@ export default function PaymentTrackingPage() {
                                   {formatCurrency(row.remaining)}
                                 </span>
                               ) : (
-                                <span className="text-emerald-400">₹0</span>
+                                <span className="text-emerald-400 font-semibold">₹0</span>
                               )}
                             </td>
                             <td>
@@ -950,7 +950,7 @@ function RecordPaymentModal({
           label={t('notes')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Optional notes about this payment"
+          placeholder={t('notesPlaceholder')}
         />
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">

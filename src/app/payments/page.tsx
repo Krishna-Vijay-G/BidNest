@@ -156,11 +156,11 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{group.name}</p>
             <p className="text-xs text-foreground-muted">
-              {fmt(Number(group.total_amount))} · {group.total_members} members
+              {fmt(Number(group.total_amount))} · {group.total_members} {t('membersLower')}
             </p>
           </div>
         </div>
-        <StatusBadge status={group.status} />
+        <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
       </div>
 
       {/* Stats grid */}
@@ -351,7 +351,7 @@ export default function PaymentsPage() {
     <>
       <Header
         title={t('payments')}
-        subtitle={filterGroup === 'all' ? 'All groups combined' : selectedStats?.group.name}
+        subtitle={filterGroup === 'all' ? t('allGroupsCombinedSubtitle') : selectedStats?.group.name}
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -379,7 +379,7 @@ export default function PaymentsPage() {
               value={filterGroup}
               onChange={(e) => setAndPersistFilterGroup(e.target.value)}
               options={[
-                { value: 'all', label: '📊 All Groups Combined' },
+                { value: 'all', label: `📊 ${t('allGroupsCombined')}` },
                 ...groups
                   .filter((g) => groupStatusFilter === 'ALL' ? true : g.status === groupStatusFilter)
                   .map((g) => ({
@@ -405,28 +405,28 @@ export default function PaymentsPage() {
           <SummaryCard
             label={t('totalInflow')}
             value={fmt(displayInflow)}
-            sub="Money collected from members"
+            sub={t('totalInflowDesc')}
             icon={<HiOutlineArrowTrendingUp className="w-5 h-5" />}
             color="bg-emerald-500/10 text-emerald-400"
           />
           <SummaryCard
             label={t('totalPayouts')}
             value={fmt(displayPayouts)}
-            sub="Winning amounts disbursed"
+            sub={t('totalPayoutsDesc')}
             icon={<HiOutlineArrowTrendingDown className="w-5 h-5" />}
             color="bg-purple-500/10 text-purple-400"
           />
           <SummaryCard
             label={t('commissionEarned')}
             value={fmt(displayCommission)}
-            sub={`${pct(displayCommission, displayInflow)} of inflow`}
+            sub={`${pct(displayCommission, displayInflow)} ${t('ofInflow')}`}
             icon={<HiOutlineScissors className="w-5 h-5" />}
             color="bg-amber-500/10 text-amber-400"
           />
           <SummaryCard
             label={t('netBalance')}
             value={fmt(displayNet)}
-            sub={displayNet >= 0 ? 'Surplus' : 'Deficit'}
+            sub={displayNet >= 0 ? t('surplus') : t('deficit')}
             icon={<HiOutlineCurrencyRupee className="w-5 h-5" />}
             color={displayNet >= 0 ? 'bg-cyan-500/10 text-cyan-400' : 'bg-red-500/10 text-red-400'}
           />
@@ -470,7 +470,7 @@ export default function PaymentsPage() {
         {/* ── Recent Payments ─────────────────────────────────────────────── */}
         <section>
           <h2 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wide mb-4">
-            {filterGroup === 'all' ? `${t('recentPayments')} (All Groups)` : t('recentPayments')}
+            {filterGroup === 'all' ? `${t('recentPayments')} ${t('allGroupsParentheses')}` : t('recentPayments')}
           </h2>
           {recentPayments.length === 0 ? (
             <EmptyState
@@ -534,7 +534,7 @@ export default function PaymentsPage() {
                                 {fmt(summary.remaining)}
                               </span></td>
                               <td>
-                                <StatusBadge status={summary.status} />
+                                <StatusBadge status={summary.status} label={formatStatusLabel(summary.status, t)} />
                               </td>
                             </tr>
                             {isExpanded && (
@@ -670,4 +670,13 @@ export default function PaymentsPage() {
       </div>
     </>
   );
+}
+
+function formatStatusLabel(status: string, t: (k: any) => string) {
+  if (!status) return '';
+  const lower = status.toLowerCase();
+  const lowerLabel = t(lower as any);
+  if (lowerLabel !== lower) return lowerLabel;
+  const capitalized = status[0] + status.slice(1).toLowerCase();
+  return t((`status${capitalized}`) as any);
 }
