@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, PageLoader, EmptyState, Select } from '@/components/ui';
+import { Card, PageLoader, EmptyState, Select,MemberStatusBadge, AggregatedStatusBadge  } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/Badge';
 import Link from 'next/link';
 import {
@@ -534,7 +534,7 @@ export default function PaymentsPage() {
                                 {fmt(summary.remaining)}
                               </span></td>
                               <td>
-                                <StatusBadge status={summary.status} label={formatStatusLabel(summary.status, t)} />
+                                <AggregatedStatusBadge status={summary.status as 'COMPLETED' | 'PARTIAL' | 'PENDING'} />
                               </td>
                             </tr>
                             {isExpanded && (
