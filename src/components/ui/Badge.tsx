@@ -1,4 +1,6 @@
 //src/components/ui/Badge.tsx
+import { useLang } from '@/lib/i18n/LanguageContext';
+
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
@@ -24,7 +26,7 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   const map: Record<string, { label: string; variant: BadgeProps['variant'] }> = {
     ACTIVE: { label: 'Active', variant: 'success' },
     PENDING: { label: 'Pending', variant: 'warning' },
-    COMPLETED: { label: 'Completed', variant: 'success' },
+    COMPLETED: { label: 'Completed', variant: 'info' },
     CANCELLED: { label: 'Cancelled', variant: 'danger' },
     PARTIAL: { label: 'Partial', variant: 'warning' },
     paid: { label: 'Paid', variant: 'success' },
@@ -38,4 +40,40 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   const displayLabel = label ?? config.label;
 
   return <Badge variant={config.variant}>{displayLabel}</Badge>;
+}
+
+type MemberStatus = 'WINNER' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
+
+export function MemberStatusBadge({ status }: { status: MemberStatus }) {
+  const { t } = useLang();
+  const map: Record<MemberStatus, { label: string; cls: string }> = {
+    WINNER: { label: t('winner'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    COMPLETED: { label: t('completed'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  };
+  const { label, cls } = map[status];
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+type AggregatedStatus = 'CLEAR' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
+
+export function AggregatedStatusBadge({ status }: { status: AggregatedStatus }) {
+  const { t } = useLang();
+  const map: Record<AggregatedStatus, { label: string; cls: string }> = {
+    CLEAR: { label: t('settled'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    COMPLETED: { label: t('fullySettled'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  };
+  const { label, cls } = map[status];
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+      {label}
+    </span>
+  );
 }

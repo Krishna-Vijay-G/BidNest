@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
+import { Card, Button, Modal, Input, PageLoader, EmptyState, Select, MemberStatusBadge, AggregatedStatusBadge } from '@/components/ui';
 import {
   HiOutlineClipboardDocumentList,
   HiOutlineBanknotes,
@@ -764,40 +764,6 @@ export default function PaymentTrackingPage() {
         />
       )}
     </>
-  );
-}
-
-// ─── Status Badge ─────────────────────────────────────────
-
-function MemberStatusBadge({ status }: { status: MemberRow['status'] }) {
-  const { t } = useLang();
-  const map: Record<MemberRow['status'], { label: string; cls: string }> = {
-    WINNER: { label: t('winner'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    COMPLETED: { label: t('completed'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  };
-  const { label, cls } = map[status];
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {label}
-    </span>
-  );
-}
-
-function AggregatedStatusBadge({ status }: { status: AggregatedRow['status'] }) {
-  const { t } = useLang();
-  const map: Record<AggregatedRow['status'], { label: string; cls: string }> = {
-    CLEAR: { label: t('settled'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    COMPLETED: { label: t('fullySettled'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  };
-  const { label, cls } = map[status];
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {label}
-    </span>
   );
 }
 
