@@ -151,7 +151,7 @@ export async function downloadAuctionReport(data: AuctionReportData) {
   // ── 7. Footer ──
   drawFooter(doc);
 
-  savePdf(doc, `BidNest_Auction_${data.groupName.replace(/\s+/g, '_')}_Month${data.monthNumber}`);
+  await savePdf(doc, `BidNest_Auction_${data.groupName.replace(/\s+/g, '_')}_Month${data.monthNumber}`);
 }
 
 

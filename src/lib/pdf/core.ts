@@ -591,8 +591,168 @@ export function drawTicketCards(
   return y + (numRows * (cardH + rowGap)) + 4;
 }
 
-// ─── Save / download ─────────────────────────────────────────────────────────
+// ─── Save / Share dialog ─────────────────────────────────────────────────────
+// Shows a small popup with Download and (if supported) Share options.
+// Share uses the native Web Share API → lets users send to WhatsApp, Telegram, etc.
 
-export function savePdf(doc: jsPDF, filename: string): void {
-  doc.save(`${filename}.pdf`);
+export async function savePdf(doc: jsPDF, filename: string): Promise<void> {
+  const fullName = `${filename}.pdf`;
+
+  return new Promise<void>((resolve) => {
+    const blob = doc.output('blob');
+    const file = new File([blob], fullName, { type: 'application/pdf' });
+    
+    // Most modern browsers have navigator.share in secure contexts (HTTPS/localhost)
+    const hasShareApi = typeof navigator !== 'undefined' && !!navigator.share;
+
+    // ── Inject scoped styles once ──
+    const STYLE_ID = 'pdf-save-popup-styles';
+    if (!document.getElementById(STYLE_ID)) {
+      const s = document.createElement('style');
+      s.id = STYLE_ID;
+      s.textContent = `
+        .pdf-pop-overlay {
+          position:fixed;inset:0;z-index:99999;
+          background:rgba(0,0,0,0.5);
+          display:flex;align-items:center;justify-content:center;padding:16px;
+          backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+          animation:pdf-pop-fadein .15s ease;
+        }
+        @keyframes pdf-pop-fadein { from{opacity:0} to{opacity:1} }
+        .pdf-pop-card {
+          position:relative;width:100%;max-width:320px;
+          background:var(--glass-bg-strong);
+          backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+          border:1px solid var(--glass-border-strong);
+          border-radius:24px;
+          box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);
+          padding:24px;
+          animation:pdf-pop-in .25s cubic-bezier(0.16, 1, 0.3, 1);
+          text-align: center;
+          font-family: var(--font-sans), Inter, sans-serif;
+        }
+        @keyframes pdf-pop-in { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        .pdf-pop-close {
+          position:absolute;top:16px;right:16px;
+          background:none;border:none;
+          color:var(--foreground-muted);
+          font-size:18px;cursor:pointer;width:32px;height:32px;
+          display:flex;align-items:center;justify-content:center;
+          border-radius:10px;transition:all .2s;
+        }
+        .pdf-pop-close:hover { color:var(--foreground);background:var(--surface-hover); transform:rotate(90deg); }
+        .pdf-pop-title {
+          color:var(--foreground);
+          font-weight:700;font-size:18px;margin:10px 0 4px;
+        }
+        .pdf-pop-fname {
+          color:var(--foreground-muted);
+          font-size:12px;margin:0 0 24px;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+        }
+        .pdf-pop-btn {
+          width:100%;padding:14px 20px;border-radius:14px;
+          font-size:15px;font-weight:600;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:10px;
+          transition:all .2s cubic-bezier(0.4, 0, 0.2, 1);
+          border: 1px solid transparent;
+        }
+        .pdf-pop-btn:hover { transform:translateY(-2px); filter: brightness(1.1); }
+        .pdf-pop-btn:active { transform:translateY(0); }
+        .pdf-pop-share {
+          background: #00f0ff;
+          color: #000000;
+          box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+          margin-bottom: 12px;
+        }
+        .pdf-pop-download {
+          background:var(--surface-hover);
+          border:1px solid var(--glass-border-strong);
+          color:var(--foreground);
+        }
+        .pdf-pop-download:hover { background:var(--glass-bg-strong); border-color:var(--color-primary); }
+        .pdf-pop-info {
+          font-size: 10px; color: var(--foreground-muted); margin-top: 12px;
+        }
+      `;
+      document.head.appendChild(s);
+    }
+
+    // ── Build DOM ──
+    const overlay = document.createElement('div');
+    overlay.className = 'pdf-pop-overlay';
+
+    const card = document.createElement('div');
+    card.className = 'pdf-pop-card';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'pdf-pop-close';
+    closeBtn.innerHTML = '✕';
+    closeBtn.title = 'Close';
+
+    const title = document.createElement('p');
+    title.className = 'pdf-pop-title';
+    title.textContent = 'Report Ready';
+
+    const label = document.createElement('p');
+    label.className = 'pdf-pop-fname';
+    label.textContent = fullName;
+
+    const cleanup = () => {
+      if (document.body.contains(overlay)) document.body.removeChild(overlay);
+      resolve();
+    };
+
+    card.appendChild(closeBtn);
+    card.appendChild(title);
+    card.appendChild(label);
+
+    // Share Button - Fixed: Always render but handle availability
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'pdf-pop-btn pdf-pop-share';
+    shareBtn.innerHTML = '<span>↗</span><span>Share PDF</span>';
+    shareBtn.onclick = async () => {
+      if (!hasShareApi) {
+        alert('Sharing is not supported on this browser/connection (requires HTTPS or localhost).');
+        return;
+      }
+      try {
+        const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
+        if (canShareFile) {
+          await navigator.share({ files: [file], title: filename });
+        } else {
+          await navigator.share({ title: filename, text: `BidNest Report: ${fullName}` });
+        }
+        cleanup();
+      } catch (err) {
+        console.warn('Share failed:', err);
+      }
+    };
+    card.appendChild(shareBtn);
+
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'pdf-pop-btn pdf-pop-download';
+    dlBtn.innerHTML = '<span>⬇</span><span>Download PDF</span>';
+    dlBtn.onclick = () => { doc.save(fullName); cleanup(); };
+    card.appendChild(dlBtn);
+
+    if (!hasShareApi) {
+      const info = document.createElement('p');
+      info.className = 'pdf-pop-info';
+      info.textContent = 'Note: Share requires HTTPS context';
+      card.appendChild(info);
+    }
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    closeBtn.onclick = cleanup;
+    overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
+    document.addEventListener('keydown', function onKey(e) {
+      if (e.key === 'Escape') { 
+        document.removeEventListener('keydown', onKey); 
+        cleanup(); 
+      }
+    });
+  });
 }

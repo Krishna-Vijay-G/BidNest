@@ -114,19 +114,72 @@ function renderGroupSection(
       t(m.status.toLowerCase()),
     ]);
 
+    const totalDue  = group.months.reduce((s, m) => s + m.amountDue,  0);
+    const totalPaid = group.months.reduce((s, m) => s + m.amountPaid, 0);
+    const totalBal  = group.months.reduce((s, m) => s + m.balance,    0);
+
+    const foot = [[
+      'Total',
+      fmtCurrency(totalDue),
+      fmtCurrency(totalPaid),
+      fmtCurrency(totalBal),
+      '',
+    ]];
+
     y = drawTable(doc, head, body, y, {
+      foot,
+      showFoot: 'lastPage',
+      footStyles: {
+        fillColor: COLORS.tableHead,
+        textColor: COLORS.tableHeadText,
+        fontStyle: 'bold',
+        fontSize: 8,
+      },
       columnStyles: {
         0: { cellWidth: 35 },
-        3: {
-          fontStyle: 'bold',
-        },
+        2: { fontStyle: 'bold' },
+        3: { fontStyle: 'bold' },
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       didParseCell: (hookData: any) => {
-        if (hookData.section === 'body' && hookData.column.index === 3) {
+        if (hookData.section === 'body') {
           const m = group.months[hookData.row.index];
-          if (m) {
-            hookData.cell.styles.textColor = m.balance > 0 ? COLORS.danger : COLORS.success;
+          if (!m) return;
+          // WON row → light amber background across all cells
+          if (m.wonThisMonth) {
+            hookData.cell.styles.fillColor = [254, 243, 199]; // amber-100
+          }
+          // Paid → green (amber text on WON rows since there's no payment)
+          if (hookData.column.index === 2) {
+            hookData.cell.styles.textColor = m.wonThisMonth ? COLORS.warning : COLORS.success;
+          }
+          // Balance → red if > 0, black if 0, green if < 0
+          if (hookData.column.index === 3) {
+            hookData.cell.styles.textColor =
+              m.balance > 0 ? COLORS.danger :
+              m.balance < 0 ? COLORS.success :
+              COLORS.text;
+          }
+          // Status → amber (won) / green / red / amber (partial)
+          if (hookData.column.index === 4) {
+            const s = m.status.toLowerCase();
+            hookData.cell.styles.textColor =
+              s === 'won'       ? COLORS.warning :
+              s === 'completed' ? COLORS.success :
+              s === 'partial'   ? COLORS.warning :
+              COLORS.danger; // pending / anything else
+          }
+        }
+        // Foot: colour the balance and paid columns
+        if (hookData.section === 'foot') {
+          if (hookData.column.index === 2) {
+            hookData.cell.styles.textColor = COLORS.success;
+          }
+          if (hookData.column.index === 3) {
+            hookData.cell.styles.textColor =
+              totalBal > 0 ? COLORS.danger :
+              totalBal < 0 ? COLORS.success :
+              COLORS.text;
           }
         }
       },
@@ -163,7 +216,7 @@ export async function downloadMemberGroupReport(
   y = renderGroupSection(doc, group, data.memberName, y);
 
   drawFooter(doc);
-  savePdf(doc, `BidNest_Member_${data.memberName}_${group.groupName}`);
+  await savePdf(doc, `BidNest_Member_${data.memberName}_${group.groupName}`);
 }
 
 // ─── Download all groups combined ───────────────────────────────────────────
@@ -214,7 +267,46 @@ export async function downloadMemberAllGroupsReport(
   }
 
   drawFooter(doc);
-  savePdf(doc, `BidNest_Member_${data.memberName}_AllGroups`);
+  await savePdf(doc, `BidNest_Member_${data.memberName}_AllGroups`);
+}
+
+// ─── Download selected groups into one PDF ─────────────────────────────────
+
+export async function downloadMemberSelectedGroupsReport(
+  data: MemberReportData,
+  indices: number[],
+) {
+  const selected = indices.map(i => data.groups[i]).filter(Boolean) as typeof data.groups;
+  if (selected.length === 0) return;
+
+  const doc = await createPdf('portrait');
+
+  for (const [pos, group] of selected.entries()) {
+    if (pos > 0) doc.addPage();
+
+    let y = drawHeader(
+      doc,
+      `${data.memberName} - ${group.groupName}`,
+      `${t('ticketShort')}${group.ticketNumber} - ${pos + 1} ${t('of')} ${selected.length}`,
+    );
+
+    if (pos === 0) {
+      y = drawSectionTitle(doc, t('memberInfo'), y + 2);
+      y = drawInfoGrid(doc, [
+        { label: t('memberName'), value: data.memberName },
+        { label: t('nickname'), value: data.memberNickname || '-' },
+        { label: t('mobile'), value: data.memberMobile || '-' },
+      ], y, 3);
+    } else {
+      y += 2;
+    }
+
+    y = renderGroupSection(doc, group, data.memberName, y);
+  }
+
+  drawFooter(doc);
+  const suffix = selected.map(g => g.groupName).join('_');
+  await savePdf(doc, `BidNest_Member_${data.memberName}_${suffix}`);
 }
 
 // ─── Download each group as separate pages ──────────────────────────────────
@@ -249,5 +341,5 @@ export async function downloadMemberEachGroupReport(
   }
 
   drawFooter(doc);
-  savePdf(doc, `BidNest_Member_${data.memberName}_EachGroup`);
+  await savePdf(doc, `BidNest_Member_${data.memberName}_EachGroup`);
 }

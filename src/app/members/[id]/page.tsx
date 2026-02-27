@@ -27,7 +27,7 @@ import toast from 'react-hot-toast';
 import {
   downloadMemberGroupReport,
   downloadMemberAllGroupsReport,
-  downloadMemberEachGroupReport,
+  downloadMemberSelectedGroupsReport,
   type MemberReportData,
 } from '@/lib/pdf';
 
@@ -207,6 +207,7 @@ export default function MemberDetailPage() {
   const [upiId, setUpiId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedGroupIdxs, setSelectedGroupIdxs] = useState<Set<number>>(new Set());
 
   // Load active tab from localStorage on mount
   useEffect(() => {
@@ -320,16 +321,22 @@ export default function MemberDetailPage() {
     };
   }
 
-  async function handleMemberReport(mode: 'all' | 'each' | number) {
+  async function handleMemberReport(mode: 'all' | number) {
     const data = buildMemberReportData();
     if (mode === 'all') {
       await downloadMemberAllGroupsReport(data);
-    } else if (mode === 'each') {
-      await downloadMemberEachGroupReport(data);
     } else {
       await downloadMemberGroupReport(data, mode);
     }
     setShowReportModal(false);
+  }
+
+  async function handleDownloadSelected() {
+    const data = buildMemberReportData();
+    const indices = [...selectedGroupIdxs].sort((a, b) => a - b);
+    await downloadMemberSelectedGroupsReport(data, indices);
+    setShowReportModal(false);
+    setSelectedGroupIdxs(new Set());
   }
 
   return (
@@ -387,7 +394,7 @@ export default function MemberDetailPage() {
               {summaries.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <button
-                    onClick={() => setShowReportModal(true)}
+                    onClick={() => { setShowReportModal(true); setSelectedGroupIdxs(new Set()); }}
                     className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 transition-colors"
                   >
                     <HiOutlineDocumentArrowDown className="w-4 h-4" />
@@ -578,7 +585,7 @@ export default function MemberDetailPage() {
       {/* Report Download Modal */}
       <Modal
         isOpen={showReportModal}
-        onClose={() => setShowReportModal(false)}
+        onClose={() => { setShowReportModal(false); setSelectedGroupIdxs(new Set()); }}
         title={t('downloadReport')}
       >
         <div className="space-y-4">
@@ -601,46 +608,61 @@ export default function MemberDetailPage() {
                 </div>
               </button>
 
-              {/* Each group separate */}
-              {summaries.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleMemberReport('each')}
-                  className="w-full text-left px-4 py-3 rounded-xl border border-border bg-surface hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <HiOutlineDocumentArrowDown className="w-5 h-5 text-purple-400 shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground group-hover:text-purple-400 transition-colors">{t('eachGroupSeparate')}</p>
-                      <p className="text-xs text-foreground-muted">{summaries.length} {t('groups')} — {summaries.length} PDFs</p>
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Individual groups */}
+              {/* Individual groups – selectable */}
               <div className="pt-1">
                 <p className="text-xs text-foreground-muted mb-2 uppercase tracking-wider">{t('groups')}</p>
                 <div className="space-y-1.5">
-                  {summaries.map((s, i) => (
-                    <button
-                      key={s.ticket.id}
-                      type="button"
-                      onClick={() => handleMemberReport(i)}
-                      className="w-full text-left px-4 py-2.5 rounded-xl border border-border bg-surface hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-foreground group-hover:text-emerald-400 transition-colors">
-                          {s.group.name} <span className="text-foreground-muted">#{s.ticket.ticket_number}</span>
-                        </span>
-                        <span className={`text-xs font-medium ${s.totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                          {s.totalBalance > 0 ? fmt(s.totalBalance) : t('settled')}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                  {summaries.map((s, i) => {
+                    const sel = selectedGroupIdxs.has(i);
+                    return (
+                      <button
+                        key={s.ticket.id}
+                        type="button"
+                        onClick={() => setSelectedGroupIdxs(prev => {
+                          const next = new Set(prev);
+                          if (next.has(i)) next.delete(i); else next.add(i);
+                          return next;
+                        })}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl border transition-colors ${
+                          sel
+                            ? 'border-emerald-500/60 bg-emerald-500/10'
+                            : 'border-border bg-surface hover:border-emerald-500/30 hover:bg-emerald-500/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              sel ? 'bg-emerald-500 border-emerald-500' : 'border-border bg-transparent'
+                            }`}>
+                              {sel && <HiOutlineCheckCircle className="w-3 h-3 text-white" />}
+                            </div>
+                            <span className={`text-sm ${sel ? 'text-emerald-400 font-medium' : 'text-foreground'}`}>
+                              {s.group.name} <span className="text-foreground-muted">#{s.ticket.ticket_number}</span>
+                            </span>
+                          </div>
+                          <span className={`text-xs font-medium ${s.totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {s.totalBalance > 0 ? fmt(s.totalBalance) : t('settled')}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Download selected button */}
+              {selectedGroupIdxs.size > 0 && (
+                <div className="pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    className="w-full justify-center"
+                    onClick={handleDownloadSelected}
+                  >
+                    <HiOutlineDocumentArrowDown className="w-4 h-4 mr-2" />
+                    {selectedGroupIdxs.size === 1 ? 'Download PDF' : `Download ${selectedGroupIdxs.size} PDFs`}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -852,7 +874,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
                   const lastPayment = row.payments[row.payments.length - 1];
 
                   return (
-                    <tr key={row.month}>
+                    <tr key={row.month} className={row.paymentStatus === 'WON' ? 'bg-amber-500/10' : ''}>
                       <td className="font-semibold text-foreground">{t('month')} {row.month}</td>
                       <td>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border ${statusConfig.bg} ${statusConfig.color}`}>
@@ -966,7 +988,7 @@ function MonthTableRow({ row }: { row: MonthRow }) {
   return (
     <>
       <tr
-        className={`cursor-pointer hover:bg-surface/50 ${row.wonThisMonth ? 'bg-amber-500/5' : ''}`}
+        className={`cursor-pointer hover:bg-surface/50 ${row.wonThisMonth ? 'bg-amber-500/10' : ''}`}
         onClick={() => setExpanded(e => !e)}
       >
         <td className="font-semibold text-foreground">{t('month')} {row.month}</td>

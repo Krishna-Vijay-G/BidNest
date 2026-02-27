@@ -306,5 +306,5 @@ export async function downloadGroupReport(data: GroupReportData) {
   // ── Footer ──
   drawFooter(doc);
 
-  savePdf(doc, `BidNest_Group_${data.groupName}_Report`);
+  await savePdf(doc, `BidNest_Group_${data.groupName}_Report`);
 }
