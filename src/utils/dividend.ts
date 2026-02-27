@@ -39,10 +39,10 @@ export function calculateAuction(input: CalculationInput): AuctionCalculation {
   // winning amount = total pot - bid
   const winning_amount = total_amount - original_bid;
 
-  // commission on winning amount (percent) or a fixed fee
+  // commission is a % of the total chit amount, or a fixed fee
   const commission =
     commission_type === "PERCENT"
-      ? (winning_amount * commission_value) / 100
+      ? (total_amount * commission_value) / 100
       : commission_value;
 
   // raw dividend pool = bid - commission + carry from previous month

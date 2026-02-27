@@ -722,8 +722,8 @@ function buildAuctionPdfData(auction: Auction, group: ChitGroup | undefined): Au
   };
 }
 
-function handleAuctionDownload(auction: Auction, group: ChitGroup | undefined) {
-  downloadAuctionReport(buildAuctionPdfData(auction, group), 'en');
+async function handleAuctionDownload(auction: Auction, group: ChitGroup | undefined) {
+  await downloadAuctionReport(buildAuctionPdfData(auction, group));
 }
 
 // ─── Mobile Auction Row ─────────────────────────────────────────────────────

@@ -89,6 +89,7 @@ export const translations = {
     lastAuction: 'Last Auction',
     lastMonthBidFixed: 'Last month - bid fixed to commission cap.',
     editTicket: 'Edit Ticket',
+    monthlyCollectionSummary: 'Monthly Collection Summary',
 
     // Payments
     recordPayment: 'Record Payment',
@@ -446,6 +447,7 @@ export const translations = {
     roundoffCarry: 'சுற்று மதிப்பு கடன்',
     roundoffDividend: 'சுற்று மதிப்பு ஈவுத்தொகை',
     eachMemberPays: 'ஒவ்வொருவர் செலுத்துவது',
+    monthlyCollectionSummary: 'மாதாந்திர வசூல் சுருக்கம்',
     noEligibleTickets: 'தகுதியான டிக்கெட்டுகள் இல்லை (அனைவரும் வென்றனர்)',
     fixedAmount: 'நிலையான தொகை',
     percentage: 'சதவீதம்',

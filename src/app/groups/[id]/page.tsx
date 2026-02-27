@@ -192,7 +192,7 @@ export default function GroupDetailPage() {
             </div>
             <div className="flex items-center gap-3">
               <PdfDownloadButton
-                onClick={() => {
+                onClick={async () => {
                   const reportData: GroupReportData = {
                     groupName: group.name,
                     totalAmount: group.total_amount,
@@ -230,7 +230,7 @@ export default function GroupDetailPage() {
                       status: p.status,
                     })),
                   };
-                  downloadGroupReport(reportData, 'en');
+                  await downloadGroupReport(reportData);
                 }}
                 label={t('downloadReport')}
               />

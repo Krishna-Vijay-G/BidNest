@@ -1,6 +1,6 @@
 // src/lib/pdf/memberReport.ts
 // ─── Member Payment Detail PDF Report ───────────────────────────────────────
-import type { Language } from '@/lib/i18n/translations';
+import { jsPDF } from 'jspdf';
 import {
   createPdf,
   drawHeader,
@@ -52,10 +52,9 @@ export interface MemberReportData {
 // ─── Generate for a specific group ──────────────────────────────────────────
 
 function renderGroupSection(
-  doc: ReturnType<typeof createPdf>,
+  doc: jsPDF,
   group: MemberGroupData,
   memberName: string,
-  lang: Language,
   startY: number,
 ): number {
   let y = startY;
@@ -68,24 +67,24 @@ function renderGroupSection(
   }
 
   // ── Group title ──
-  y = drawSectionTitle(doc, `${group.groupName} - ${t('ticketShort', lang)}${group.ticketNumber}`, y);
+  y = drawSectionTitle(doc, `${group.groupName} - ${t('ticketShort')}${group.ticketNumber}`, y);
 
   // ── Group info ──
   y = drawInfoGrid(doc, [
-    { label: t('totalAmount', lang), value: fmtCurrency(group.groupTotal) },
-    { label: t('totalMembers', lang), value: String(group.groupMembers) },
-    { label: t('duration', lang), value: `${group.groupDuration} ${t('months', lang)}` },
-    { label: t('status', lang), value: t(group.groupStatus.toLowerCase(), lang) },
-    { label: t('wonMonths', lang), value: group.wonMonth ? `${t('month', lang)} ${group.wonMonth}` : '-' },
-    { label: t('totalWon', lang), value: group.wonAmount ? fmtCurrency(group.wonAmount) : '-' },
+    { label: t('totalAmount'), value: fmtCurrency(group.groupTotal) },
+    { label: t('totalMembers'), value: String(group.groupMembers) },
+    { label: t('duration'), value: `${group.groupDuration} ${t('months')}` },
+    { label: t('status'), value: t(group.groupStatus.toLowerCase()) },
+    { label: t('wonMonths'), value: group.wonMonth ? `${t('month')} ${group.wonMonth}` : '-' },
+    { label: t('totalWon'), value: group.wonAmount ? fmtCurrency(group.wonAmount) : '-' },
   ], y, 3);
 
   // ── Stat boxes ──
   y = drawStatBoxes(doc, [
-    { label: t('totalOwed', lang), value: fmtCurrency(group.totalOwed), color: COLORS.text },
-    { label: t('totalPaid', lang), value: fmtCurrency(group.totalPaid), color: COLORS.success },
+    { label: t('totalOwed'), value: fmtCurrency(group.totalOwed), color: COLORS.text },
+    { label: t('totalPaid'), value: fmtCurrency(group.totalPaid), color: COLORS.success },
     {
-      label: group.totalBalance > 0 ? t('balanceDue', lang) : t('settled', lang),
+      label: group.totalBalance > 0 ? t('balanceDue') : t('settled'),
       value: fmtCurrency(Math.abs(group.totalBalance)),
       color: group.totalBalance > 0 ? COLORS.danger : COLORS.success,
     },
@@ -100,19 +99,19 @@ function renderGroupSection(
     }
 
     const head = [[
-      t('month', lang),
-      t('amountDue', lang),
-      t('amountPaid', lang),
-      t('balance', lang),
-      t('status', lang),
+      t('month'),
+      t('amountDue'),
+      t('amountPaid'),
+      t('balance'),
+      t('status'),
     ]];
 
     const body = group.months.map((m) => [
-      `${t('month', lang)} ${m.month}${m.wonThisMonth ? ` (${t('won', lang) || 'Won'})` : ''}`,
+      `${t('month')} ${m.month}${m.wonThisMonth ? ` (${t('won') || 'Won'})` : ''}`,
       fmtCurrency(m.amountDue),
       fmtCurrency(m.amountPaid),
       fmtCurrency(m.balance),
-      t(m.status.toLowerCase(), lang),
+      t(m.status.toLowerCase()),
     ]);
 
     y = drawTable(doc, head, body, y, {
@@ -139,58 +138,54 @@ function renderGroupSection(
 
 // ─── Download single group report ───────────────────────────────────────────
 
-export function downloadMemberGroupReport(
+export async function downloadMemberGroupReport(
   data: MemberReportData,
   groupIndex: number,
-  lang: Language,
 ) {
-  const doc = createPdf('portrait');
+  const doc = await createPdf('portrait');
   const group = data.groups[groupIndex];
   if (!group) return;
 
   let y = drawHeader(
     doc,
     `${data.memberName} - ${group.groupName}`,
-    `${t('ticketShort', lang)}${group.ticketNumber} - ${t('member', lang)} ${t('payment', lang)}`,
-    lang,
+    `${t('ticketShort')}${group.ticketNumber} - ${t('member')} ${t('payment')}`,
   );
 
   // Member info
-  y = drawSectionTitle(doc, t('memberInfo', lang), y + 2);
+  y = drawSectionTitle(doc, t('memberInfo'), y + 2);
   y = drawInfoGrid(doc, [
-    { label: t('memberName', lang), value: data.memberName },
-    { label: t('nickname', lang), value: data.memberNickname || '-' },
-    { label: t('mobile', lang), value: data.memberMobile || '-' },
+    { label: t('memberName'), value: data.memberName },
+    { label: t('nickname'), value: data.memberNickname || '-' },
+    { label: t('mobile'), value: data.memberMobile || '-' },
   ], y, 3);
 
-  y = renderGroupSection(doc, group, data.memberName, lang, y);
+  y = renderGroupSection(doc, group, data.memberName, y);
 
-  drawFooter(doc, lang);
+  drawFooter(doc);
   savePdf(doc, `BidNest_Member_${data.memberName}_${group.groupName}`);
 }
 
 // ─── Download all groups combined ───────────────────────────────────────────
 
-export function downloadMemberAllGroupsReport(
+export async function downloadMemberAllGroupsReport(
   data: MemberReportData,
-  lang: Language,
 ) {
-  const doc = createPdf('portrait');
+  const doc = await createPdf('portrait');
 
   let y = drawHeader(
     doc,
     data.memberName,
-    `${t('allGroupsCombined', lang)} - ${data.groups.length} ${t('groups', lang)}`,
-    lang,
+    `${t('allGroupsCombined')} - ${data.groups.length} ${t('groups')}`,
   );
 
   // Member info
-  y = drawSectionTitle(doc, t('memberInfo', lang), y + 2);
+  y = drawSectionTitle(doc, t('memberInfo'), y + 2);
   y = drawInfoGrid(doc, [
-    { label: t('memberName', lang), value: data.memberName },
-    { label: t('nickname', lang), value: data.memberNickname || '-' },
-    { label: t('mobile', lang), value: data.memberMobile || '-' },
-    { label: t('status', lang), value: data.memberIsActive ? t('active', lang) : t('inactive', lang) },
+    { label: t('memberName'), value: data.memberName },
+    { label: t('nickname'), value: data.memberNickname || '-' },
+    { label: t('mobile'), value: data.memberMobile || '-' },
+    { label: t('status'), value: data.memberIsActive ? t('active') : t('inactive') },
   ], y, 4);
 
   // Grand summary
@@ -200,61 +195,59 @@ export function downloadMemberAllGroupsReport(
   const totalWon = data.groups.reduce((s, g) => s + g.wonAmount, 0);
 
   y = drawStatBoxes(doc, [
-    { label: t('totalTickets', lang), value: String(data.groups.length), color: COLORS.primary },
-    { label: t('totalOwed', lang), value: fmtCurrency(grandOwed), color: COLORS.text },
-    { label: t('totalPaid', lang), value: fmtCurrency(grandPaid), color: COLORS.success },
-    { label: grandBalance > 0 ? t('balanceDue', lang) : t('settled', lang), value: fmtCurrency(Math.abs(grandBalance)), color: grandBalance > 0 ? COLORS.danger : COLORS.success },
+    { label: t('totalTickets'), value: String(data.groups.length), color: COLORS.primary },
+    { label: t('totalOwed'), value: fmtCurrency(grandOwed), color: COLORS.text },
+    { label: t('totalPaid'), value: fmtCurrency(grandPaid), color: COLORS.success },
+    { label: grandBalance > 0 ? t('balanceDue') : t('settled'), value: fmtCurrency(Math.abs(grandBalance)), color: grandBalance > 0 ? COLORS.danger : COLORS.success },
   ], y);
 
   if (totalWon > 0) {
     y = drawStatBoxes(doc, [
-      { label: t('totalWon', lang), value: fmtCurrency(totalWon), color: COLORS.warning },
-      { label: t('groupsWon', lang), value: `${data.groups.filter(g => g.wonMonth).length} / ${data.groups.length}`, color: COLORS.warning },
+      { label: t('totalWon'), value: fmtCurrency(totalWon), color: COLORS.warning },
+      { label: t('groupsWon'), value: `${data.groups.filter(g => g.wonMonth).length} / ${data.groups.length}`, color: COLORS.warning },
     ], y);
   }
 
   // Each group
   for (const group of data.groups) {
-    y = renderGroupSection(doc, group, data.memberName, lang, y);
+    y = renderGroupSection(doc, group, data.memberName, y);
   }
 
-  drawFooter(doc, lang);
+  drawFooter(doc);
   savePdf(doc, `BidNest_Member_${data.memberName}_AllGroups`);
 }
 
 // ─── Download each group as separate pages ──────────────────────────────────
 
-export function downloadMemberEachGroupReport(
+export async function downloadMemberEachGroupReport(
   data: MemberReportData,
-  lang: Language,
 ) {
-  const doc = createPdf('portrait');
+  const doc = await createPdf('portrait');
 
-  data.groups.forEach((group, idx) => {
+  for (const [idx, group] of data.groups.entries()) {
     if (idx > 0) doc.addPage();
 
     let y = drawHeader(
       doc,
       `${data.memberName} - ${group.groupName}`,
-      `${t('ticketShort', lang)}${group.ticketNumber} - ${idx + 1} ${t('of', lang)} ${data.groups.length}`,
-      lang,
+      `${t('ticketShort')}${group.ticketNumber} - ${idx + 1} ${t('of')} ${data.groups.length}`,
     );
 
     // Member info on first page only
     if (idx === 0) {
-      y = drawSectionTitle(doc, t('memberInfo', lang), y + 2);
+      y = drawSectionTitle(doc, t('memberInfo'), y + 2);
       y = drawInfoGrid(doc, [
-        { label: t('memberName', lang), value: data.memberName },
-        { label: t('nickname', lang), value: data.memberNickname || '-' },
-        { label: t('mobile', lang), value: data.memberMobile || '-' },
+        { label: t('memberName'), value: data.memberName },
+        { label: t('nickname'), value: data.memberNickname || '-' },
+        { label: t('mobile'), value: data.memberMobile || '-' },
       ], y, 3);
     } else {
       y += 2;
     }
 
-    y = renderGroupSection(doc, group, data.memberName, lang, y);
-  });
+    y = renderGroupSection(doc, group, data.memberName, y);
+  }
 
-  drawFooter(doc, lang);
+  drawFooter(doc);
   savePdf(doc, `BidNest_Member_${data.memberName}_EachGroup`);
 }

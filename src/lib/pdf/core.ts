@@ -1,11 +1,11 @@
-// src/lib/pdf/core.ts
-// ─── Core PDF utilities: theming, header, footer, helpers ───────────────────
+﻿// src/lib/pdf/core.ts
+// â”€â”€â”€ Core PDF utilities: theming, header, footer, helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Light-mode palette matching the BidNest site design system
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { translations, type Language } from '@/lib/i18n/translations';
+import { translations } from '@/lib/i18n/translations';
 
-// ─── Colour palette (light mode — mirrors site CSS variables) ───────────────
+// â”€â”€â”€ Colour palette (light mode â€” mirrors site CSS variables) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const COLORS = {
   // Accent / brand
@@ -40,13 +40,13 @@ export const COLORS = {
   danger:       [239, 68, 68] as [number, number, number],   // #ef4444
 };
 
-// ─── Translation helper ─────────────────────────────────────────────────────
+// â”€â”€â”€ Translation helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export function t(key: string, lang: Language): string {
-  return (translations[lang] as Record<string, string>)[key] ?? key;
+export function t(key: string): string {
+  return (translations['en'] as Record<string, string>)[key] ?? key;
 }
 
-// ─── Currency formatter ──────────────────────────────────────────────────────
+// â”€â”€â”€ Currency formatter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Returns "Rs. X,XX,XXX" using en-IN grouping.
 // Avoids using the "₹" symbol which fails in standard PDF fonts.
 
@@ -58,11 +58,11 @@ export function fmtCurrency(amount: number): string {
   }).format(amount);
 
   // Clean any non-standard spacers (narrow no-break space, RTL marks, etc.)
-  // that Intl.NumberFormat injects and that confuse jsPDF's Helvetica encoding.
+  // that Intl.NumberFormat injects and that confuse jsPDF's Roboto encoding.
   const clean = formatted.replace(/[\u2000-\u200F\u202F\u00A0]/g, '');
 
   // Use "Rs." — the ₹ Unicode glyph is not present in jsPDF's built-in
-  // Helvetica font and causes every subsequent character to render garbled.
+  // Roboto font and causes every subsequent character to render garbled.
   return `Rs.${clean}`;
 }
 
@@ -78,15 +78,52 @@ export function fmtDate(dateStr: string): string {
   return formatted.replace(/[\u2000-\u200F\u202F\u00A0]/g, ' ');
 }
 
-// ─── Create document ────────────────────────────────────────────────────────
+// â”€â”€â”€ Font Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export function createPdf(orientation: 'portrait' | 'landscape' = 'portrait'): jsPDF {
+const fontCache: Record<string, string> = {};
+
+async function fetchFontB64(url: string): Promise<string> {
+  if (fontCache[url]) return fontCache[url];
+  const resp = await fetch(url);
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const b64 = (reader.result as string).split(',')[1];
+      fontCache[url] = b64;
+      resolve(b64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// â”€â”€â”€ Create document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export async function createPdf(orientation: 'portrait' | 'landscape' = 'portrait'): Promise<jsPDF> {
   const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
-  doc.setFont('helvetica');
+
+  // Load Roboto fonts
+  const [reg, bold, italic] = await Promise.all([
+    fetchFontB64('/Roboto/static/Roboto-Regular.ttf'),
+    fetchFontB64('/Roboto/static/Roboto-Bold.ttf'),
+    fetchFontB64('/Roboto/static/Roboto-Italic.ttf'),
+  ]);
+
+  doc.addFileToVFS('Roboto-Regular.ttf', reg);
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+
+  doc.addFileToVFS('Roboto-Bold.ttf', bold);
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+
+  doc.addFileToVFS('Roboto-Italic.ttf', italic);
+  doc.addFont('Roboto-Italic.ttf', 'Roboto', 'italic');
+
+  doc.setFont('Roboto');
   return doc;
 }
 
-// ─── Page dimension helpers ──────────────────────────────────────────────────
+// â”€â”€â”€ Page dimension helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function pageW(doc: jsPDF): number { return doc.internal.pageSize.getWidth(); }
 export function pageH(doc: jsPDF): number { return doc.internal.pageSize.getHeight(); }
@@ -99,7 +136,6 @@ export function drawHeader(
   doc: jsPDF,
   title: string,
   subtitle: string,
-  lang: Language,
 ): number {
   const w = pageW(doc);
   const hH = 26; // header band height
@@ -118,24 +154,24 @@ export function drawHeader(
   // Brand name (top-left, past accent bar)
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text('BidNest', 10, 7);
 
   // Title (left-aligned, white)
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text(title, 10, 18);
 
   // Subtitle right-aligned
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('Roboto', 'normal');
   doc.setTextColor(148, 163, 184); // muted-ish on dark
   doc.text(subtitle, w - 10, 12, { align: 'right' });
 
   // Generation date
   const now = fmtDate(new Date().toISOString());
-  doc.text(`${t('date', lang)}: ${now}`, w - 10, 20, { align: 'right' });
+  doc.text(`${t('date')}: ${now}`, w - 10, 20, { align: 'right' });
 
   return hH + 6; // start y after header
 }
@@ -173,12 +209,12 @@ export function drawInfoBand(
     }
 
     doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('Roboto', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text(item.label, x, y + 5.5);
 
     doc.setFontSize(8.5);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.setTextColor(...COLORS.text);
     doc.text(item.value, x, y + 11.5);
   });
@@ -188,7 +224,7 @@ export function drawInfoBand(
 
 // ─── Footer ─────────────────────────────────────────────────────────────────
 
-export function drawFooter(doc: jsPDF, lang: Language): void {
+export function drawFooter(doc: jsPDF): void {
   const pages = doc.getNumberOfPages();
   const w = pageW(doc);
   const h = pageH(doc);
@@ -201,11 +237,11 @@ export function drawFooter(doc: jsPDF, lang: Language): void {
     doc.rect(0, h - 14, w, 0.5, 'F');
 
     doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('Roboto', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text('BidNest - Chit Fund Management', 14, h - 9);
     doc.text(
-      `${lang === 'ta' ? 'பக்கம்' : 'Page'} ${i} / ${pages}`,
+      `Page ${i} / ${pages}`,
       w - 14,
       h - 9,
       { align: 'right' },
@@ -213,11 +249,11 @@ export function drawFooter(doc: jsPDF, lang: Language): void {
   }
 }
 
-// ─── Section title ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Section title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function drawSectionTitle(doc: jsPDF, title: string, y: number): number {
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.setTextColor(...COLORS.text);
   doc.text(title, 14, y);
 
@@ -246,12 +282,12 @@ export function drawInfoGrid(
     if (col === 0 && i > 0) y += 13;
 
     doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('Roboto', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text(item.label, x, y);
 
     doc.setFontSize(9.5);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.setTextColor(...COLORS.text);
     doc.text(item.value, x, y + 5.5);
   });
@@ -259,7 +295,7 @@ export function drawInfoGrid(
   return y + 14;
 }
 
-// ─── Styled autoTable wrapper ───────────────────────────────────────────────
+// â”€â”€â”€ Styled autoTable wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function drawTable(
   doc: jsPDF,
@@ -279,7 +315,7 @@ export function drawTable(
       textColor: COLORS.text,
       lineColor: COLORS.border,
       lineWidth: 0.2,
-      font: 'helvetica',
+      font: 'Roboto',
     },
     headStyles: {
       fillColor: COLORS.tableHead,
@@ -325,13 +361,13 @@ export function drawStatBoxes(
 
     // Label
     doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('Roboto', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text(stat.label, x + 4, y + 7);
 
     // Value
     doc.setFontSize(10.5);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.setTextColor(...(stat.color ?? COLORS.text));
     doc.text(stat.value, x + 4, y + 14.5);
   });
@@ -339,18 +375,18 @@ export function drawStatBoxes(
   return y + boxH + 5;
 }
 
-// ─── Calculation ledger ──────────────────────────────────────────────────────
+// â”€â”€â”€ Calculation ledger â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Renders a step-by-step calculation block. Each row has a label and a value;
 // result rows are underlined; separator rows draw a rule.
 // 
 // Row types:
-//   normal   – plain label + value
-//   add      – prefixes value with "+"
-//   sub      – prefixes value with "−"
-//   div      – prefixes value with "÷"
-//   result   – draw line above, bold value
-//   note     – small italic note spanning full width
-//   spacer   – empty gap row
+//   normal   â€“ plain label + value
+//   add      â€“ prefixes value with "+"
+//   sub      â€“ prefixes value with "âˆ’"
+//   div      â€“ prefixes value with "Ã·"
+//   result   â€“ draw line above, bold value
+//   note     â€“ small italic note spanning full width
+//   spacer   â€“ empty gap row
 
 export type LedgerRowType = 'normal' | 'add' | 'sub' | 'div' | 'result' | 'eq' | 'note' | 'spacer';
 
@@ -369,75 +405,80 @@ export function drawCalcLedger(
 ): number {
   const margin = 14;
   const cw = contentW(doc);
-  const valueX = margin + cw; // right edge
-  const labelX = margin;
-  const ROW_H = 6;
+  const marginX    = margin;       // labels start here
+  const valueX     = margin + cw;  // right edge for entries
+  const ROW_H  = 7;
   const SPACER_H = 3;
 
-  // ── Section title ──
+  // â”€â”€ Section title â”€â”€
   y = drawSectionTitle(doc, sectionTitle, y);
-
-  // ── Background card ──
-  const startCardY = y - 2;
-  // We'll draw the card frame after we know total height — skip for now
-  // and just draw rows.
 
   rows.forEach((row) => {
     if (row.type === 'spacer') { y += SPACER_H; return; }
 
     if (row.type === 'note') {
       doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
+      doc.setFont('Roboto', 'italic');
       doc.setTextColor(...COLORS.muted);
-      doc.text(row.label, labelX + 4, y);
+      doc.text(row.label, marginX, y);
       y += ROW_H;
       return;
     }
 
-    if (row.type === 'result' || row.type === 'eq') {
-      // Thin separator line
-      doc.setDrawColor(...COLORS.border);
-      doc.setLineWidth(0.4);
-      doc.line(labelX, y - 1.5, valueX, y - 1.5);
-      y += 1;
-    }
-
     const isResult = row.type === 'result' || row.type === 'eq';
 
-    // Label
-    doc.setFontSize(isResult ? 8.5 : 8);
-    doc.setFont('helvetica', isResult ? 'bold' : 'normal');
-    doc.setTextColor(...(row.color ?? (isResult ? COLORS.text : COLORS.secondary)));
-
-    let prefix = '';
-    if (row.type === 'add') prefix = '+ ';
-    else if (row.type === 'sub') prefix = '- ';
-    else if (row.type === 'div') prefix = '/ ';
-    else if (isResult) prefix = '= ';
-
-    if (row.value !== undefined) {
-      doc.text(prefix + row.label, labelX + 4, y);
-
-      // Value right-aligned
-      doc.setFont('helvetica', isResult ? 'bold' : 'normal');
-      doc.text(row.value, valueX - 4, y, { align: 'right' });
-    } else {
-      // Label-only row (spans full width, centred for dividers etc.)
-      doc.text(prefix + row.label, labelX + 4, y);
+    if (isResult) {
+      // Draw separator line FIRST, then add gap, THEN draw text
+      doc.setDrawColor(...COLORS.border);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, valueX, y); // line at current y (after previous row)
+      y += 5; // gap between line and result text
     }
+
+    // Prefix symbol — now moved to the right side value
+    let symbol = '';
+    if (row.type === 'add') symbol = '+';
+    else if (row.type === 'sub') symbol = '-';
+    else if (row.type === 'div') symbol = '÷';
+    else if (isResult) symbol = '=';
+
+    const symbolColor: [number, number, number] =
+      row.type === 'add' ? COLORS.success :
+      row.type === 'sub' ? COLORS.danger :
+      row.type === 'div' ? COLORS.accent :
+      isResult ? COLORS.secondary :
+      COLORS.muted;
+
+    // Value â€” right-aligned, formatted with symbol
+    if (row.value !== undefined) {
+      const displayValue = symbol ? `${symbol} ${row.value}` : row.value;
+      const valColor = row.color ?? (symbolColor !== COLORS.muted ? symbolColor : (isResult ? COLORS.text : COLORS.secondary));
+
+      doc.setFontSize(isResult ? 8.5 : 8);
+      doc.setFont('Roboto', isResult ? 'bold' : 'normal');
+      doc.setTextColor(...valColor);
+      doc.text(displayValue, valueX - 4, y, { align: 'right' });
+    }
+
+    // Label text â€” starts from marginX
+    doc.setFontSize(isResult ? 8.5 : 8);
+    doc.setFont('Roboto', isResult ? 'bold' : 'normal');
+    doc.setTextColor(...(row.color ?? (isResult ? COLORS.text : COLORS.secondary)));
+    doc.text(row.label, marginX, y);
 
     y += ROW_H;
   });
 
-  // Light border around the whole block
+  // Section-end rule â€” drawn below the last row with a clear gap
+  y += 3;
   doc.setDrawColor(...COLORS.border);
   doc.setLineWidth(0.3);
-  doc.rect(margin, startCardY, cw, y - startCardY + 2, 'S');
+  doc.line(margin, y, valueX, y);
 
-  return y + 6;
+  return y + 8;
 }
 
-// ─── Winner highlight banner ─────────────────────────────────────────────────
+// â”€â”€â”€ Winner highlight banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Draws a prominent banner showing winner name and payout.
 
 export function drawWinnerBanner(
@@ -466,29 +507,31 @@ export function drawWinnerBanner(
 
   // Winner label + name
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('Roboto', 'normal');
   doc.setTextColor(...COLORS.secondary);
   doc.text(winnerLabel, margin + 8, y + 7);
 
+  // Measure name width BEFORE changing font size
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.setTextColor(...COLORS.text);
   doc.text(winnerName, margin + 8, y + 15);
+  const nameWidth = doc.getTextWidth(winnerName); // measured at 12pt bold
 
-  // Ticket badge
+  // Ticket badge — drawn after name with correct offset
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.setTextColor(...COLORS.primary);
-  doc.text(ticketStr, margin + 8 + doc.getTextWidth(winnerName) + 3, y + 15);
+  doc.text(ticketStr, margin + 8 + nameWidth + 3, y + 15);
 
   // Payout right-aligned
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('Roboto', 'normal');
   doc.setTextColor(...COLORS.secondary);
   doc.text(payoutLabel, w - margin - 4, y + 7, { align: 'right' });
 
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.setTextColor(...COLORS.success);
   doc.text(payoutValue, w - margin - 4, y + 16, { align: 'right' });
 
@@ -530,7 +573,7 @@ export function drawTicketCards(
     doc.rect(x, currY, 1.2, cardH, 'F');
 
     // Text details
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(...COLORS.text);
     // Truncate name if too long for card
@@ -538,7 +581,7 @@ export function drawTicketCards(
     const displayName = ticketPrefix + m.name;
     doc.text(displayName, x + 3, currY + 4.5, { maxWidth: cardW - 4 });
 
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('Roboto', 'normal');
     doc.setFontSize(5.5);
     doc.setTextColor(...COLORS.secondary);
     doc.text(m.mobile || '-', x + 3, currY + 9);

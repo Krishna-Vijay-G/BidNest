@@ -4,7 +4,7 @@
 //   • Group overview (page 1)
 //   • Auction details per month
 //   • Member payment tracking per month
-import type { Language } from '@/lib/i18n/translations';
+import { jsPDF } from 'jspdf';
 import {
   createPdf,
   drawHeader,
@@ -70,8 +70,8 @@ export interface GroupReportData {
 
 // ─── Generate & download ────────────────────────────────────────────────────
 
-export function downloadGroupReport(data: GroupReportData, lang: Language) {
-  const doc = createPdf('portrait');
+export async function downloadGroupReport(data: GroupReportData) {
+  const doc = await createPdf('portrait');
   const bottomMargin = 30;
 
   // ═══════════════ PAGE 1: Overview ═══════════════════════════════════════════
@@ -79,26 +79,25 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
   let y = drawHeader(
     doc,
     data.groupName,
-    `${t('groupDetails', lang)} - ${fmtCurrency(Number(data.totalAmount))}`,
-    lang,
+    `${t('groupDetails')} - ${fmtCurrency(Number(data.totalAmount))}`,
   );
 
   // ── Group Info ──
-  y = drawSectionTitle(doc, t('groupDetails', lang), y + 2);
+  y = drawSectionTitle(doc, t('groupDetails'), y + 2);
   y = drawInfoGrid(doc, [
-    { label: t('groupName', lang), value: data.groupName },
-    { label: t('totalAmount', lang), value: fmtCurrency(Number(data.totalAmount)) },
-    { label: t('totalMembers', lang), value: String(data.totalMembers) },
-    { label: t('duration', lang), value: `${data.durationMonths} ${t('months', lang)}` },
-    { label: t('monthlyAmount', lang), value: fmtCurrency(Number(data.monthlyAmount)) },
+    { label: t('groupName'), value: data.groupName },
+    { label: t('totalAmount'), value: fmtCurrency(Number(data.totalAmount)) },
+    { label: t('totalMembers'), value: String(data.totalMembers) },
+    { label: t('duration'), value: `${data.durationMonths} ${t('months')}` },
+    { label: t('monthlyAmount'), value: fmtCurrency(Number(data.monthlyAmount)) },
     {
-      label: t('commission', lang),
+      label: t('commission'),
       value: data.commissionType === 'PERCENT'
         ? `${data.commissionValue}%`
         : fmtCurrency(Number(data.commissionValue)),
     },
-    { label: t('roundOff', lang), value: String(data.roundOffValue) },
-    { label: t('status', lang), value: t(data.status.toLowerCase(), lang) },
+    { label: t('roundOff'), value: String(data.roundOffValue) },
+    { label: t('status'), value: t(data.status.toLowerCase()) },
   ], y, 4);
 
   // ── Summary Stats ──
@@ -107,15 +106,15 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
   const totalCommission = data.auctions.reduce((s, a) => s + Number(a.commission), 0);
 
   y = drawStatBoxes(doc, [
-    { label: `${t('auctions', lang)} ${t('completed', lang)}`, value: `${data.auctions.length} / ${data.durationMonths}`, color: COLORS.primary },
-    { label: t('totalCollected', lang), value: fmtCurrency(totalCollected), color: COLORS.success },
-    { label: t('totalPayouts', lang), value: fmtCurrency(totalWinnings), color: COLORS.accent },
-    { label: t('commission', lang), value: fmtCurrency(totalCommission), color: COLORS.warning },
+    { label: `${t('auctions')} ${t('completed')}`, value: `${data.auctions.length} / ${data.durationMonths}`, color: COLORS.primary },
+    { label: t('totalCollected'), value: fmtCurrency(totalCollected), color: COLORS.success },
+    { label: t('totalPayouts'), value: fmtCurrency(totalWinnings), color: COLORS.accent },
+    { label: t('commission'), value: fmtCurrency(totalCommission), color: COLORS.warning },
   ], y);
 
   // ── Members list ──
   if (data.members.length > 0) {
-    y = drawSectionTitle(doc, `${t('tickets', lang)} (${data.members.length}/${data.totalMembers})`, y);
+    y = drawSectionTitle(doc, `${t('tickets')} (${data.members.length}/${data.totalMembers})`, y);
     y = drawTicketCards(doc, data.members, y);
   }
 
@@ -128,31 +127,30 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
       y = 20;
     }
 
-    y = drawSectionTitle(doc, `${t('auctions', lang)} - ${t('overview', lang)}`, y);
+    y = drawSectionTitle(doc, `${t('auctions')} - ${t('overview')}`, y);
 
     y = drawTable(
       doc,
       [[
-        t('month', lang),
-        t('winner', lang),
-        t('bidAmount', lang),
-        t('winnerPayout', lang),
-        t('commission', lang),
-        `${t('rawDividend', lang)} (+${t('carryFromPrev', lang)})`,
-        `${t('roundedDividend', lang)} (+Bal.)`,
-        t('eachMemberPays', lang),
-        t('carryToNext', lang),
+        t('month'),
+        t('winner'),
+        t('bidAmount'),
+        t('winnerPayout'),
+        t('commission'),
+        `${t('rawDividend')} (+${t('carryFromPrev')})`,
+        `${t('roundedDividend')} (+Bal.)`,
+        t('eachMemberPays'),
+        t('carryToNext'),
       ]],
       data.auctions.map((a) => {
         const rawDivPlusCarry = `${fmtCurrency(Number(a.rawDividend))} (+${fmtCurrency(Number(a.carryPrevious))})`;
-        // Round-off balance per member (integer), then multiply back for the
-        // carry-forward so the displayed (+X) and Carry Fwd. are consistent.
-        const balancePerMember = Math.round(Number(a.carryNext) / data.totalMembers);
-        const carryFwd = balancePerMember * data.totalMembers;
+        // Use full carry-next amount instead of rounding to integer.
+        const carryFwdTotal = Number(a.carryNext);
+        const balancePerMember = Math.round(carryFwdTotal / data.totalMembers);
         const roundedDivWithBal = `${fmtCurrency(a.dividendPerMember)} (+${balancePerMember})`;
 
         return [
-          `${t('month', lang)} ${a.monthNumber}`,
+          `${t('month')} ${a.monthNumber}`,
           `${a.winnerName} #${a.winnerTicket}`,
           fmtCurrency(Number(a.originalBid)),
           fmtCurrency(Number(a.winningAmount)),
@@ -160,7 +158,7 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
           rawDivPlusCarry,
           roundedDivWithBal,
           fmtCurrency(a.amountToCollect),
-          fmtCurrency(carryFwd),
+          fmtCurrency(carryFwdTotal),
         ];
       }),
       y,
@@ -188,13 +186,13 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
       const monthPayments = data.payments.filter(p => p.monthNumber === monthNum);
       const monthAuction = data.auctions.find(a => a.monthNumber === monthNum);
 
-      y = drawSectionTitle(doc, `${t('month', lang)} ${monthNum}`, y);
+      y = drawSectionTitle(doc, `${t('month')} ${monthNum}`, y);
 
       // Mini auction summary for this month
       if (monthAuction) {
         y = drawInfoGrid(doc, [
-          { label: t('winner', lang), value: `${monthAuction.winnerName} #${monthAuction.winnerTicket}` },
-          { label: t('toCollect', lang), value: fmtCurrency(monthAuction.amountToCollect) },
+          { label: t('winner'), value: `${monthAuction.winnerName} #${monthAuction.winnerTicket}` },
+          { label: t('toCollect'), value: fmtCurrency(monthAuction.amountToCollect) },
         ], y, 2);
       }
 
@@ -205,9 +203,9 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
         const amountDue = monthAuction ? monthAuction.amountToCollect : Number(data.monthlyAmount);
         const balance = Math.max(0, amountDue - totalPaid);
         
-        let status = t('pending', lang);
-        if (totalPaid >= amountDue) status = t('completed', lang);
-        else if (totalPaid > 0) status = t('partial', lang);
+        let status = t('pending');
+        if (totalPaid >= amountDue) status = t('completed');
+        else if (totalPaid > 0) status = t('partial');
 
         return {
           ticketNumber: m.ticketNumber,
@@ -228,12 +226,12 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
       y = drawTable(
         doc,
         [[
-          t('ticket', lang) || 'Ticket',
-          t('member', lang),
-          t('amountDue', lang) || 'Due',
-          t('paid', lang) || 'Paid',
-          t('balance', lang) || 'Balance',
-          t('status', lang),
+          t('ticket') || 'Ticket',
+          t('member'),
+          t('amountDue') || 'Due',
+          t('paid') || 'Paid',
+          t('balance') || 'Balance',
+          t('status'),
         ]],
         aggregatedPayments.map((p) => [
           `#${p.ticketNumber}`,
@@ -290,11 +288,11 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
               // Status column
               if (cellData.column.index === 5) {
                 const statusStr = String(cellData.row.raw[5]).toLowerCase();
-                if (statusStr === t('completed', lang).toLowerCase()) {
+                if (statusStr === t('completed').toLowerCase()) {
                   cellData.cell.styles.textColor = COLORS.success;
-                } else if (statusStr === t('pending', lang).toLowerCase()) {
+                } else if (statusStr === t('pending').toLowerCase()) {
                   cellData.cell.styles.textColor = COLORS.danger;
-                } else if (statusStr === t('partial', lang).toLowerCase()) {
+                } else if (statusStr === t('partial').toLowerCase()) {
                   cellData.cell.styles.textColor = COLORS.warning;
                 }
               }
@@ -306,7 +304,7 @@ export function downloadGroupReport(data: GroupReportData, lang: Language) {
   }
 
   // ── Footer ──
-  drawFooter(doc, lang);
+  drawFooter(doc);
 
   savePdf(doc, `BidNest_Group_${data.groupName}_Report`);
 }

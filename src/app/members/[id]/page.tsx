@@ -30,7 +30,6 @@ import {
   downloadMemberEachGroupReport,
   type MemberReportData,
 } from '@/lib/pdf';
-import type { Language } from '@/lib/i18n/translations';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -208,7 +207,6 @@ export default function MemberDetailPage() {
   const [upiId, setUpiId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [reportLang, setReportLang] = useState<Language>(lang as Language);
 
   // Load active tab from localStorage on mount
   useEffect(() => {
@@ -322,14 +320,14 @@ export default function MemberDetailPage() {
     };
   }
 
-  function handleMemberReport(mode: 'all' | 'each' | number, pdfLang: Language) {
+  async function handleMemberReport(mode: 'all' | 'each' | number) {
     const data = buildMemberReportData();
     if (mode === 'all') {
-      downloadMemberAllGroupsReport(data, pdfLang);
+      await downloadMemberAllGroupsReport(data);
     } else if (mode === 'each') {
-      downloadMemberEachGroupReport(data, pdfLang);
+      await downloadMemberEachGroupReport(data);
     } else {
-      downloadMemberGroupReport(data, mode, pdfLang);
+      await downloadMemberGroupReport(data, mode);
     }
     setShowReportModal(false);
   }
@@ -584,27 +582,6 @@ export default function MemberDetailPage() {
         title={t('downloadReport')}
       >
         <div className="space-y-4">
-          {/* Language Picker */}
-          <div>
-            <label className="block text-sm text-foreground-muted mb-2">{t('selectLanguage')}</label>
-            <div className="flex gap-2">
-              {([['en', t('english')], ['ta', t('tamil')]] as [Language, string][]).map(([code, name]) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setReportLang(code)}
-                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border transition-colors ${
-                    reportLang === code
-                      ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                      : 'border-border bg-surface text-foreground-secondary hover:border-foreground-muted'
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Report Type Options */}
           <div>
             <label className="block text-sm text-foreground-muted mb-2">{t('selectReportType')}</label>
@@ -612,7 +589,7 @@ export default function MemberDetailPage() {
               {/* All combined */}
               <button
                 type="button"
-                onClick={() => handleMemberReport('all', reportLang)}
+                onClick={() => handleMemberReport('all')}
                 className="w-full text-left px-4 py-3 rounded-xl border border-border bg-surface hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-colors group"
               >
                 <div className="flex items-center gap-3">
@@ -628,7 +605,7 @@ export default function MemberDetailPage() {
               {summaries.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => handleMemberReport('each', reportLang)}
+                  onClick={() => handleMemberReport('each')}
                   className="w-full text-left px-4 py-3 rounded-xl border border-border bg-surface hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
@@ -649,7 +626,7 @@ export default function MemberDetailPage() {
                     <button
                       key={s.ticket.id}
                       type="button"
-                      onClick={() => handleMemberReport(i, reportLang)}
+                      onClick={() => handleMemberReport(i)}
                       className="w-full text-left px-4 py-2.5 rounded-xl border border-border bg-surface hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors group"
                     >
                       <div className="flex items-center justify-between">

@@ -10,7 +10,7 @@
 //   6. Section C — Monthly Collection  (Monthly − Dividend = Amount to Pay)
 //   7. Footer
 //
-import type { Language } from '@/lib/i18n/translations';
+import { jsPDF } from 'jspdf';
 import {
   createPdf,
   drawHeader,
@@ -55,15 +55,14 @@ export interface AuctionReportData {
 
 // ─── Generate & download ─────────────────────────────────────────────────────
 
-export function downloadAuctionReport(data: AuctionReportData, lang: Language) {
-  const doc = createPdf('portrait');
+export async function downloadAuctionReport(data: AuctionReportData) {
+  const doc = await createPdf('portrait');
 
   // ── 1. Header ──
   let y = drawHeader(
     doc,
-    `${t('auctions', lang)} . ${t('month', lang)} ${data.monthNumber}`,
+    `${t('auctions')} . ${t('month')} ${data.monthNumber}`,
     data.groupName,
-    lang,
   );
 
   // ── 2. Group info band ──
@@ -73,96 +72,84 @@ export function downloadAuctionReport(data: AuctionReportData, lang: Language) {
       : fmtCurrency(Number(data.commissionValue));
 
   y = drawInfoBand(doc, [
-    { label: t('totalAmount', lang),  value: fmtCurrency(Number(data.groupTotalAmount)) },
-    { label: t('totalMembers', lang), value: `${data.groupMembers}` },
-    { label: t('duration', lang),     value: `${data.groupDuration} ${t('months', lang)}` },
-    { label: t('commission', lang),   value: commissionStr },
-    { label: t('date', lang),         value: fmtDate(data.createdAt) },
+    { label: t('totalAmount'),  value: fmtCurrency(Number(data.groupTotalAmount)) },
+    { label: t('totalMembers'), value: `${data.groupMembers}` },
+    { label: t('duration'),     value: `${data.groupDuration} ${t('months')}` },
+    { label: t('commission'),   value: commissionStr },
+    { label: t('date'),         value: fmtDate(data.createdAt) },
   ], y);
+
+  const bottomMargin = 20;
+  const pageHeight = 287; // A4 height approx
 
   // ── 3. Winner banner ──
   y = drawWinnerBanner(
     doc,
-    t('winner', lang),
+    t('winner'),
     data.winnerName,
     `#${data.winnerTicket}`,
-    t('winnerPayout', lang),
+    t('winnerPayout'),
     fmtCurrency(Number(data.winningAmount)),
     y + 2,
   );
 
   y += 4;
 
+  // Helper to add page if section will overflow
+  const ensureSpace = (needed: number) => {
+    if (y + needed > pageHeight - bottomMargin) {
+      doc.addPage();
+      y = 20;
+    }
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // ── 4. Section A: Winner Payout ─────────────────────────────────────────
-  //
-  //   Total Amount (Chit Pool)    =  ₹X,XX,XXX
-  //   Bid (Winner's sacrifice)    −    ₹X,XXX
-  //   ─────────────────────────────────────────
-  //   Winner Payout               =  ₹X,XX,XXX
-  //
-  const bidSacrifice = Number(data.originalBid);   // total - winningAmount
+  ensureSpace(40);
+  const bidSacrifice = Number(data.originalBid); 
 
-  y = drawCalcLedger(doc, `${t('month', lang)} ${data.monthNumber} - ${t('winnerPayout', lang)}`, [
-    { label: `${t('totalAmount', lang)}  (${t('chitPool', lang) || 'Chit Pool'})`, value: fmtCurrency(Number(data.groupTotalAmount)), type: 'normal' },
-    { label: `${t('originalBid', lang)}  (${t('bidDiscount', lang) || "Winner's Sacrifice"})`, value: fmtCurrency(bidSacrifice), type: 'sub', color: COLORS.danger },
-    { label: t('winnerPayout', lang), value: fmtCurrency(Number(data.winningAmount)), type: 'result', color: COLORS.success },
+  y = drawCalcLedger(doc, `${t('month')} ${data.monthNumber} - ${t('winnerPayout')}`, [
+    { label: `${t('totalAmount')} (Chit Amount)`, value: fmtCurrency(Number(data.groupTotalAmount)), type: 'normal' },
+    { label: `${t('originalBid')}`, value: fmtCurrency(bidSacrifice), type: 'sub', color: COLORS.danger },
+    { label: t('winnerPayout'), value: fmtCurrency(Number(data.winningAmount)), type: 'result', color: COLORS.success },
   ], y);
 
   // ─────────────────────────────────────────────────────────────────────────
   // ── 5. Section B: Dividend Pool ─────────────────────────────────────────
-  //
-  //   Bid Amount                  =    ₹X,XXX
-  //   Commission (rate)           −       ₹XXX
-  //   ─────────────────────────────────────────
-  //   Result                      =    ₹X,XXX
-  //   Carry from Previous Month   +       ₹XXX
-  //   ─────────────────────────────────────────
-  //   Dividend Pool               =    ₹X,XXX
-  //   ÷ Total Members (N)         ÷           N
-  //   ─────────────────────────────────────────
-  //   Raw per-member (before rounding)   ₹XXX.XX
-  //   → Rounded to nearest ₹RR           ₹XXX
-  //   Carry to Next Month (N × diff)  =  ₹XXX
-  //
+  ensureSpace(80);
   const bidMinusComm = bidSacrifice - Number(data.commission);
   const rawPerMember = Number(data.rawDividend) / data.groupMembers;
 
   const commRateNote = data.commissionType === 'PERCENT'
-    ? `${data.commissionValue}% ${t('of', lang) || 'of'} ${t('winnerPayout', lang)}`
-    : `${t('fixed', lang) || 'fixed'}`;
+    ? `${data.commissionValue}% of Total Amount`
+    : `fixed`;
 
-  y = drawCalcLedger(doc, t('dividend', lang), [
-    { label: `${t('originalBid', lang)}  (${t('bidAmount', lang) || 'Bid Amount'})`, value: fmtCurrency(bidSacrifice), type: 'normal' },
-    { label: `${t('commission', lang)}  (${commRateNote})`, value: fmtCurrency(Number(data.commission)), type: 'sub', color: COLORS.danger },
-    { label: t('result', lang) || 'Result', value: fmtCurrency(bidMinusComm), type: 'result' },
+  y = drawCalcLedger(doc, t('dividend'), [
+    { label: `${t('originalBid')} (Bid Amount)`, value: fmtCurrency(bidSacrifice), type: 'normal' },
+    { label: `${t('commission')} (${commRateNote})`, value: fmtCurrency(Number(data.commission)), type: 'sub', color: COLORS.danger },
+    { label: 'Result', value: fmtCurrency(bidMinusComm), type: 'result' },
     { label: '', type: 'spacer' },
-    { label: `${t('carryFromPrev', lang)}`, value: fmtCurrency(Number(data.carryPrevious)), type: 'add', color: COLORS.primary },
-    { label: `${t('dividend', lang)}  (${t('totalPool', lang) || 'Dividend Pool'})`, value: fmtCurrency(Number(data.rawDividend)), type: 'result' },
+    { label: `Carry from Previous Month`, value: fmtCurrency(Number(data.carryPrevious)), type: 'add', color: COLORS.primary },
+    { label: `Dividend Pool Total`, value: fmtCurrency(Number(data.rawDividend)), type: 'result' },
     { label: '', type: 'spacer' },
-    { label: `÷ ${t('totalMembers', lang)}`, value: `÷ ${data.groupMembers}`, type: 'div', color: COLORS.accent },
-    { label: `${t('rawPerMember', lang) || 'Raw per Member'}`, value: fmtCurrency(rawPerMember), type: 'result' },
-    { label: `→ ${t('roundoffDividend', lang)}  (${t('perMember', lang)})`, value: fmtCurrency(data.dividendPerMember), type: 'eq', color: COLORS.primary },
+    { label: `Total Members (${data.groupMembers})`, value: String(data.groupMembers), type: 'div', color: COLORS.accent },
+    { label: `Raw per Member`, value: fmtCurrency(rawPerMember), type: 'result' },
+    { label: `Rounded Dividend (Per Member)`, value: fmtCurrency(data.dividendPerMember), type: 'eq', color: COLORS.primary },
     { label: '', type: 'spacer' },
-    { label: `${t('carryNext', lang)}  (${data.groupMembers} × ${t('roundoffBalance', lang) || 'rounding'})`, value: fmtCurrency(Number(data.carryNext)), type: 'normal', color: COLORS.warning },
+    { label: `Carry to Next Month (${data.groupMembers} members x Rs. ${Math.round(Number(data.carryNext) / data.groupMembers)})`, value: fmtCurrency(Number(data.carryNext)), type: 'normal', color: COLORS.warning },
   ], y);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ── 6. Section C: Monthly Collection ────────────────────────────────────
-  //
-  //   Monthly Contribution (Total ÷ Members)   ₹X,XXX
-  //   Dividend per Member                    −    ₹XXX
-  //   ─────────────────────────────────────────────────
-  //   Amount to Pay                          =  ₹X,XXX
-  //
-  y = drawCalcLedger(doc, t('eachMemberPays', lang), [
-    { label: `${t('monthlyAmount', lang)}  (${t('totalAmount', lang)} ÷ ${data.groupMembers})`, value: fmtCurrency(data.monthlyContribution), type: 'normal' },
-    { label: `${t('perMember', lang)}  (${t('dividend', lang)})`, value: fmtCurrency(data.dividendPerMember), type: 'sub', color: COLORS.success },
-    { label: t('eachMemberPays', lang), value: fmtCurrency(data.amountToCollect), type: 'result', color: COLORS.primary },
+  // ── 6. Section C: Monthly Collection Summary ───────────────────────────
+  ensureSpace(1);
+  y = drawCalcLedger(doc, t('monthlyCollectionSummary'), [
+    { label: `${t('monthlyAmount')} (Chit Total / ${data.groupMembers})`, value: fmtCurrency(data.monthlyContribution), type: 'normal' },
+    { label: `Dividend Discount (Subtract Per-Member Dividend)`, value: fmtCurrency(data.dividendPerMember), type: 'sub', color: COLORS.success },
+    { label: `EACH MEMBER HAS TO PAY`, value: fmtCurrency(data.amountToCollect), type: 'result', color: COLORS.primary },
   ], y);
 
   // ── 7. Footer ──
-  drawFooter(doc, lang);
+  drawFooter(doc);
 
   savePdf(doc, `BidNest_Auction_${data.groupName.replace(/\s+/g, '_')}_Month${data.monthNumber}`);
 }
