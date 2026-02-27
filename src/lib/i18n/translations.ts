@@ -44,8 +44,7 @@ export const translations = {
     actions: 'Actions',
     search: 'Search by name, nickname or mobile...',
     noMembers: 'No members found',
-    allStatus: 'All Status',
-    allStatuses: 'All statuses',
+    allStatuses: 'All Statuses',
     addFirstMember: 'Add your first member to get started.',
     deactivate: 'Deactivate',
     saveChanges: 'Save Changes',
@@ -57,7 +56,7 @@ export const translations = {
     editGroup: 'Edit Group',
     groupDetails: 'Group Details',
     totalAmount: 'Total Amount',
-    totalMembersLabel: 'Total Members',
+
     duration: 'Duration (months)',
     monthlyAmount: 'Monthly Amount',
     commissionType: 'Commission Type',
@@ -72,7 +71,6 @@ export const translations = {
     viewManage: 'View & Manage',
     allGroups: 'All Groups',
     allGroupsCombined: 'All Groups Combined',
-    allGroupsCombinedSubtitle: 'All groups combined',
     allGroupsParentheses: '(All Groups)',
     selectGroup: 'Select a group...',
 
@@ -131,10 +129,7 @@ export const translations = {
     ticketShort: 'Ticket #',
 
     // Statuses
-    statusActive: 'Active',
-    statusPending: 'Pending',
-    statusCompleted: 'Completed',
-    statusCancelled: 'Cancelled',
+    cancelled: 'Cancelled',
 
     // Profile
     editProfile: 'Edit Profile',
@@ -157,7 +152,6 @@ export const translations = {
     amountDue: 'Amount Due',
     balance: 'Balance',
     settled: 'Settled',
-    fullySettled: 'Settled',
     notInAnyGroup: 'Not assigned to any chit group yet.',
 
     // Common
@@ -282,7 +276,6 @@ export const translations = {
     actions: 'செயல்கள்',
     search: 'பெயர் அல்லது மொபைல் மூலம் தேடு...',
     noMembers: 'உறுப்பினர்கள் இல்லை',
-    allStatus: 'அனைத்து நிலைகள்',
     allStatuses: 'அனைத்து நிலைகள்',
     addFirstMember: 'தொடங்க முதல் உறுப்பினரை சேர்க்கவும்.',
     deactivate: 'செயலிழக்கச் செய்',
@@ -295,7 +288,7 @@ export const translations = {
     editGroup: 'குழு திருத்து',
     groupDetails: 'குழு விவரம்',
     totalAmount: 'மொத்த தொகை',
-    totalMembersLabel: 'மொத்த உறுப்பினர்கள்',
+
     duration: 'கால அளவு (மாதங்கள்)',
     monthlyAmount: 'மாதாந்திர தொகை',
     commissionType: 'கமிஷன் வகை',
@@ -310,7 +303,6 @@ export const translations = {
     viewManage: 'நிர்வகிக்கவும்',
     allGroups: 'அனைத்து சீட்டு குழுக்கள்',
     allGroupsCombined: 'அனைத்து சீட்டு குழுக்களும் ஒருங்கிணைக்கப்பட்டது',
-    allGroupsCombinedSubtitle: 'அனைத்து குழுக்களும் ஒருங்கிணைக்கப்பட்டது',
     allGroupsParentheses: '(அனைத்து குழுக்கள்)',
     selectGroup: 'ஒரு குழுவை தேர்ந்தெடுக்கவும்...',
 
@@ -369,10 +361,7 @@ export const translations = {
     ticketShort: 'டிக்கெட் #',
 
     // Statuses
-    statusActive: 'செயலில்',
-    statusPending: 'நிலுவை',
-    statusCompleted: 'முடிந்தது',
-    statusCancelled: 'ரத்து',
+    cancelled: 'ரத்து',
 
     // Profile
     editProfile: 'சுயவிவரம் திருத்து',
@@ -395,7 +384,6 @@ export const translations = {
     amountDue: 'வேண்டிய தொகை',
     balance: 'நிலுவை',
     settled: 'தீர்வு',
-    fullySettled: 'முடிந்தது',
     notInAnyGroup: 'இன்னும் எந்த சீட்டு குழுவிலும் சேர்க்கப்படவில்லை.',
 
     // Common

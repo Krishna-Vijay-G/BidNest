@@ -63,8 +63,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 border-b border-border"
-      style={{ background: 'var(--header-bg)', backdropFilter: 'blur(12px)' }}
+      className="header-glass sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 border-b border-border"
     >
       {/* Title */}
       <div className="min-w-0 mr-4">

@@ -16,6 +16,7 @@ import {
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 interface ChitGroup {
   id: string;
@@ -31,14 +32,6 @@ interface ChitGroup {
   created_at: string;
   auction_start_date: string | null;
   auction_schedule: { month_number: number; auction_date: string | null; auction_id: string | null }[] | null;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function GroupsPage() {
@@ -131,11 +124,11 @@ export default function GroupsPage() {
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             options={[
-              { value: 'all', label: t('allStatus') },
-              { value: 'ACTIVE', label: t('statusActive') },
-              { value: 'PENDING', label: t('statusPending') },
-              { value: 'COMPLETED', label: t('statusCompleted') },
-              { value: 'CANCELLED', label: t('statusCancelled') },
+              { value: 'all', label: t('allStatuses') },
+              { value: 'ACTIVE', label: t('active') },
+              { value: 'PENDING', label: t('pending') },
+              { value: 'COMPLETED', label: t('completed') },
+              { value: 'CANCELLED', label: t('cancelled') },
             ]}
           />
         </div>
@@ -163,7 +156,7 @@ export default function GroupsPage() {
                         {group.total_members} {t('members')} · {group.duration_months} {t('month')}
                       </p>
                     </div>
-                    <StatusBadge status={group.status} label={t((`status${group.status[0] + group.status.slice(1).toLowerCase()}`) as any)} />
+                    <StatusBadge status={group.status} />
                 </div>
 
                 {/* Progress */}
@@ -402,7 +395,7 @@ function GroupFormModal({
                 required
               />
               <Input
-                label={t('totalMembersLabel')}
+                label={t('totalMembers')}
                 type="number"
                 value={totalMembers}
                 onChange={(e) => setTotalMembers(e.target.value)}
@@ -475,10 +468,10 @@ function GroupFormModal({
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               options={[
-                { value: 'ACTIVE', label: t('statusActive') },
-                { value: 'PENDING', label: t('statusPending') },
-                { value: 'COMPLETED', label: t('statusCompleted') },
-                { value: 'CANCELLED', label: t('statusCancelled') },
+                { value: 'ACTIVE', label: t('active') },
+                { value: 'PENDING', label: t('pending') },
+                { value: 'COMPLETED', label: t('completed') },
+                { value: 'CANCELLED', label: t('cancelled') },
               ]}
             />
           )}

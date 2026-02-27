@@ -13,6 +13,7 @@ import {
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -87,14 +88,6 @@ interface AggregatedRow {
     isWinner: boolean;
   }[];
   status: 'CLEAR' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 // ─── Main Page ────────────────────────────────────────────
@@ -375,10 +368,10 @@ export default function PaymentTrackingPage() {
               value={groupStatusFilter}
               onChange={(e) => setGroupStatusFilter(e.target.value)}
               options={[
-                { value: 'ACTIVE', label: t('statusActive') },
-                { value: 'PENDING', label: t('statusPending') },
-                { value: 'COMPLETED', label: t('statusCompleted') },
-                { value: 'CANCELLED', label: t('statusCancelled') },
+                { value: 'ACTIVE', label: t('active') },
+                { value: 'PENDING', label: t('pending') },
+                { value: 'COMPLETED', label: t('completed') },
+                { value: 'CANCELLED', label: t('cancelled') },
                 { value: 'ALL', label: t('allStatuses') },
               ]}
             />

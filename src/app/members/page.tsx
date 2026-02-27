@@ -16,6 +16,7 @@ import {
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 interface Member {
   id: string;
@@ -25,14 +26,6 @@ interface Member {
   upi_ids: { value: string; added_at: string; is_active: boolean }[];
   is_active: boolean;
   created_at: string;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function MembersPage() {

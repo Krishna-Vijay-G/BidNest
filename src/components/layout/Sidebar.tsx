@@ -29,9 +29,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 border-r border-border z-40"
-        style={{ background: 'var(--sidebar-bg)', backdropFilter: 'blur(20px)' }}
-      >
+      <aside className="sidebar-glass hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 border-r border-border z-40">
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-linear-to-br from-cyan-400 to-purple-500 shadow-lg shadow-cyan-500/20">
@@ -72,8 +70,7 @@ export function Sidebar() {
 
       {/* Mobile Bottom Nav */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border flex items-center justify-around px-1 py-1.5"
-        style={{ background: 'var(--sidebar-bg)', backdropFilter: 'blur(20px)' }}
+        className="sidebar-glass lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border flex items-center justify-around px-1 py-1.5"
       >
         {navItems.map((item) => {
           const isActive = item.exact

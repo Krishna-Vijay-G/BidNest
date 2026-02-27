@@ -14,6 +14,7 @@ import {
   HiOutlineTrophy,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 interface DashboardStats {
   totalGroups: number;
@@ -54,14 +55,6 @@ interface RecentGroup {
   total_members: number;
   status: string;
   created_at: string;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function DashboardPage() {
@@ -186,10 +179,7 @@ export default function DashboardPage() {
                         {formatCurrency(Number(group.total_amount))} · {group.total_members} {t('members')}
                       </p>
                     </div>
-                    <StatusBadge
-                      status={group.status}
-                      label={t((`status${group.status[0] + group.status.slice(1).toLowerCase()}`) as any)}
-                    />
+                    <StatusBadge status={group.status} />
                   </div>
                 ))}
               </div>
@@ -269,10 +259,7 @@ export default function DashboardPage() {
                         {formatCurrency(Number(payment.amount_paid))}
                       </td>
                       <td>
-                        <StatusBadge
-                          status={payment.status}
-                          label={t((payment.status).toLowerCase() as any)}
-                        />
+                        <StatusBadge status={payment.status} />
                       </td>
                     </tr>
                   ))}

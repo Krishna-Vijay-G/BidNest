@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, PageLoader, EmptyState, Select,MemberStatusBadge, AggregatedStatusBadge  } from '@/components/ui';
+import { Card, PageLoader, EmptyState, Select, MemberStatusBadge, AggregatedStatusBadge, SummaryCard } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/Badge';
 import Link from 'next/link';
 import {
@@ -18,6 +18,7 @@ import {
   HiOutlinePencilSquare,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency as fmt, pct } from '@/utils/format';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -62,21 +63,6 @@ interface Payment {
   };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function fmt(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function pct(part: number, total: number) {
-  if (!total) return '0%';
-  return `${Math.round((part / total) * 100)}%`;
-}
-
 // ─── Per-group stats ─────────────────────────────────────────────────────────
 
 interface GroupStats {
@@ -110,33 +96,6 @@ function buildGroupStats(
   });
 }
 
-// ─── Summary Card ────────────────────────────────────────────────────────────
-
-function SummaryCard({
-  label,
-  value,
-  sub,
-  icon,
-  color,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ReactNode;
-  color: string;
-}) {
-  return (
-    <div className="glass rounded-2xl border border-border p-5 flex items-start gap-4">
-      <div className={`p-2.5 rounded-xl shrink-0 ${color}`}>{icon}</div>
-      <div className="min-w-0">
-        <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">{label}</p>
-        <p className="text-2xl font-bold text-foreground truncate">{value}</p>
-        {sub && <p className="text-xs text-foreground-muted mt-0.5">{sub}</p>}
-      </div>
-    </div>
-  );
-}
-
 // ─── Group Finance Card ───────────────────────────────────────────────────────
 
 function GroupFinanceCard({ stats }: { stats: GroupStats }) {
@@ -160,7 +119,7 @@ function GroupFinanceCard({ stats }: { stats: GroupStats }) {
             </p>
           </div>
         </div>
-        <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
+        <StatusBadge status={group.status} />
       </div>
 
       {/* Stats grid */}
@@ -351,7 +310,7 @@ export default function PaymentsPage() {
     <>
       <Header
         title={t('payments')}
-        subtitle={filterGroup === 'all' ? t('allGroupsCombinedSubtitle') : selectedStats?.group.name}
+        subtitle={filterGroup === 'all' ? t('allGroupsCombined') : selectedStats?.group.name}
       />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -365,10 +324,10 @@ export default function PaymentsPage() {
               onChange={(e) => setAndPersistStatusFilter(e.target.value)}
               options={[
                 { value: 'ALL', label: t('allStatuses') },
-                { value: 'ACTIVE', label: t('statusActive') },
-                { value: 'PENDING', label: t('statusPending') },
-                { value: 'COMPLETED', label: t('statusCompleted') },
-                { value: 'CANCELLED', label: t('statusCancelled') },
+                { value: 'ACTIVE', label: t('active') },
+                { value: 'PENDING', label: t('pending') },
+                { value: 'COMPLETED', label: t('completed') },
+                { value: 'CANCELLED', label: t('cancelled') },
               ]}
             />
           </div>
@@ -670,13 +629,4 @@ export default function PaymentsPage() {
       </div>
     </>
   );
-}
-
-function formatStatusLabel(status: string, t: (k: any) => string) {
-  if (!status) return '';
-  const lower = status.toLowerCase();
-  const lowerLabel = t(lower as any);
-  if (lowerLabel !== lower) return lowerLabel;
-  const capitalized = status[0] + status.slice(1).toLowerCase();
-  return t((`status${capitalized}`) as any);
 }

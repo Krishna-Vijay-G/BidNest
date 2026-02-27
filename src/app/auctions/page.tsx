@@ -10,6 +10,7 @@ import { HiOutlineTrophy, HiOutlinePlus } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { calculateAuction } from '@/utils/dividend';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 interface ChitGroup {
   id: string;
@@ -55,14 +56,6 @@ interface Auction {
     ticket_number: number;
     member: { name: { value: string } };
   };
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function AuctionsPage() {
@@ -150,10 +143,10 @@ export default function AuctionsPage() {
   // Build a localized label for the "All groups" option depending on status
   const getAllGroupsLabel = (status: string) => {
     if (status === 'all') return t('allGroups');
-    if (status === 'ACTIVE') return `${t('all')} ${t('statusActive')} ${t('groups')}`;
-    if (status === 'PENDING') return `${t('all')} ${t('statusPending')} ${t('groups')}`;
-    if (status === 'COMPLETED') return `${t('all')} ${t('statusCompleted')} ${t('groups')}`;
-    if (status === 'CANCELLED') return `${t('all')} ${t('statusCancelled')} ${t('groups')}`;
+    if (status === 'ACTIVE') return `${t('all')} ${t('active')} ${t('groups')}`;
+    if (status === 'PENDING') return `${t('all')} ${t('pending')} ${t('groups')}`;
+    if (status === 'COMPLETED') return `${t('all')} ${t('completed')} ${t('groups')}`;
+    if (status === 'CANCELLED') return `${t('all')} ${t('cancelled')} ${t('groups')}`;
     return t('allGroups');
   };
 
@@ -192,11 +185,11 @@ export default function AuctionsPage() {
                 updateFilterGroup('all');
               }}
               options={[
-                { value: 'ACTIVE', label: t('statusActive') },
-                { value: 'PENDING', label: t('statusPending') },
-                { value: 'COMPLETED', label: t('statusCompleted') },
-                { value: 'CANCELLED', label: t('statusCancelled') },
-                    { value: 'all', label: t('allStatus') },
+                { value: 'ACTIVE', label: t('active') },
+                { value: 'PENDING', label: t('pending') },
+                { value: 'COMPLETED', label: t('completed') },
+                { value: 'CANCELLED', label: t('cancelled') },
+                    { value: 'all', label: t('allStatuses') },
               ]}
             />
           </div>

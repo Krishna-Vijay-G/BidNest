@@ -20,6 +20,7 @@ import {
   HiOutlinePencil,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency as fmt } from '@/utils/format';
 import toast from 'react-hot-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -108,14 +109,6 @@ interface GroupSummary {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 function buildGroupSummary(
   ticket: ChitMemberTicket,
@@ -316,7 +309,7 @@ export default function MemberDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-3 mb-1">
                 <h2 className="text-2xl font-bold text-foreground">{member.name.value}</h2>
-                <StatusBadge status={member.is_active ? 'ACTIVE' : 'CANCELLED'} label={formatStatusLabel(member.is_active ? 'ACTIVE' : 'CANCELLED', t)} />
+                <StatusBadge status={member.is_active ? 'ACTIVE' : 'CANCELLED'} />
               </div>
               <p className="text-foreground-muted text-sm mb-4">"{member.nickname.value}"</p>
 
@@ -349,7 +342,7 @@ export default function MemberDetailPage() {
             { label: t('totalOwed'), value: fmt(grandTotalOwed), icon: <HiOutlineChartBar className="w-5 h-5" />, color: 'text-foreground', bg: 'bg-surface' },
             { label: t('totalPaid'), value: fmt(grandTotalPaid), icon: <HiOutlineCheckCircle className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
             {
-              label: grandBalance > 0 ? t('balanceDue') : t('fullySettled'),
+              label: grandBalance > 0 ? t('balanceDue') : t('settled'),
               value: fmt(Math.max(0, grandBalance)),
               icon: <HiOutlineExclamationCircle className="w-5 h-5" />,
               color: grandBalance > 0 ? 'text-red-400' : 'text-emerald-400',
@@ -546,7 +539,7 @@ function OverviewGroupCard({
               <Link href={`/groups/${group.id}`} className="font-bold text-foreground hover:text-cyan-400 transition-colors">
                 {group.name}
               </Link>
-              <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
+              <StatusBadge status={group.status} />
               {wonMonth && (
                 <span className="flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
                   <HiOutlineTrophy className="w-3 h-3" />
@@ -599,7 +592,7 @@ function OverviewGroupCard({
           icon={<HiOutlineCheckCircle className="w-4 h-4" />}
         />
         <StatBox
-          label={totalBalance > 0 ? t('balanceDue') : t('fullySettled')}
+          label={totalBalance > 0 ? t('balanceDue') : t('settled')}
           value={fmt(Math.abs(totalBalance))}
           color={totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}
           icon={<HiOutlineExclamationCircle className="w-4 h-4" />}
@@ -648,7 +641,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
               <Link href={`/groups/${group.id}`} className="text-lg font-bold text-foreground hover:text-cyan-400 transition-colors">
                 {group.name}
               </Link>
-              <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
+              <StatusBadge status={group.status} />
             </div>
             <p className="text-sm text-foreground-muted mt-0.5">
               {fmt(Number(group.total_amount))} · {group.total_members} {t('members')} · {group.duration_months} {t('months')} · {t('ticketShort')} {ticket.ticket_number}
@@ -676,7 +669,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
             <p className="text-base font-bold text-emerald-400">{fmt(totalPaid)}</p>
           </div>
           <div className="bg-surface border border-border rounded-xl p-3 text-center">
-            <p className="text-xs text-foreground-muted mb-1">{totalBalance > 0 ? t('balanceDue') : t('fullySettled')}</p>
+            <p className="text-xs text-foreground-muted mb-1">{totalBalance > 0 ? t('balanceDue') : t('settled')}</p>
             <p className={`text-base font-bold ${totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               {totalBalance > 0 ? fmt(totalBalance) : '✓ Cleared'}
             </p>
@@ -938,13 +931,4 @@ function StatBox({
       <p className={`text-sm font-bold ${color}`}>{value}</p>
     </div>
   );
-}
-
-function formatStatusLabel(status: string, t: (k: any) => string) {
-  if (!status) return '';
-  const lower = status.toLowerCase();
-  const lowerLabel = t(lower as any);
-  if (lowerLabel !== lower) return lowerLabel;
-  const capitalized = status[0] + status.slice(1).toLowerCase();
-  return t((`status${capitalized}`) as any);
 }

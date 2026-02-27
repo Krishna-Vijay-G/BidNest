@@ -1,5 +1,6 @@
-//src/components/ui/Badge.tsx
+// src/components/ui/Badge.tsx
 import { useLang } from '@/lib/i18n/LanguageContext';
+import type { TranslationKey } from '@/lib/i18n/translations';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -22,58 +23,50 @@ export function Badge({ children, variant = 'default' }: BadgeProps) {
   );
 }
 
-export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const map: Record<string, { label: string; variant: BadgeProps['variant'] }> = {
-    ACTIVE: { label: 'Active', variant: 'success' },
-    PENDING: { label: 'Pending', variant: 'warning' },
-    COMPLETED: { label: 'Completed', variant: 'info' },
-    CANCELLED: { label: 'Cancelled', variant: 'danger' },
-    PARTIAL: { label: 'Partial', variant: 'warning' },
-    paid: { label: 'Paid', variant: 'success' },
-    pending: { label: 'Pending', variant: 'warning' },
-    overdue: { label: 'Overdue', variant: 'danger' },
-  };
+// Status → translation key + variant mapping (shared by all status badges)
+const STATUS_MAP: Record<string, { key: TranslationKey; variant: BadgeProps['variant'] }> = {
+  ACTIVE: { key: 'active', variant: 'success' },
+  PENDING: { key: 'pending', variant: 'warning' },
+  COMPLETED: { key: 'completed', variant: 'info' },
+  CANCELLED: { key: 'cancelled', variant: 'danger' },
+  PARTIAL: { key: 'partial', variant: 'warning' },
+};
 
-  const config = map[status] ?? { label: status, variant: 'default' as const };
-
-  // Use provided label override (translated) if available, otherwise use mapped label
-  const displayLabel = label ?? config.label;
-
-  return <Badge variant={config.variant}>{displayLabel}</Badge>;
+/**
+ * General-purpose status badge. Translates automatically.
+ */
+export function StatusBadge({ status }: { status: string }) {
+  const { t } = useLang();
+  const config = STATUS_MAP[status.toUpperCase()] ?? { key: status.toLowerCase() as TranslationKey, variant: 'default' as const };
+  return <Badge variant={config.variant}>{t(config.key)}</Badge>;
 }
 
 type MemberStatus = 'WINNER' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
 
+const MEMBER_STATUS_MAP: Record<MemberStatus, { key: TranslationKey; variant: BadgeProps['variant'] }> = {
+  WINNER: { key: 'winner', variant: 'warning' },
+  COMPLETED: { key: 'completed', variant: 'success' },
+  PARTIAL: { key: 'partial', variant: 'warning' },
+  PENDING: { key: 'pending', variant: 'danger' },
+};
+
 export function MemberStatusBadge({ status }: { status: MemberStatus }) {
   const { t } = useLang();
-  const map: Record<MemberStatus, { label: string; cls: string }> = {
-    WINNER: { label: t('winner'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    COMPLETED: { label: t('completed'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  };
-  const { label, cls } = map[status];
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {label}
-    </span>
-  );
+  const { key, variant } = MEMBER_STATUS_MAP[status];
+  return <Badge variant={variant}>{t(key)}</Badge>;
 }
 
 type AggregatedStatus = 'CLEAR' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
 
+const AGGREGATED_STATUS_MAP: Record<AggregatedStatus, { key: TranslationKey; variant: BadgeProps['variant'] }> = {
+  CLEAR: { key: 'settled', variant: 'warning' },
+  COMPLETED: { key: 'settled', variant: 'success' },
+  PARTIAL: { key: 'partial', variant: 'warning' },
+  PENDING: { key: 'pending', variant: 'danger' },
+};
+
 export function AggregatedStatusBadge({ status }: { status: AggregatedStatus }) {
   const { t } = useLang();
-  const map: Record<AggregatedStatus, { label: string; cls: string }> = {
-    CLEAR: { label: t('settled'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    COMPLETED: { label: t('fullySettled'), cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    PARTIAL: { label: t('partial'), cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    PENDING: { label: t('pending'), cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  };
-  const { label, cls } = map[status];
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {label}
-    </span>
-  );
+  const { key, variant } = AGGREGATED_STATUS_MAP[status];
+  return <Badge variant={variant}>{t(key)}</Badge>;
 }

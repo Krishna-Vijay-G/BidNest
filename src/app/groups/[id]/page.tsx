@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 import { Modal, Input, Select } from '@/components/ui';
 import { calculateAuction } from '@/utils/dividend';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 interface ChitGroup {
   id: string;
@@ -71,14 +72,6 @@ interface Payment {
     ticket_number: number;
     member: { name: { value: string } };
   };
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function GroupDetailPage() {
@@ -146,22 +139,6 @@ export default function GroupDetailPage() {
   const completedMonths = auctions.length;
   const progressPercent = Math.round((completedMonths / group.duration_months) * 100);
 
-  function translateStatusLabel(status?: string) {
-    if (!status) return '';
-    const s = String(status).toUpperCase();
-    const map: Record<string, string> = {
-      ACTIVE: 'statusActive',
-      CANCELLED: 'statusCancelled',
-      COMPLETED: 'statusCompleted',
-      PENDING: 'statusPending',
-      PAID: 'statusPaid',
-      UNPAID: 'statusUnpaid',
-      RECONCILED: 'statusReconciled',
-    };
-    const key = map[s] || s.toLowerCase();
-    return t(key as any) || status;
-  }
-
   const handleDeleteTicket = async (cm: ChitMember) => {
     if (!confirm(`Remove ${cm.member?.name?.value} from ticket #${cm.ticket_number}?`)) return;
     try {
@@ -209,7 +186,7 @@ export default function GroupDetailPage() {
                 </div>
               </div>
             </div>
-            <StatusBadge status={group.status} label={translateStatusLabel(group.status)} />
+            <StatusBadge status={group.status} />
           </div>
 
           {/* Progress */}
@@ -293,10 +270,7 @@ export default function GroupDetailPage() {
                       {cm.member?.mobile?.value || '—'}
                     </p>
                   </div>
-                  <StatusBadge
-                    status={cm.is_active ? 'ACTIVE' : 'CANCELLED'}
-                    label={translateStatusLabel(cm.is_active ? 'ACTIVE' : 'CANCELLED')}
-                  />
+                  <StatusBadge status={cm.is_active ? 'ACTIVE' : 'CANCELLED'} />
                   {auctions.length === 0 && (
                     <>
                       <button
@@ -420,7 +394,7 @@ export default function GroupDetailPage() {
                         {formatCurrency(Number(p.amount_paid))}
                       </td>
                       <td>
-                        <StatusBadge status={p.status} label={translateStatusLabel(p.status)} />
+                        <StatusBadge status={p.status} />
                       </td>
                     </tr>
                   ))}
@@ -822,10 +796,6 @@ function ConductAuctionModal({
     }
     setIsSubmitting(false);
   };
-
-  function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${t('conductAuction')} — ${group.name}`} size="lg">

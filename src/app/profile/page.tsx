@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, Button, Input, PageLoader } from '@/components/ui';
+import { Card, Button, Input, PageLoader, InfoRow } from '@/components/ui';
 import {
   HiOutlineUserCircle,
   HiOutlineLockClosed,
@@ -99,26 +99,6 @@ export default function ProfilePage() {
         </Card>
       </div>
     </>
-  );
-}
-
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
-      <span className="flex items-center gap-2 text-sm text-foreground-muted">
-        {icon}
-        {label}
-      </span>
-      <span className="text-sm text-foreground-secondary">{value}</span>
-    </div>
   );
 }
 
