@@ -9,3 +9,4 @@ export { StatCard } from './StatCard';
 export { Select } from './Select';
 export { SummaryCard } from './SummaryCard';
 export { InfoRow } from './InfoRow';
+export { PdfDownloadButton } from './PdfDownloadButton';

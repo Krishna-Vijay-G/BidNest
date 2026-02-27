@@ -18,10 +18,19 @@ import {
   HiOutlineUser,
   HiOutlineCalendarDays,
   HiOutlinePencil,
+  HiOutlineArrowDownTray,
+  HiOutlineDocumentArrowDown,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
 import { formatCurrency as fmt } from '@/utils/format';
 import toast from 'react-hot-toast';
+import {
+  downloadMemberGroupReport,
+  downloadMemberAllGroupsReport,
+  downloadMemberEachGroupReport,
+  type MemberReportData,
+} from '@/lib/pdf';
+import type { Language } from '@/lib/i18n/translations';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -198,6 +207,8 @@ export default function MemberDetailPage() {
   const [mobile, setMobile] = useState('');
   const [upiId, setUpiId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportLang, setReportLang] = useState<Language>(lang as Language);
 
   // Load active tab from localStorage on mount
   useEffect(() => {
@@ -279,6 +290,50 @@ export default function MemberDetailPage() {
     })),
   ];
 
+  // ── PDF report helpers ──
+  function buildMemberReportData(): MemberReportData {
+    return {
+      memberName: member!.name.value,
+      memberNickname: member!.nickname.value,
+      memberMobile: member!.mobile.value,
+      memberIsActive: member!.is_active,
+      createdAt: member!.created_at,
+      groups: summaries.map(s => ({
+        groupName: s.group.name,
+        groupTotal: Number(s.group.total_amount),
+        groupMembers: s.group.total_members,
+        groupDuration: s.group.duration_months,
+        ticketNumber: s.ticket.ticket_number,
+        groupStatus: s.group.status,
+        wonMonth: s.wonMonth,
+        wonAmount: s.wonAmount,
+        totalOwed: s.totalOwed,
+        totalPaid: s.totalPaid,
+        totalBalance: s.totalBalance,
+        months: s.months.map(m => ({
+          month: m.month,
+          amountDue: m.amountDue,
+          amountPaid: m.amountPaid,
+          balance: m.balance,
+          wonThisMonth: m.wonThisMonth,
+          status: m.paymentStatus,
+        })),
+      })),
+    };
+  }
+
+  function handleMemberReport(mode: 'all' | 'each' | number, pdfLang: Language) {
+    const data = buildMemberReportData();
+    if (mode === 'all') {
+      downloadMemberAllGroupsReport(data, pdfLang);
+    } else if (mode === 'each') {
+      downloadMemberEachGroupReport(data, pdfLang);
+    } else {
+      downloadMemberGroupReport(data, mode, pdfLang);
+    }
+    setShowReportModal(false);
+  }
+
   return (
     <>
       <Header
@@ -329,6 +384,19 @@ export default function MemberDetailPage() {
                   {t('memberSince')}: {new Date(member.created_at).toLocaleDateString(lang === 'ta' ? 'ta-IN' : 'en-IN', { month: 'long', year: 'numeric' })}
                 </span>
               </div>
+
+              {/* Download Report Button */}
+              {summaries.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <button
+                    onClick={() => setShowReportModal(true)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 transition-colors"
+                  >
+                    <HiOutlineDocumentArrowDown className="w-4 h-4" />
+                    {t('downloadReport')}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -507,6 +575,98 @@ export default function MemberDetailPage() {
             <Button type="submit" isLoading={isSubmitting}>{t('saveChanges')}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Report Download Modal */}
+      <Modal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title={t('downloadReport')}
+      >
+        <div className="space-y-4">
+          {/* Language Picker */}
+          <div>
+            <label className="block text-sm text-foreground-muted mb-2">{t('selectLanguage')}</label>
+            <div className="flex gap-2">
+              {([['en', t('english')], ['ta', t('tamil')]] as [Language, string][]).map(([code, name]) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setReportLang(code)}
+                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border transition-colors ${
+                    reportLang === code
+                      ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
+                      : 'border-border bg-surface text-foreground-secondary hover:border-foreground-muted'
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Report Type Options */}
+          <div>
+            <label className="block text-sm text-foreground-muted mb-2">{t('selectReportType')}</label>
+            <div className="space-y-2">
+              {/* All combined */}
+              <button
+                type="button"
+                onClick={() => handleMemberReport('all', reportLang)}
+                className="w-full text-left px-4 py-3 rounded-xl border border-border bg-surface hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <HiOutlineDocumentArrowDown className="w-5 h-5 text-cyan-400 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground group-hover:text-cyan-400 transition-colors">{t('allGroupsCombinedReport')}</p>
+                    <p className="text-xs text-foreground-muted">{summaries.length} {t('groups')} — 1 PDF</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Each group separate */}
+              {summaries.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleMemberReport('each', reportLang)}
+                  className="w-full text-left px-4 py-3 rounded-xl border border-border bg-surface hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <HiOutlineDocumentArrowDown className="w-5 h-5 text-purple-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground group-hover:text-purple-400 transition-colors">{t('eachGroupSeparate')}</p>
+                      <p className="text-xs text-foreground-muted">{summaries.length} {t('groups')} — {summaries.length} PDFs</p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* Individual groups */}
+              <div className="pt-1">
+                <p className="text-xs text-foreground-muted mb-2 uppercase tracking-wider">{t('groups')}</p>
+                <div className="space-y-1.5">
+                  {summaries.map((s, i) => (
+                    <button
+                      key={s.ticket.id}
+                      type="button"
+                      onClick={() => handleMemberReport(i, reportLang)}
+                      className="w-full text-left px-4 py-2.5 rounded-xl border border-border bg-surface hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-foreground group-hover:text-emerald-400 transition-colors">
+                          {s.group.name} <span className="text-foreground-muted">#{s.ticket.ticket_number}</span>
+                        </span>
+                        <span className={`text-xs font-medium ${s.totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {s.totalBalance > 0 ? fmt(s.totalBalance) : t('settled')}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </Modal>
     </>
   );

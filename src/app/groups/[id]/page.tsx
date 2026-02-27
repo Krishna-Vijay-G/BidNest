@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, PageLoader, StatusBadge, Button } from '@/components/ui';
+import { Card, PageLoader, StatusBadge, Button, PdfDownloadButton } from '@/components/ui';
 import {
   HiOutlineArrowLeft,
   HiOutlineUserGroup,
@@ -21,6 +21,7 @@ import { Modal, Input, Select } from '@/components/ui';
 import { calculateAuction } from '@/utils/dividend';
 import { useLang } from '@/lib/i18n/LanguageContext';
 import { formatCurrency } from '@/utils/format';
+import { downloadGroupReport, type GroupReportData } from '@/lib/pdf';
 
 interface ChitGroup {
   id: string;
@@ -52,6 +53,9 @@ interface Auction {
   month_number: number;
   original_bid: string;
   winning_amount: string;
+  commission: string;
+  carry_previous: string;
+  raw_dividend: string;
   carry_next: string;
   calculation_data: {
     amount_to_collect: number;
@@ -186,7 +190,52 @@ export default function GroupDetailPage() {
                 </div>
               </div>
             </div>
-            <StatusBadge status={group.status} />
+            <div className="flex items-center gap-3">
+              <PdfDownloadButton
+                onClick={() => {
+                  const reportData: GroupReportData = {
+                    groupName: group.name,
+                    totalAmount: group.total_amount,
+                    totalMembers: group.total_members,
+                    durationMonths: group.duration_months,
+                    monthlyAmount: group.monthly_amount,
+                    commissionType: group.commission_type,
+                    commissionValue: group.commission_value,
+                    roundOffValue: group.round_off_value,
+                    status: group.status,
+                    members: chitMembers.map(cm => ({
+                      name: cm.member?.name?.value ?? 'N/A',
+                      ticketNumber: cm.ticket_number,
+                      mobile: cm.member?.mobile?.value ?? '',
+                      isActive: cm.is_active,
+                    })),
+                    auctions: auctions.map(a => ({
+                      monthNumber: a.month_number,
+                      originalBid: a.original_bid,
+                      winningAmount: a.winning_amount,
+                      commission: a.commission,
+                      carryPrevious: a.carry_previous,
+                      rawDividend: a.raw_dividend,
+                      carryNext: a.carry_next,
+                      dividendPerMember: a.calculation_data?.dividend_per_member ?? 0,
+                      amountToCollect: a.calculation_data?.amount_to_collect ?? 0,
+                      winnerName: a.winner_chit_member?.member?.name?.value ?? 'N/A',
+                      winnerTicket: a.winner_chit_member?.ticket_number ?? 0,
+                    })),
+                    payments: payments.map(p => ({
+                      memberName: p.chit_member?.member?.name?.value ?? 'N/A',
+                      ticketNumber: p.chit_member?.ticket_number ?? 0,
+                      monthNumber: p.month_number,
+                      amountPaid: p.amount_paid,
+                      status: p.status,
+                    })),
+                  };
+                  downloadGroupReport(reportData, 'en');
+                }}
+                label={t('downloadReport')}
+              />
+              <StatusBadge status={group.status} />
+            </div>
           </div>
 
           {/* Progress */}

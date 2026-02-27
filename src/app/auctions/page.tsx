@@ -5,12 +5,14 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
+import { Card, Button, Modal, Input, PageLoader, EmptyState, Select, PdfDownloadButton } from '@/components/ui';
 import { HiOutlineTrophy, HiOutlinePlus } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { calculateAuction } from '@/utils/dividend';
 import { useLang } from '@/lib/i18n/LanguageContext';
 import { formatCurrency } from '@/utils/format';
+import { downloadAuctionReport, type AuctionReportData } from '@/lib/pdf';
+
 
 interface ChitGroup {
   id: string;
@@ -235,6 +237,7 @@ export default function AuctionsPage() {
                     <th>{t('carryNext')}</th>
                     <th>{t('perMember')}</th>
                     <th>{t('toCollect')}</th>
+                    <th className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -313,6 +316,12 @@ export default function AuctionsPage() {
                           <span className="font-semibold text-foreground">
                             {formatCurrency(auction.calculation_data?.amount_to_collect || 0)}
                           </span>
+                        </td>
+                        <td>
+                          <PdfDownloadButton
+                            iconOnly
+                            onClick={() => handleAuctionDownload(auction, group)}
+                          />
                         </td>
                       </tr>
                     );
@@ -685,6 +694,38 @@ function AuctionFormModal({
   );
 }
 
+// ─── Build PDF data from an auction row ─────────────────────────────────────
+
+function buildAuctionPdfData(auction: Auction, group: ChitGroup | undefined): AuctionReportData {
+  return {
+    groupName: group?.name ?? 'N/A',
+    groupTotalAmount: group?.total_amount ?? '0',
+    groupMonthly: group?.monthly_amount ?? '0',
+    groupMembers: group?.total_members ?? 0,
+    groupDuration: group?.duration_months ?? 0,
+    commissionType: group?.commission_type ?? 'PERCENT',
+    commissionValue: group?.commission_value ?? '0',
+    monthNumber: auction.month_number,
+    originalBid: auction.original_bid,
+    winningAmount: auction.winning_amount,
+    commission: auction.commission,
+    carryPrevious: auction.carry_previous,
+    rawDividend: auction.raw_dividend,
+    roundoffDividend: auction.roundoff_dividend,
+    carryNext: auction.carry_next,
+    amountToCollect: auction.calculation_data?.amount_to_collect ?? 0,
+    dividendPerMember: auction.calculation_data?.dividend_per_member ?? 0,
+    monthlyContribution: auction.calculation_data?.monthly_contribution ?? 0,
+    winnerName: auction.winner_chit_member?.member?.name?.value ?? 'N/A',
+    winnerTicket: auction.winner_chit_member?.ticket_number ?? 0,
+    createdAt: auction.created_at,
+  };
+}
+
+function handleAuctionDownload(auction: Auction, group: ChitGroup | undefined) {
+  downloadAuctionReport(buildAuctionPdfData(auction, group), 'en');
+}
+
 // ─── Mobile Auction Row ─────────────────────────────────────────────────────
 
 function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitGroup[] }) {
@@ -762,6 +803,11 @@ function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitG
                 <span className="text-foreground-muted">{t('toCollect')}:</span>
                 <span className="text-foreground font-semibold ml-2">{formatCurrency(auction.calculation_data?.amount_to_collect || 0)}</span>
               </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-border flex justify-end">
+              <PdfDownloadButton
+                onClick={() => handleAuctionDownload(auction, group)}
+              />
             </div>
           </td>
         </tr>
