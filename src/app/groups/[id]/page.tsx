@@ -30,7 +30,6 @@ interface ChitGroup {
   total_members: number;
   monthly_amount: string;
   duration_months: number;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: string;
@@ -199,7 +198,6 @@ export default function GroupDetailPage() {
                     totalMembers: group.total_members,
                     durationMonths: group.duration_months,
                     monthlyAmount: group.monthly_amount,
-                    commissionType: group.commission_type,
                     commissionValue: group.commission_value,
                     roundOffValue: group.round_off_value,
                     status: group.status,
@@ -262,9 +260,7 @@ export default function GroupDetailPage() {
             <div className="bg-surface border border-border rounded-xl p-3">
               <p className="text-xs text-foreground-muted">{t('commission')}</p>
               <p className="text-base font-bold text-foreground">
-                {group.commission_type === 'PERCENT'
-                  ? `${group.commission_value}%`
-                  : formatCurrency(Number(group.commission_value))}
+                {formatCurrency(Number(group.commission_value))}
               </p>
             </div>
             <div className="bg-surface border border-border rounded-xl p-3">
@@ -730,10 +726,7 @@ function ConductAuctionModal({
       // Set bid based on whether it's last month
       const isLast = Number(nextMonth) === Number(group.duration_months);
       if (isLast) {
-        const cap =
-          group.commission_type === 'FIXED'
-            ? Number(group.commission_value)
-            : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+        const cap = Number(group.commission_value);
         setOriginalBid(String(cap));
         setIsLastMonthFixed(true);
       } else {
@@ -777,7 +770,6 @@ function ConductAuctionModal({
       total_amount: Number(group.total_amount),
       total_members: group.total_members,
       original_bid: bid,
-      commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
       round_off_value: group.round_off_value,
       carry_previous: lastCarryNext,
@@ -801,10 +793,7 @@ function ConductAuctionModal({
     setIsSubmitting(true);
 
     // Validate bid is not below commission
-    const commissionCap =
-      group.commission_type === 'FIXED'
-        ? Number(group.commission_value)
-        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+    const commissionCap = Number(group.commission_value);
     
     if (Number(originalBid) < commissionCap) {
       toast.error(`Bid cannot be less than the commission amount: ₹${commissionCap}`);

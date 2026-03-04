@@ -58,7 +58,6 @@ export interface GroupReportData {
   totalMembers: number;
   durationMonths: number;
   monthlyAmount: string;
-  commissionType: 'PERCENT' | 'FIXED';
   commissionValue: string;
   roundOffValue: number;
   status: string;
@@ -71,7 +70,7 @@ export interface GroupReportData {
 // ─── Generate & download ────────────────────────────────────────────────────
 
 export async function downloadGroupReport(data: GroupReportData) {
-  const doc = await createPdf('portrait');
+  const doc = createPdf('portrait');
   const bottomMargin = 30;
 
   // ═══════════════ PAGE 1: Overview ═══════════════════════════════════════════
@@ -92,9 +91,7 @@ export async function downloadGroupReport(data: GroupReportData) {
     { label: t('monthlyAmount'), value: fmtCurrency(Number(data.monthlyAmount)) },
     {
       label: t('commission'),
-      value: data.commissionType === 'PERCENT'
-        ? `${data.commissionValue}%`
-        : fmtCurrency(Number(data.commissionValue)),
+      value: fmtCurrency(Number(data.commissionValue)),
     },
     { label: t('roundOff'), value: String(data.roundOffValue) },
     { label: t('status'), value: t(data.status.toLowerCase()) },

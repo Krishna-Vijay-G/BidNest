@@ -33,7 +33,6 @@ export interface AuctionReportData {
   groupMonthly: string;
   groupMembers: number;
   groupDuration: number;
-  commissionType: 'PERCENT' | 'FIXED';
   commissionValue: string;
 
   monthNumber: number;
@@ -56,7 +55,7 @@ export interface AuctionReportData {
 // ─── Generate & download ─────────────────────────────────────────────────────
 
 export async function downloadAuctionReport(data: AuctionReportData) {
-  const doc = await createPdf('portrait');
+  const doc = createPdf('portrait');
 
   // ── 1. Header ──
   let y = drawHeader(
@@ -66,10 +65,7 @@ export async function downloadAuctionReport(data: AuctionReportData) {
   );
 
   // ── 2. Group info band ──
-  const commissionStr =
-    data.commissionType === 'PERCENT'
-      ? `${data.commissionValue}%`
-      : fmtCurrency(Number(data.commissionValue));
+  const commissionStr = fmtCurrency(Number(data.commissionValue));
 
   y = drawInfoBand(doc, [
     { label: t('totalAmount'),  value: fmtCurrency(Number(data.groupTotalAmount)) },
@@ -120,9 +116,7 @@ export async function downloadAuctionReport(data: AuctionReportData) {
   const bidMinusComm = bidSacrifice - Number(data.commission);
   const rawPerMember = Number(data.rawDividend) / data.groupMembers;
 
-  const commRateNote = data.commissionType === 'PERCENT'
-    ? `${data.commissionValue}% of Total Amount`
-    : `fixed`;
+  const commRateNote = `fixed`;
 
   y = drawCalcLedger(doc, t('dividend'), [
     { label: `${t('originalBid')} (Bid Amount)`, value: fmtCurrency(bidSacrifice), type: 'normal' },

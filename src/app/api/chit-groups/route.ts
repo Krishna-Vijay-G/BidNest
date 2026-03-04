@@ -13,7 +13,6 @@ const CreateChitGroupSchema = z.object({
   total_members: z.number().int().positive(),
   monthly_amount: z.number().positive(),
   duration_months: z.number().int().positive(),
-  commission_type: z.enum(["PERCENT", "FIXED"]),
   commission_value: z.number().positive(),
   round_off_value: z.union([z.literal(10), z.literal(50), z.literal(100)]),
   status: z.enum(["ACTIVE", "PENDING", "CANCELLED", "COMPLETED"]).optional().default("PENDING"),

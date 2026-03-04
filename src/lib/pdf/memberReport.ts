@@ -195,7 +195,7 @@ export async function downloadMemberGroupReport(
   data: MemberReportData,
   groupIndex: number,
 ) {
-  const doc = await createPdf('portrait');
+  const doc = createPdf('portrait');
   const group = data.groups[groupIndex];
   if (!group) return;
 
@@ -224,7 +224,7 @@ export async function downloadMemberGroupReport(
 export async function downloadMemberAllGroupsReport(
   data: MemberReportData,
 ) {
-  const doc = await createPdf('portrait');
+  const doc = createPdf('portrait');
 
   let y = drawHeader(
     doc,
@@ -279,7 +279,7 @@ export async function downloadMemberSelectedGroupsReport(
   const selected = indices.map(i => data.groups[i]).filter(Boolean) as typeof data.groups;
   if (selected.length === 0) return;
 
-  const doc = await createPdf('portrait');
+  const doc = createPdf('portrait');
 
   for (const [pos, group] of selected.entries()) {
     if (pos > 0) doc.addPage();
@@ -314,7 +314,7 @@ export async function downloadMemberSelectedGroupsReport(
 export async function downloadMemberEachGroupReport(
   data: MemberReportData,
 ) {
-  const doc = await createPdf('portrait');
+  const doc = createPdf('portrait');
 
   for (const [idx, group] of data.groups.entries()) {
     if (idx > 0) doc.addPage();

@@ -50,7 +50,6 @@ interface ChitGroup {
   total_members: number;
   monthly_amount: string;
   duration_months: number;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: string;
@@ -659,7 +658,7 @@ export default function MemberDetailPage() {
                     onClick={handleDownloadSelected}
                   >
                     <HiOutlineDocumentArrowDown className="w-4 h-4 mr-2" />
-                    {selectedGroupIdxs.size === 1 ? 'Download PDF' : `Download ${selectedGroupIdxs.size} PDFs`}
+                    {`Download PDF`}
                   </Button>
                 </div>
               )}

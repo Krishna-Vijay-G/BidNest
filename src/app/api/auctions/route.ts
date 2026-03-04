@@ -88,13 +88,9 @@ export async function POST(req: NextRequest) {
       ? Number(previousAuction.carry_next)
       : 0;
 
-    // If this is the final month for the group, enforce the auction bid equals
-    // the commission cap: fixed commission_value, or percent of total_amount.
+    // If this is the final month for the group, enforce the auction bid equals the commission cap.
     if (parsed.data.month_number === Number(chitGroup.duration_months)) {
-      const cap =
-        chitGroup.commission_type === 'FIXED'
-          ? Number(chitGroup.commission_value)
-          : Math.floor((Number(chitGroup.total_amount) * Number(chitGroup.commission_value)) / 100);
+      const cap = Number(chitGroup.commission_value);
       if (parsed.data.original_bid !== cap) {
         return NextResponse.json(
           { error: `For the final month, original_bid must be ${cap}` },
@@ -109,7 +105,6 @@ export async function POST(req: NextRequest) {
       total_amount: Number(chitGroup.total_amount),
       total_members: chitGroup.total_members,
       original_bid: parsed.data.original_bid,
-      commission_type: chitGroup.commission_type as "PERCENT" | "FIXED",
       commission_value: Number(chitGroup.commission_value),
       round_off_value: chitGroup.round_off_value,
       carry_previous,
@@ -129,7 +124,6 @@ export async function POST(req: NextRequest) {
       monthly_contribution: Number(chitGroup.monthly_amount),
       dividend_per_member: dividend_per_member,
       amount_to_collect: Number(chitGroup.monthly_amount) - dividend_per_member,
-      commission_type: chitGroup.commission_type,
       commission_value: Number(chitGroup.commission_value),
       round_off_value: chitGroup.round_off_value,
       original_bid: parsed.data.original_bid,
@@ -206,6 +200,9 @@ export async function GET(req: NextRequest) {
       include: {
         winner_chit_member: {
           include: { member: true },
+        },
+        chit_group: {
+          select: { id: true, name: true },
         },
       },
       orderBy: { month_number: "asc" },

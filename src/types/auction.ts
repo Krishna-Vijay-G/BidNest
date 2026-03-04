@@ -17,7 +17,6 @@ export interface Auction {
     monthly_contribution: number;
     dividend_per_member: number;
     amount_to_collect: number;
-    commission_type: string;
     commission_value: number;
     round_off_value: number;
     original_bid: number;

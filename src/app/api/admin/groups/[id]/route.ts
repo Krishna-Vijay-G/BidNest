@@ -13,7 +13,6 @@ const UpdateGroupSchema = z.object({
   name: z.string().min(2).optional(),
   group_size: z.number().int().positive().optional(),
   chit_amount: z.number().positive().optional(),
-  commission_type: z.enum(["PERCENTAGE", "FLAT"]).optional(),
   commission_value: z.number().min(0).optional(),
   round_off_value: z.number().min(0).optional(),
   status: z.enum(["PENDING", "ACTIVE", "COMPLETED", "CANCELLED"]).optional(),

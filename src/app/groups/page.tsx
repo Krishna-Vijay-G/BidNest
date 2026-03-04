@@ -25,7 +25,6 @@ interface ChitGroup {
   total_members: number;
   monthly_amount: string;
   duration_months: number;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: string;
@@ -173,9 +172,7 @@ export default function GroupsPage() {
                   <div className="bg-surface rounded-xl p-3">
                     <p className="text-xs text-foreground-muted">{t('commission')}</p>
                     <p className="text-sm font-semibold text-foreground mt-0.5">
-                      {group.commission_type === 'PERCENT'
-                        ? `${group.commission_value}%`
-                        : formatCurrency(Number(group.commission_value))}
+                      {formatCurrency(Number(group.commission_value))}
                     </p>
                   </div>
                   <div className="bg-surface rounded-xl p-3">
@@ -293,7 +290,6 @@ function GroupFormModal({
   const [totalAmount, setTotalAmount] = useState(group ? String(group.total_amount) : '');
   const [totalMembers, setTotalMembers] = useState(group ? String(group.total_members) : '');
   const [durationMonths, setDurationMonths] = useState(group ? String(group.duration_months) : '');
-  const [commissionType, setCommissionType] = useState<'PERCENT' | 'FIXED'>(group?.commission_type ?? 'FIXED');
   const [commissionValue, setCommissionValue] = useState(group ? String(group.commission_value) : '');
   const [roundOffValue, setRoundOffValue] = useState(group ? String(group.round_off_value) : '50');
   const [status, setStatus] = useState(group?.status ?? 'PENDING');
@@ -308,7 +304,6 @@ function GroupFormModal({
       setTotalAmount(String(group.total_amount));
       setTotalMembers(String(group.total_members));
       setDurationMonths(String(group.duration_months));
-      setCommissionType(group.commission_type);
       setCommissionValue(String(group.commission_value));
       setRoundOffValue(String(group.round_off_value));
       setStatus(group.status);
@@ -331,7 +326,6 @@ function GroupFormModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status,
-          commission_type: commissionType,
           commission_value: Number(commissionValue),
           round_off_value: Number(roundOffValue),
           ...(auctionStartDate ? { auction_start_date: new Date(auctionStartDate).toISOString() } : {}),
@@ -354,7 +348,6 @@ function GroupFormModal({
           total_members: Number(totalMembers),
           monthly_amount: monthlyAmount,
           duration_months: Number(durationMonths),
-          commission_type: commissionType,
           commission_value: Number(commissionValue),
           round_off_value: Number(roundOffValue),
           ...(auctionStartDate ? { auction_start_date: new Date(auctionStartDate).toISOString() } : {}),
@@ -424,25 +417,14 @@ function GroupFormModal({
           </>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            label={t('commissionType')}
-            value={commissionType}
-            onChange={(e) => setCommissionType(e.target.value as 'PERCENT' | 'FIXED')}
-            options={[
-              { value: 'FIXED', label: t('fixedAmount') },
-              { value: 'PERCENT', label: t('percentage') },
-            ]}
-          />
-          <Input
+        <Input
             label={t('commissionValue')}
             type="number"
             value={commissionValue}
             onChange={(e) => setCommissionValue(e.target.value)}
-            placeholder={commissionType === 'PERCENT' ? 'e.g. 5' : 'e.g. 500'}
+            placeholder="e.g. 500"
             required
           />
-        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Select

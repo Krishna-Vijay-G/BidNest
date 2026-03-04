@@ -20,7 +20,6 @@ interface ChitGroup {
   total_amount: string;
   total_members: number;
   monthly_amount: string;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: string;
@@ -443,11 +442,8 @@ function AuctionFormModal({
       return;
     }
 
-    // compute cap: fixed commission value, or percent of total_amount
-    const cap =
-      group.commission_type === 'FIXED'
-        ? Number(group.commission_value)
-        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+    // compute cap: fixed commission value
+    const cap = Number(group.commission_value);
 
     setOriginalBid(String(cap));
     setIsLastMonthFixed(true);
@@ -481,7 +477,6 @@ function AuctionFormModal({
       total_amount: Number(group.total_amount),
       total_members: group.total_members,
       original_bid: Number(originalBid),
-      commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
       round_off_value: group.round_off_value,
       carry_previous: carryPrevious,
@@ -511,10 +506,7 @@ function AuctionFormModal({
     // Validate bid is not below commission
     const group = groups.find(g => g.id === selectedGroupId);
     if (group) {
-      const commissionCap =
-        group.commission_type === 'FIXED'
-          ? Number(group.commission_value)
-          : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+      const commissionCap = Number(group.commission_value);
       
       if (Number(originalBid) < commissionCap) {
         toast.error(`Bid cannot be less than the commission amount: ₹${commissionCap}`);
@@ -703,7 +695,6 @@ function buildAuctionPdfData(auction: Auction, group: ChitGroup | undefined): Au
     groupMonthly: group?.monthly_amount ?? '0',
     groupMembers: group?.total_members ?? 0,
     groupDuration: group?.duration_months ?? 0,
-    commissionType: group?.commission_type ?? 'PERCENT',
     commissionValue: group?.commission_value ?? '0',
     monthNumber: auction.month_number,
     originalBid: auction.original_bid,
