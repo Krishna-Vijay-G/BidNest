@@ -7,7 +7,6 @@ export interface ChitGroup {
   total_members: number;
   monthly_amount: string;
   duration_months: number;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: 'ACTIVE' | 'PENDING' | 'CANCELLED' | 'COMPLETED';

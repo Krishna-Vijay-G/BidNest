@@ -4,12 +4,13 @@
 import { useState } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, Button, Input, PageLoader } from '@/components/ui';
+import { Card, Button, Input, PageLoader, InfoRow } from '@/components/ui';
 import {
   HiOutlineUserCircle,
   HiOutlineLockClosed,
   HiOutlineShieldCheck,
   HiOutlineCalendarDays,
+  HiOutlineStar,
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { useLang } from '@/lib/i18n/LanguageContext';
@@ -58,6 +59,15 @@ export default function ProfilePage() {
                   <HiOutlineShieldCheck className="w-3.5 h-3.5" />
                   {t('activeAccount')}
                 </span>
+                <a
+                  href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors"
+                >
+                  <HiOutlineStar className="w-3.5 h-3.5" />
+                  Founder Page
+                </a>
               </div>
             </div>
           </div>
@@ -99,26 +109,6 @@ export default function ProfilePage() {
         </Card>
       </div>
     </>
-  );
-}
-
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
-      <span className="flex items-center gap-2 text-sm text-foreground-muted">
-        {icon}
-        {label}
-      </span>
-      <span className="text-sm text-foreground-secondary">{value}</span>
-    </div>
   );
 }
 

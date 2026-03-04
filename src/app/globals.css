@@ -180,6 +180,19 @@ body {
   box-shadow: var(--glow-cyan);
 }
 
+/* === Header & Sidebar Glass === */
+.header-glass {
+  background: var(--header-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.sidebar-glass {
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
 /* === Neon Text === */
 .neon-text {
   color: #00f0ff;

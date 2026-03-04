@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, PageLoader, StatusBadge, Button } from '@/components/ui';
+import { Card, PageLoader, StatusBadge, Button, PdfDownloadButton } from '@/components/ui';
 import {
   HiOutlineArrowLeft,
   HiOutlineUserGroup,
@@ -20,6 +20,8 @@ import toast from 'react-hot-toast';
 import { Modal, Input, Select } from '@/components/ui';
 import { calculateAuction } from '@/utils/dividend';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
+import { downloadGroupReport, type GroupReportData } from '@/lib/pdf';
 
 interface ChitGroup {
   id: string;
@@ -28,7 +30,6 @@ interface ChitGroup {
   total_members: number;
   monthly_amount: string;
   duration_months: number;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: string;
@@ -51,6 +52,9 @@ interface Auction {
   month_number: number;
   original_bid: string;
   winning_amount: string;
+  commission: string;
+  carry_previous: string;
+  raw_dividend: string;
   carry_next: string;
   calculation_data: {
     amount_to_collect: number;
@@ -71,14 +75,6 @@ interface Payment {
     ticket_number: number;
     member: { name: { value: string } };
   };
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function GroupDetailPage() {
@@ -146,22 +142,6 @@ export default function GroupDetailPage() {
   const completedMonths = auctions.length;
   const progressPercent = Math.round((completedMonths / group.duration_months) * 100);
 
-  function translateStatusLabel(status?: string) {
-    if (!status) return '';
-    const s = String(status).toUpperCase();
-    const map: Record<string, string> = {
-      ACTIVE: 'statusActive',
-      CANCELLED: 'statusCancelled',
-      COMPLETED: 'statusCompleted',
-      PENDING: 'statusPending',
-      PAID: 'statusPaid',
-      UNPAID: 'statusUnpaid',
-      RECONCILED: 'statusReconciled',
-    };
-    const key = map[s] || s.toLowerCase();
-    return t(key as any) || status;
-  }
-
   const handleDeleteTicket = async (cm: ChitMember) => {
     if (!confirm(`Remove ${cm.member?.name?.value} from ticket #${cm.ticket_number}?`)) return;
     try {
@@ -209,7 +189,51 @@ export default function GroupDetailPage() {
                 </div>
               </div>
             </div>
-            <StatusBadge status={group.status} label={translateStatusLabel(group.status)} />
+            <div className="flex items-center gap-3">
+              <PdfDownloadButton
+                onClick={async () => {
+                  const reportData: GroupReportData = {
+                    groupName: group.name,
+                    totalAmount: group.total_amount,
+                    totalMembers: group.total_members,
+                    durationMonths: group.duration_months,
+                    monthlyAmount: group.monthly_amount,
+                    commissionValue: group.commission_value,
+                    roundOffValue: group.round_off_value,
+                    status: group.status,
+                    members: chitMembers.map(cm => ({
+                      name: cm.member?.name?.value ?? 'N/A',
+                      ticketNumber: cm.ticket_number,
+                      mobile: cm.member?.mobile?.value ?? '',
+                      isActive: cm.is_active,
+                    })),
+                    auctions: auctions.map(a => ({
+                      monthNumber: a.month_number,
+                      originalBid: a.original_bid,
+                      winningAmount: a.winning_amount,
+                      commission: a.commission,
+                      carryPrevious: a.carry_previous,
+                      rawDividend: a.raw_dividend,
+                      carryNext: a.carry_next,
+                      dividendPerMember: a.calculation_data?.dividend_per_member ?? 0,
+                      amountToCollect: a.calculation_data?.amount_to_collect ?? 0,
+                      winnerName: a.winner_chit_member?.member?.name?.value ?? 'N/A',
+                      winnerTicket: a.winner_chit_member?.ticket_number ?? 0,
+                    })),
+                    payments: payments.map(p => ({
+                      memberName: p.chit_member?.member?.name?.value ?? 'N/A',
+                      ticketNumber: p.chit_member?.ticket_number ?? 0,
+                      monthNumber: p.month_number,
+                      amountPaid: p.amount_paid,
+                      status: p.status,
+                    })),
+                  };
+                  await downloadGroupReport(reportData);
+                }}
+                label={t('downloadReport')}
+              />
+              <StatusBadge status={group.status} />
+            </div>
           </div>
 
           {/* Progress */}
@@ -236,9 +260,7 @@ export default function GroupDetailPage() {
             <div className="bg-surface border border-border rounded-xl p-3">
               <p className="text-xs text-foreground-muted">{t('commission')}</p>
               <p className="text-base font-bold text-foreground">
-                {group.commission_type === 'PERCENT'
-                  ? `${group.commission_value}%`
-                  : formatCurrency(Number(group.commission_value))}
+                {formatCurrency(Number(group.commission_value))}
               </p>
             </div>
             <div className="bg-surface border border-border rounded-xl p-3">
@@ -293,10 +315,7 @@ export default function GroupDetailPage() {
                       {cm.member?.mobile?.value || '—'}
                     </p>
                   </div>
-                  <StatusBadge
-                    status={cm.is_active ? 'ACTIVE' : 'CANCELLED'}
-                    label={translateStatusLabel(cm.is_active ? 'ACTIVE' : 'CANCELLED')}
-                  />
+                  <StatusBadge status={cm.is_active ? 'ACTIVE' : 'CANCELLED'} />
                   {auctions.length === 0 && (
                     <>
                       <button
@@ -420,7 +439,7 @@ export default function GroupDetailPage() {
                         {formatCurrency(Number(p.amount_paid))}
                       </td>
                       <td>
-                        <StatusBadge status={p.status} label={translateStatusLabel(p.status)} />
+                        <StatusBadge status={p.status} />
                       </td>
                     </tr>
                   ))}
@@ -707,10 +726,7 @@ function ConductAuctionModal({
       // Set bid based on whether it's last month
       const isLast = Number(nextMonth) === Number(group.duration_months);
       if (isLast) {
-        const cap =
-          group.commission_type === 'FIXED'
-            ? Number(group.commission_value)
-            : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+        const cap = Number(group.commission_value);
         setOriginalBid(String(cap));
         setIsLastMonthFixed(true);
       } else {
@@ -754,7 +770,6 @@ function ConductAuctionModal({
       total_amount: Number(group.total_amount),
       total_members: group.total_members,
       original_bid: bid,
-      commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
       round_off_value: group.round_off_value,
       carry_previous: lastCarryNext,
@@ -778,10 +793,7 @@ function ConductAuctionModal({
     setIsSubmitting(true);
 
     // Validate bid is not below commission
-    const commissionCap =
-      group.commission_type === 'FIXED'
-        ? Number(group.commission_value)
-        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+    const commissionCap = Number(group.commission_value);
     
     if (Number(originalBid) < commissionCap) {
       toast.error(`Bid cannot be less than the commission amount: ₹${commissionCap}`);
@@ -822,10 +834,6 @@ function ConductAuctionModal({
     }
     setIsSubmitting(false);
   };
-
-  function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${t('conductAuction')} — ${group.name}`} size="lg">

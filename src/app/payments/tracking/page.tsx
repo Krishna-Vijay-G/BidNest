@@ -13,6 +13,7 @@ import {
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -44,6 +45,7 @@ interface ChitMember {
   member: {
     id: string;
     name: { value: string };
+    upi_ids?: { value: string; is_active: boolean }[];
   };
 }
 
@@ -67,6 +69,7 @@ interface MemberRow {
   totalPaid: number;
   remaining: number;
   status: 'WINNER' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
+  memberUpiId?: string;
 }
 
 // All-months aggregated row
@@ -79,6 +82,7 @@ interface AggregatedRow {
   totalPaid: number;      // sum of all payments across all months
   remaining: number;      // totalDue - totalPaid
   wonMonths: number[];    // months this member won
+  memberUpiId?: string;
   monthBreakdown: {
     month: number;
     due: number;
@@ -87,14 +91,6 @@ interface AggregatedRow {
     isWinner: boolean;
   }[];
   status: 'CLEAR' | 'COMPLETED' | 'PARTIAL' | 'PENDING';
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 // ─── Main Page ────────────────────────────────────────────
@@ -286,6 +282,7 @@ export default function PaymentTrackingPage() {
       totalPaid,
       remaining,
       status,
+      memberUpiId: cm.member?.upi_ids?.find((u) => u.is_active)?.value,
     };
   });
 
@@ -324,7 +321,7 @@ export default function PaymentTrackingPage() {
     else if (totalPaid > 0 && remaining > 0) status = 'PARTIAL';
     else status = 'PENDING';
 
-    return { chitMemberId: cm.id, memberId: cm.member_id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status };
+    return { chitMemberId: cm.id, memberId: cm.member_id, ticketNumber: cm.ticket_number, memberName: cm.member?.name?.value || 'Unknown', totalDue, totalPaid, remaining, wonMonths, monthBreakdown, status, memberUpiId: cm.member?.upi_ids?.find((u) => u.is_active)?.value };
   });
 
   const counts = isAllMode
@@ -375,10 +372,10 @@ export default function PaymentTrackingPage() {
               value={groupStatusFilter}
               onChange={(e) => setGroupStatusFilter(e.target.value)}
               options={[
-                { value: 'ACTIVE', label: t('statusActive') },
-                { value: 'PENDING', label: t('statusPending') },
-                { value: 'COMPLETED', label: t('statusCompleted') },
-                { value: 'CANCELLED', label: t('statusCancelled') },
+                { value: 'ACTIVE', label: t('active') },
+                { value: 'PENDING', label: t('pending') },
+                { value: 'COMPLETED', label: t('completed') },
+                { value: 'CANCELLED', label: t('cancelled') },
                 { value: 'ALL', label: t('allStatuses') },
               ]}
             />
@@ -565,6 +562,7 @@ export default function PaymentTrackingPage() {
                                               totalPaid: firstDue.paid,
                                               remaining: firstDue.remaining,
                                               status: firstDue.paid > 0 ? 'PARTIAL' : 'PENDING',
+                                              memberUpiId: row.memberUpiId,
                                             });
                                           }
                                         }}
@@ -668,7 +666,7 @@ export default function PaymentTrackingPage() {
                         .map((row) => (
                           <>
                             <tr key={row.chitMemberId}>
-                            <td className="font-medium text-foreground"><Link href={`/members/${row.memberId}`} className="text-blue-400 hover:text-blue-300 underline">{row.memberName}</Link> <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
+                            <td className="font-medium text-foreground"><Link href={`/members/${row.memberId}`} className="text-foreground-400 hover:text-foreground-300">{row.memberName}</Link> <span className="text-green-400 font-semibold">#{row.ticketNumber}</span></td>
                             <td>
                               {row.isWinner ? (
                                 <span className="text-foreground-muted text-xs">—</span>
@@ -808,7 +806,7 @@ function RecordPaymentModal({
   useEffect(() => {
     if (isOpen) {
       setPaymentMethod('CASH');
-      setUpiId('');
+      setUpiId(row.memberUpiId ?? '');
       setNotes('');
       setSelectedMonthForPayment(month_number);
       // initial amount = remaining for the initial month
@@ -817,6 +815,14 @@ function RecordPaymentModal({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // When payment method switches to UPI, pre-fill from member's saved UPI ID
+  useEffect(() => {
+    if (paymentMethod === 'UPI' && !upiId) {
+      setUpiId(row.memberUpiId ?? '');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethod]);
 
   // When month selector changes, update the pre-filled amount to that month's remaining
   useEffect(() => {

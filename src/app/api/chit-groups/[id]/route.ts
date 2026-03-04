@@ -8,7 +8,6 @@ import { logAudit, getIp } from "@/lib/auditLog";
 
 const UpdateChitGroupSchema = z.object({
   status: z.enum(["ACTIVE", "PENDING", "CANCELLED", "COMPLETED"]).optional(),
-  commission_type: z.enum(["PERCENT", "FIXED"]).optional(),
   commission_value: z.number().positive().optional(),
   round_off_value: z.union([z.literal(10), z.literal(50), z.literal(100)]).optional(),
   auction_start_date: z.string().datetime().optional(),

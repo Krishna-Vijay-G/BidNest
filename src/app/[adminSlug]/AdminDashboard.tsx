@@ -204,8 +204,7 @@ function GroupDetail({ row }: { row: Record<string, unknown> }) {
       <DItem icon={<HiOutlineCurrencyRupee className="w-3 h-3" />} label="Monthly Amount" value={fmtMoney(row.monthly_amount as number)} />
       <DItem icon={<HiOutlineUsers className="w-3 h-3" />} label="Group Size" value={row.total_members as number} />
       <DItem icon={<HiOutlineCalendarDays className="w-3 h-3" />} label="Duration" value={`${row.duration_months as number} months`} />
-      <DItem icon={<HiOutlineHashtag className="w-3 h-3" />} label="Commission Type" value={<StatusBadge status={row.commission_type as string} />} />
-      <DItem icon={<HiOutlineCurrencyRupee className="w-3 h-3" />} label="Commission Value" value={String(row.commission_value ?? "—")} />
+      <DItem icon={<HiOutlineCurrencyRupee className="w-3 h-3" />} label="Commission" value={`₹${String(row.commission_value ?? '—')}`} />
       <DItem icon={<HiOutlineHashtag className="w-3 h-3" />} label="Round-off" value={row.round_off_value != null ? `₹${row.round_off_value}` : "—"} />
       <DItem icon={<HiOutlineCalendarDays className="w-3 h-3" />} label="Created" value={fmtDateTime(row.created_at as string)} />
       <DItem icon={<HiOutlineTicket className="w-3 h-3" />} label="Members Enrolled" value={cnt?.chit_members ?? 0} />
@@ -638,7 +637,7 @@ function GroupsTab({ data, onDelete }: { data: Record<string, unknown>[]; onDele
           <span key="ma" className="text-foreground-secondary text-sm">{fmtMoney(g.monthly_amount as number)}</span>,
           <span key="sz" className="text-foreground-secondary">{g.total_members as number}</span>,
           <span key="du" className="text-foreground-secondary">{g.duration_months as number}m</span>,
-          <span key="co" className="text-foreground-secondary text-sm">{String(g.commission_value)}{["PERCENT", "PERCENTAGE"].includes((g.commission_type as string) ?? "") ? "%" : " flat"}</span>,
+          <span key="co" className="text-foreground-secondary text-sm">₹{String(g.commission_value)}</span>,
           <StatusBadge key="s" status={g.status as string} />,
         ];
       }}

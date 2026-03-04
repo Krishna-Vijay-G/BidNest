@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
 import { StatCard, Card, PageLoader } from '@/components/ui';
@@ -14,6 +15,7 @@ import {
   HiOutlineTrophy,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
 
 interface DashboardStats {
   totalGroups: number;
@@ -29,6 +31,7 @@ interface RecentAuction {
   original_bid: string;
   winning_amount: string;
   created_at: string;
+  chit_group: { id: string; name: string } | null;
   winner_chit_member: {
     ticket_number: number;
     member: { name: { value: string } };
@@ -54,14 +57,6 @@ interface RecentGroup {
   total_members: number;
   status: string;
   created_at: string;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function DashboardPage() {
@@ -174,9 +169,10 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {recentGroups.map((group) => (
-                  <div
+                  <Link
                     key={group.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-surface border border-border"
+                    href={`/groups/${group.id}`}
+                    className="flex items-center justify-between p-3 rounded-xl bg-surface border border-border hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all cursor-pointer"
                   >
                     <div>
                       <p className="font-medium text-foreground text-sm">
@@ -186,11 +182,8 @@ export default function DashboardPage() {
                         {formatCurrency(Number(group.total_amount))} · {group.total_members} {t('members')}
                       </p>
                     </div>
-                    <StatusBadge
-                      status={group.status}
-                      label={t((`status${group.status[0] + group.status.slice(1).toLowerCase()}`) as any)}
-                    />
-                  </div>
+                    <StatusBadge status={group.status} />
+                  </Link>
                 ))}
               </div>
             )}
@@ -216,6 +209,9 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <p className="font-medium text-foreground text-sm">
+                          {auction.chit_group?.name && (
+                            <span className="text-cyan-400 mr-1.5">{auction.chit_group.name} ·</span>
+                          )}
                           {t('month')} {auction.month_number}
                         </p>
                         <p className="text-xs text-foreground-muted">
@@ -251,7 +247,6 @@ export default function DashboardPage() {
                 <thead>
                   <tr>
                     <th>{t('memberName')}</th>
-                    <th>{t('ticketNumber')}</th>
                     <th>{t('month')}</th>
                     <th>{t('amountPaid')}</th>
                     <th>{t('status')}</th>
@@ -262,17 +257,18 @@ export default function DashboardPage() {
                     <tr key={payment.id}>
                       <td className="font-medium text-foreground">
                         {payment.chit_member?.member?.name?.value || 'N/A'}
+                        {payment.chit_member?.ticket_number != null && (
+                          <span className="ml-1.5 text-green-400 font-semibold">
+                            #{payment.chit_member.ticket_number}
+                          </span>
+                        )}
                       </td>
-                      <td>#{payment.chit_member?.ticket_number}</td>
                       <td>{payment.month_number}</td>
                       <td className="text-foreground">
                         {formatCurrency(Number(payment.amount_paid))}
                       </td>
                       <td>
-                        <StatusBadge
-                          status={payment.status}
-                          label={t((payment.status).toLowerCase() as any)}
-                        />
+                        <StatusBadge status={payment.status} />
                       </td>
                     </tr>
                   ))}

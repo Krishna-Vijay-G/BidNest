@@ -17,7 +17,6 @@ export interface CalculationInput {
   /** Number of members in the chit group (used for per-member division) */
   total_members: number;
   original_bid: number;
-  commission_type: "PERCENT" | "FIXED";
   commission_value: number;
   round_off_value: number;
   carry_previous: number;
@@ -30,7 +29,6 @@ export function calculateAuction(input: CalculationInput): AuctionCalculation {
     total_amount,
     total_members,
     original_bid,
-    commission_type,
     commission_value,
     round_off_value,
     carry_previous,
@@ -39,11 +37,8 @@ export function calculateAuction(input: CalculationInput): AuctionCalculation {
   // winning amount = total pot - bid
   const winning_amount = total_amount - original_bid;
 
-  // commission on winning amount (percent) or a fixed fee
-  const commission =
-    commission_type === "PERCENT"
-      ? (winning_amount * commission_value) / 100
-      : commission_value;
+  // commission is always a fixed fee
+  const commission = commission_value;
 
   // raw dividend pool = bid - commission + carry from previous month
   const raw_dividend = original_bid - commission + carry_previous;

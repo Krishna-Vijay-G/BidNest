@@ -5,11 +5,14 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Header } from '@/components/layout/Header';
-import { Card, Button, Modal, Input, PageLoader, EmptyState, Select } from '@/components/ui';
+import { Card, Button, Modal, Input, PageLoader, EmptyState, Select, PdfDownloadButton } from '@/components/ui';
 import { HiOutlineTrophy, HiOutlinePlus } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { calculateAuction } from '@/utils/dividend';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency } from '@/utils/format';
+import { downloadAuctionReport, type AuctionReportData } from '@/lib/pdf';
+
 
 interface ChitGroup {
   id: string;
@@ -17,7 +20,6 @@ interface ChitGroup {
   total_amount: string;
   total_members: number;
   monthly_amount: string;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: string;
@@ -55,14 +57,6 @@ interface Auction {
     ticket_number: number;
     member: { name: { value: string } };
   };
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 export default function AuctionsPage() {
@@ -150,10 +144,10 @@ export default function AuctionsPage() {
   // Build a localized label for the "All groups" option depending on status
   const getAllGroupsLabel = (status: string) => {
     if (status === 'all') return t('allGroups');
-    if (status === 'ACTIVE') return `${t('all')} ${t('statusActive')} ${t('groups')}`;
-    if (status === 'PENDING') return `${t('all')} ${t('statusPending')} ${t('groups')}`;
-    if (status === 'COMPLETED') return `${t('all')} ${t('statusCompleted')} ${t('groups')}`;
-    if (status === 'CANCELLED') return `${t('all')} ${t('statusCancelled')} ${t('groups')}`;
+    if (status === 'ACTIVE') return `${t('all')} ${t('active')} ${t('groups')}`;
+    if (status === 'PENDING') return `${t('all')} ${t('pending')} ${t('groups')}`;
+    if (status === 'COMPLETED') return `${t('all')} ${t('completed')} ${t('groups')}`;
+    if (status === 'CANCELLED') return `${t('all')} ${t('cancelled')} ${t('groups')}`;
     return t('allGroups');
   };
 
@@ -192,11 +186,11 @@ export default function AuctionsPage() {
                 updateFilterGroup('all');
               }}
               options={[
-                { value: 'ACTIVE', label: t('statusActive') },
-                { value: 'PENDING', label: t('statusPending') },
-                { value: 'COMPLETED', label: t('statusCompleted') },
-                { value: 'CANCELLED', label: t('statusCancelled') },
-                    { value: 'all', label: t('allStatus') },
+                { value: 'ACTIVE', label: t('active') },
+                { value: 'PENDING', label: t('pending') },
+                { value: 'COMPLETED', label: t('completed') },
+                { value: 'CANCELLED', label: t('cancelled') },
+                    { value: 'all', label: t('allStatuses') },
               ]}
             />
           </div>
@@ -242,6 +236,7 @@ export default function AuctionsPage() {
                     <th>{t('carryNext')}</th>
                     <th>{t('perMember')}</th>
                     <th>{t('toCollect')}</th>
+                    <th className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -320,6 +315,12 @@ export default function AuctionsPage() {
                           <span className="font-semibold text-foreground">
                             {formatCurrency(auction.calculation_data?.amount_to_collect || 0)}
                           </span>
+                        </td>
+                        <td>
+                          <PdfDownloadButton
+                            iconOnly
+                            onClick={() => handleAuctionDownload(auction, group)}
+                          />
                         </td>
                       </tr>
                     );
@@ -441,11 +442,8 @@ function AuctionFormModal({
       return;
     }
 
-    // compute cap: fixed commission value, or percent of total_amount
-    const cap =
-      group.commission_type === 'FIXED'
-        ? Number(group.commission_value)
-        : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+    // compute cap: fixed commission value
+    const cap = Number(group.commission_value);
 
     setOriginalBid(String(cap));
     setIsLastMonthFixed(true);
@@ -479,7 +477,6 @@ function AuctionFormModal({
       total_amount: Number(group.total_amount),
       total_members: group.total_members,
       original_bid: Number(originalBid),
-      commission_type: group.commission_type,
       commission_value: Number(group.commission_value),
       round_off_value: group.round_off_value,
       carry_previous: carryPrevious,
@@ -509,10 +506,7 @@ function AuctionFormModal({
     // Validate bid is not below commission
     const group = groups.find(g => g.id === selectedGroupId);
     if (group) {
-      const commissionCap =
-        group.commission_type === 'FIXED'
-          ? Number(group.commission_value)
-          : Math.floor((Number(group.total_amount) * Number(group.commission_value)) / 100);
+      const commissionCap = Number(group.commission_value);
       
       if (Number(originalBid) < commissionCap) {
         toast.error(`Bid cannot be less than the commission amount: ₹${commissionCap}`);
@@ -692,6 +686,37 @@ function AuctionFormModal({
   );
 }
 
+// ─── Build PDF data from an auction row ─────────────────────────────────────
+
+function buildAuctionPdfData(auction: Auction, group: ChitGroup | undefined): AuctionReportData {
+  return {
+    groupName: group?.name ?? 'N/A',
+    groupTotalAmount: group?.total_amount ?? '0',
+    groupMonthly: group?.monthly_amount ?? '0',
+    groupMembers: group?.total_members ?? 0,
+    groupDuration: group?.duration_months ?? 0,
+    commissionValue: group?.commission_value ?? '0',
+    monthNumber: auction.month_number,
+    originalBid: auction.original_bid,
+    winningAmount: auction.winning_amount,
+    commission: auction.commission,
+    carryPrevious: auction.carry_previous,
+    rawDividend: auction.raw_dividend,
+    roundoffDividend: auction.roundoff_dividend,
+    carryNext: auction.carry_next,
+    amountToCollect: auction.calculation_data?.amount_to_collect ?? 0,
+    dividendPerMember: auction.calculation_data?.dividend_per_member ?? 0,
+    monthlyContribution: auction.calculation_data?.monthly_contribution ?? 0,
+    winnerName: auction.winner_chit_member?.member?.name?.value ?? 'N/A',
+    winnerTicket: auction.winner_chit_member?.ticket_number ?? 0,
+    createdAt: auction.created_at,
+  };
+}
+
+async function handleAuctionDownload(auction: Auction, group: ChitGroup | undefined) {
+  await downloadAuctionReport(buildAuctionPdfData(auction, group));
+}
+
 // ─── Mobile Auction Row ─────────────────────────────────────────────────────
 
 function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitGroup[] }) {
@@ -769,6 +794,11 @@ function AuctionMobileRow({ auction, groups }: { auction: Auction; groups: ChitG
                 <span className="text-foreground-muted">{t('toCollect')}:</span>
                 <span className="text-foreground font-semibold ml-2">{formatCurrency(auction.calculation_data?.amount_to_collect || 0)}</span>
               </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-border flex justify-end">
+              <PdfDownloadButton
+                onClick={() => handleAuctionDownload(auction, group)}
+              />
             </div>
           </td>
         </tr>

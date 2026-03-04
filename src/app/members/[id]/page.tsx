@@ -18,9 +18,18 @@ import {
   HiOutlineUser,
   HiOutlineCalendarDays,
   HiOutlinePencil,
+  HiOutlineArrowDownTray,
+  HiOutlineDocumentArrowDown,
 } from 'react-icons/hi2';
 import { useLang } from '@/lib/i18n/LanguageContext';
+import { formatCurrency as fmt } from '@/utils/format';
 import toast from 'react-hot-toast';
+import {
+  downloadMemberGroupReport,
+  downloadMemberAllGroupsReport,
+  downloadMemberSelectedGroupsReport,
+  type MemberReportData,
+} from '@/lib/pdf';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -41,7 +50,6 @@ interface ChitGroup {
   total_members: number;
   monthly_amount: string;
   duration_months: number;
-  commission_type: 'PERCENT' | 'FIXED';
   commission_value: string;
   round_off_value: number;
   status: string;
@@ -108,14 +116,6 @@ interface GroupSummary {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 function buildGroupSummary(
   ticket: ChitMemberTicket,
@@ -205,6 +205,8 @@ export default function MemberDetailPage() {
   const [mobile, setMobile] = useState('');
   const [upiId, setUpiId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedGroupIdxs, setSelectedGroupIdxs] = useState<Set<number>>(new Set());
 
   // Load active tab from localStorage on mount
   useEffect(() => {
@@ -286,6 +288,56 @@ export default function MemberDetailPage() {
     })),
   ];
 
+  // ── PDF report helpers ──
+  function buildMemberReportData(): MemberReportData {
+    return {
+      memberName: member!.name.value,
+      memberNickname: member!.nickname.value,
+      memberMobile: member!.mobile.value,
+      memberIsActive: member!.is_active,
+      createdAt: member!.created_at,
+      groups: summaries.map(s => ({
+        groupName: s.group.name,
+        groupTotal: Number(s.group.total_amount),
+        groupMembers: s.group.total_members,
+        groupDuration: s.group.duration_months,
+        ticketNumber: s.ticket.ticket_number,
+        groupStatus: s.group.status,
+        wonMonth: s.wonMonth,
+        wonAmount: s.wonAmount,
+        totalOwed: s.totalOwed,
+        totalPaid: s.totalPaid,
+        totalBalance: s.totalBalance,
+        months: s.months.map(m => ({
+          month: m.month,
+          amountDue: m.amountDue,
+          amountPaid: m.amountPaid,
+          balance: m.balance,
+          wonThisMonth: m.wonThisMonth,
+          status: m.paymentStatus,
+        })),
+      })),
+    };
+  }
+
+  async function handleMemberReport(mode: 'all' | number) {
+    const data = buildMemberReportData();
+    if (mode === 'all') {
+      await downloadMemberAllGroupsReport(data);
+    } else {
+      await downloadMemberGroupReport(data, mode);
+    }
+    setShowReportModal(false);
+  }
+
+  async function handleDownloadSelected() {
+    const data = buildMemberReportData();
+    const indices = [...selectedGroupIdxs].sort((a, b) => a - b);
+    await downloadMemberSelectedGroupsReport(data, indices);
+    setShowReportModal(false);
+    setSelectedGroupIdxs(new Set());
+  }
+
   return (
     <>
       <Header
@@ -316,7 +368,7 @@ export default function MemberDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-3 mb-1">
                 <h2 className="text-2xl font-bold text-foreground">{member.name.value}</h2>
-                <StatusBadge status={member.is_active ? 'ACTIVE' : 'CANCELLED'} label={formatStatusLabel(member.is_active ? 'ACTIVE' : 'CANCELLED', t)} />
+                <StatusBadge status={member.is_active ? 'ACTIVE' : 'CANCELLED'} />
               </div>
               <p className="text-foreground-muted text-sm mb-4">"{member.nickname.value}"</p>
 
@@ -336,6 +388,19 @@ export default function MemberDetailPage() {
                   {t('memberSince')}: {new Date(member.created_at).toLocaleDateString(lang === 'ta' ? 'ta-IN' : 'en-IN', { month: 'long', year: 'numeric' })}
                 </span>
               </div>
+
+              {/* Download Report Button */}
+              {summaries.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <button
+                    onClick={() => { setShowReportModal(true); setSelectedGroupIdxs(new Set()); }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 transition-colors"
+                  >
+                    <HiOutlineDocumentArrowDown className="w-4 h-4" />
+                    {t('downloadReport')}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -349,7 +414,7 @@ export default function MemberDetailPage() {
             { label: t('totalOwed'), value: fmt(grandTotalOwed), icon: <HiOutlineChartBar className="w-5 h-5" />, color: 'text-foreground', bg: 'bg-surface' },
             { label: t('totalPaid'), value: fmt(grandTotalPaid), icon: <HiOutlineCheckCircle className="w-5 h-5" />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
             {
-              label: grandBalance > 0 ? t('balanceDue') : t('fullySettled'),
+              label: grandBalance > 0 ? t('balanceDue') : t('settled'),
               value: fmt(Math.max(0, grandBalance)),
               icon: <HiOutlineExclamationCircle className="w-5 h-5" />,
               color: grandBalance > 0 ? 'text-red-400' : 'text-emerald-400',
@@ -515,6 +580,92 @@ export default function MemberDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Report Download Modal */}
+      <Modal
+        isOpen={showReportModal}
+        onClose={() => { setShowReportModal(false); setSelectedGroupIdxs(new Set()); }}
+        title={t('downloadReport')}
+      >
+        <div className="space-y-4">
+          {/* Report Type Options */}
+          <div>
+            <label className="block text-sm text-foreground-muted mb-2">{t('selectReportType')}</label>
+            <div className="space-y-2">
+              {/* All combined */}
+              <button
+                type="button"
+                onClick={() => handleMemberReport('all')}
+                className="w-full text-left px-4 py-3 rounded-xl border border-border bg-surface hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <HiOutlineDocumentArrowDown className="w-5 h-5 text-cyan-400 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground group-hover:text-cyan-400 transition-colors">{t('allGroupsCombinedReport')}</p>
+                    <p className="text-xs text-foreground-muted">{summaries.length} {t('groups')} — 1 PDF</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Individual groups – selectable */}
+              <div className="pt-1">
+                <p className="text-xs text-foreground-muted mb-2 uppercase tracking-wider">{t('groups')}</p>
+                <div className="space-y-1.5">
+                  {summaries.map((s, i) => {
+                    const sel = selectedGroupIdxs.has(i);
+                    return (
+                      <button
+                        key={s.ticket.id}
+                        type="button"
+                        onClick={() => setSelectedGroupIdxs(prev => {
+                          const next = new Set(prev);
+                          if (next.has(i)) next.delete(i); else next.add(i);
+                          return next;
+                        })}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl border transition-colors ${
+                          sel
+                            ? 'border-emerald-500/60 bg-emerald-500/10'
+                            : 'border-border bg-surface hover:border-emerald-500/30 hover:bg-emerald-500/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              sel ? 'bg-emerald-500 border-emerald-500' : 'border-border bg-transparent'
+                            }`}>
+                              {sel && <HiOutlineCheckCircle className="w-3 h-3 text-white" />}
+                            </div>
+                            <span className={`text-sm ${sel ? 'text-emerald-400 font-medium' : 'text-foreground'}`}>
+                              {s.group.name} <span className="text-foreground-muted">#{s.ticket.ticket_number}</span>
+                            </span>
+                          </div>
+                          <span className={`text-xs font-medium ${s.totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {s.totalBalance > 0 ? fmt(s.totalBalance) : t('settled')}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Download selected button */}
+              {selectedGroupIdxs.size > 0 && (
+                <div className="pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    className="w-full justify-center"
+                    onClick={handleDownloadSelected}
+                  >
+                    <HiOutlineDocumentArrowDown className="w-4 h-4 mr-2" />
+                    {`Download PDF`}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
@@ -546,7 +697,7 @@ function OverviewGroupCard({
               <Link href={`/groups/${group.id}`} className="font-bold text-foreground hover:text-cyan-400 transition-colors">
                 {group.name}
               </Link>
-              <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
+              <StatusBadge status={group.status} />
               {wonMonth && (
                 <span className="flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
                   <HiOutlineTrophy className="w-3 h-3" />
@@ -599,7 +750,7 @@ function OverviewGroupCard({
           icon={<HiOutlineCheckCircle className="w-4 h-4" />}
         />
         <StatBox
-          label={totalBalance > 0 ? t('balanceDue') : t('fullySettled')}
+          label={totalBalance > 0 ? t('balanceDue') : t('settled')}
           value={fmt(Math.abs(totalBalance))}
           color={totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}
           icon={<HiOutlineExclamationCircle className="w-4 h-4" />}
@@ -648,7 +799,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
               <Link href={`/groups/${group.id}`} className="text-lg font-bold text-foreground hover:text-cyan-400 transition-colors">
                 {group.name}
               </Link>
-              <StatusBadge status={group.status} label={formatStatusLabel(group.status, t)} />
+              <StatusBadge status={group.status} />
             </div>
             <p className="text-sm text-foreground-muted mt-0.5">
               {fmt(Number(group.total_amount))} · {group.total_members} {t('members')} · {group.duration_months} {t('months')} · {t('ticketShort')} {ticket.ticket_number}
@@ -676,7 +827,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
             <p className="text-base font-bold text-emerald-400">{fmt(totalPaid)}</p>
           </div>
           <div className="bg-surface border border-border rounded-xl p-3 text-center">
-            <p className="text-xs text-foreground-muted mb-1">{totalBalance > 0 ? t('balanceDue') : t('fullySettled')}</p>
+            <p className="text-xs text-foreground-muted mb-1">{totalBalance > 0 ? t('balanceDue') : t('settled')}</p>
             <p className={`text-base font-bold ${totalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               {totalBalance > 0 ? fmt(totalBalance) : '✓ Cleared'}
             </p>
@@ -722,7 +873,7 @@ function GroupDetailView({ summary }: { summary: GroupSummary }) {
                   const lastPayment = row.payments[row.payments.length - 1];
 
                   return (
-                    <tr key={row.month}>
+                    <tr key={row.month} className={row.paymentStatus === 'WON' ? 'bg-amber-500/10' : ''}>
                       <td className="font-semibold text-foreground">{t('month')} {row.month}</td>
                       <td>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border ${statusConfig.bg} ${statusConfig.color}`}>
@@ -836,7 +987,7 @@ function MonthTableRow({ row }: { row: MonthRow }) {
   return (
     <>
       <tr
-        className={`cursor-pointer hover:bg-surface/50 ${row.wonThisMonth ? 'bg-amber-500/5' : ''}`}
+        className={`cursor-pointer hover:bg-surface/50 ${row.wonThisMonth ? 'bg-amber-500/10' : ''}`}
         onClick={() => setExpanded(e => !e)}
       >
         <td className="font-semibold text-foreground">{t('month')} {row.month}</td>
@@ -938,13 +1089,4 @@ function StatBox({
       <p className={`text-sm font-bold ${color}`}>{value}</p>
     </div>
   );
-}
-
-function formatStatusLabel(status: string, t: (k: any) => string) {
-  if (!status) return '';
-  const lower = status.toLowerCase();
-  const lowerLabel = t(lower as any);
-  if (lowerLabel !== lower) return lowerLabel;
-  const capitalized = status[0] + status.slice(1).toLowerCase();
-  return t((`status${capitalized}`) as any);
 }
