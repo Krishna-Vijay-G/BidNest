@@ -10,7 +10,6 @@ import {
   HiOutlineMoon,
   HiOutlineArrowRightOnRectangle,
   HiOutlineChevronDown,
-  HiOutlineStar,
 } from 'react-icons/hi2';
 import { useEffect, useRef, useState } from 'react';
 import { useLang } from '@/lib/i18n/LanguageContext';
@@ -118,17 +117,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
                   title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 >
                   {isDark ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
-                </button>            
-
-                <a
-                  href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-foreground"
-                  title="Open GitHub"
-                >
-                  <HiOutlineStar className="w-5 h-5" />
-                </a>
+                </button>
 
                 <div className="px-1">
                   <button

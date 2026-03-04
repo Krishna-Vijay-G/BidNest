@@ -2,6 +2,8 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
+import { HiOutlineStar } from 'react-icons/hi2';
 import { usePathname } from 'next/navigation';
 import {
   HiOutlineSquares2X2,
@@ -32,12 +34,25 @@ export function Sidebar() {
       <aside className="sidebar-glass hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 border-r border-border z-40">
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-linear-to-br from-cyan-400 to-purple-500 shadow-lg shadow-cyan-500/20">
-            <span className="text-white font-black text-base">B</span>
-          </div>
+          <Image
+            src="/icons/icon-96x96.png"
+            alt="BidNest"
+            width={36}
+            height={36}
+            className="rounded-xl shadow-lg shadow-cyan-500/20"
+          />
           <span className="text-foreground font-bold text-lg tracking-tight">
             Bid<span className="neon-text">Nest</span>
           </span>
+          <a
+            href={process.env.NEXT_PUBLIC_GITHUB_URL || 'https://Krishna-Vijay-G.github.io/Portfolio'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto p-1.5 rounded-xl hover:bg-surface-hover transition-colors text-foreground-muted hover:text-yellow-400"
+            title="Founder Page"
+          >
+            <HiOutlineStar className="w-4 h-4" />
+          </a>
         </div>
 
         {/* Nav */}
